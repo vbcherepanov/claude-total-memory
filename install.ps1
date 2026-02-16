@@ -135,9 +135,52 @@ with open(settings_path, 'w') as f:
 print('  OK: MCP server added to ' + settings_path)
 "@
 
-# -- 5. Verify --
+# -- 5. Dashboard service (Windows Scheduled Task) --
+Write-Host "-> Step 5: Setting up dashboard service..." -ForegroundColor Yellow
+$DashboardPath = Join-Path $InstallDir "src" "dashboard.py"
+$LogDir = Join-Path $MemoryDir "logs"
+if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
+
+$TaskName = "ClaudeTotalMemoryDashboard"
+
+# Remove existing task if present
+try { Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue } catch {}
+
+try {
+    $Action = New-ScheduledTaskAction `
+        -Execute $VenvPython `
+        -Argument "`"$DashboardPath`"" `
+        -WorkingDirectory $InstallDir
+
+    $Trigger = New-ScheduledTaskTrigger -AtLogon
+    $Settings = New-ScheduledTaskSettingsSet `
+        -AllowStartIfOnBatteries `
+        -DontStopIfGoingOnBatteries `
+        -RestartCount 3 `
+        -RestartInterval (New-TimeSpan -Minutes 1) `
+        -ExecutionTimeLimit (New-TimeSpan -Days 365)
+
+    Register-ScheduledTask `
+        -TaskName $TaskName `
+        -Action $Action `
+        -Trigger $Trigger `
+        -Settings $Settings `
+        -Description "Claude Total Memory web dashboard on port 37737" `
+        -RunLevel Limited | Out-Null
+
+    # Start it now
+    Start-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+
+    Write-Host "  OK: Dashboard scheduled task created (auto-starts on login)" -ForegroundColor Green
+    Write-Host "  OK: http://localhost:37737" -ForegroundColor Green
+} catch {
+    Write-Host "  INFO: Could not create scheduled task (run as admin for auto-start)" -ForegroundColor DarkYellow
+    Write-Host "  Run manually: .venv\Scripts\python.exe src\dashboard.py" -ForegroundColor DarkYellow
+}
+
+# -- 6. Verify --
 Write-Host ""
-Write-Host "-> Step 5: Verifying installation..." -ForegroundColor Yellow
+Write-Host "-> Step 6: Verifying installation..." -ForegroundColor Yellow
 
 if (Test-Path $SrvPath) {
     Write-Host "  OK: Server: $SrvPath" -ForegroundColor Green
@@ -187,9 +230,13 @@ Write-Host "    memory_relate          — Link related records"
 Write-Host "    memory_search_by_tag   — Browse by tag"
 Write-Host "    memory_extract_session — Process session transcripts"
 Write-Host ""
-Write-Host "  Web dashboard:"
-Write-Host "    .venv\Scripts\python.exe src\dashboard.py"
-Write-Host "    Open http://localhost:37737"
+Write-Host "  Web dashboard (auto-started):"
+Write-Host "    http://localhost:37737"
+Write-Host ""
+Write-Host "  Dashboard management (PowerShell):"
+Write-Host "    Stop:    Stop-ScheduledTask -TaskName ClaudeTotalMemoryDashboard"
+Write-Host "    Start:   Start-ScheduledTask -TaskName ClaudeTotalMemoryDashboard"
+Write-Host "    Remove:  Unregister-ScheduledTask -TaskName ClaudeTotalMemoryDashboard"
 Write-Host ""
 Write-Host "  Optional: Copy CLAUDE.md.template to your project"
 Write-Host "  to instruct Claude to use memory automatically."

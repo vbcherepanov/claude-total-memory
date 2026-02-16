@@ -95,9 +95,66 @@ with open(settings_path, 'w') as f:
 print('  OK: MCP server added to ' + settings_path)
 "
 
-# -- 5. Verify --
+# -- 5. Dashboard service (macOS LaunchAgent) --
+echo "-> Step 5: Setting up dashboard service..."
+DASHBOARD_PATH="$INSTALL_DIR/src/dashboard.py"
+PLIST_NAME="com.claude-total-memory.dashboard"
+PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_NAME.plist"
+LOG_DIR="$MEMORY_DIR/logs"
+mkdir -p "$LOG_DIR"
+
+if [ "$(uname)" = "Darwin" ]; then
+    # Stop existing service if running
+    launchctl bootout "gui/$(id -u)/$PLIST_NAME" 2>/dev/null || true
+
+    cat > "$PLIST_PATH" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>$PLIST_NAME</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$PY_PATH</string>
+        <string>$DASHBOARD_PATH</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>CLAUDE_MEMORY_DIR</key>
+        <string>$MEMORY_DIR</string>
+        <key>DASHBOARD_PORT</key>
+        <string>37737</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>$LOG_DIR/dashboard.log</string>
+    <key>StandardErrorPath</key>
+    <string>$LOG_DIR/dashboard.err</string>
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>
+PLIST
+
+    launchctl bootstrap "gui/$(id -u)" "$PLIST_PATH" 2>/dev/null || \
+    launchctl load "$PLIST_PATH" 2>/dev/null || true
+    echo "  OK: Dashboard service installed (auto-starts on login)"
+    echo "  OK: http://localhost:37737"
+else
+    echo "  INFO: Auto-start not available on this platform"
+    echo "  Run manually: .venv/bin/python src/dashboard.py"
+fi
+
+# -- 6. Verify --
 echo ""
-echo "-> Step 5: Verifying installation..."
+echo "-> Step 6: Verifying installation..."
 
 # Check server file
 if [ -f "$SRV_PATH" ]; then
@@ -154,9 +211,13 @@ echo "    memory_relate          — Link related records"
 echo "    memory_search_by_tag   — Browse by tag"
 echo "    memory_extract_session — Process session transcripts"
 echo ""
-echo "  Web dashboard:"
-echo "    .venv/bin/python src/dashboard.py"
-echo "    Open http://localhost:37737"
+echo "  Web dashboard (auto-started on macOS):"
+echo "    http://localhost:37737"
+echo ""
+echo "  Dashboard management:"
+echo "    Stop:    launchctl bootout gui/\$(id -u)/com.claude-total-memory.dashboard"
+echo "    Start:   launchctl bootstrap gui/\$(id -u) ~/Library/LaunchAgents/com.claude-total-memory.dashboard.plist"
+echo "    Logs:    tail -f ~/.claude-memory/logs/dashboard.log"
 echo ""
 echo "  Optional: Copy CLAUDE.md.template to your project"
 echo "  to instruct Claude to use memory automatically."
