@@ -1,61 +1,101 @@
-# Memory System
+# Memory System — Project Configuration
 
-Persistent memory is available via MCP tools. Use it to build on past experience.
+# Replace "my-project" with your actual project name everywhere below.
 
-## Before starting any task — SEARCH:
-```
-memory_recall(query="description of your current task", project="project-name")
-```
+## AUTO-RECALL: Search Memory Before Every Task
 
-## Save important knowledge:
+Before starting ANY task, Claude MUST search for relevant past knowledge:
+
 ```
-memory_save(content="what was decided and WHY", type="decision", project="project-name", tags=["relevant", "tags"], context="Why this decision was made")
+memory_recall(query="<description of current task>", project="my-project")
 ```
 
-## Knowledge types:
+This is MANDATORY. Do not skip this step. Past decisions, solutions, and lessons
+are only useful if they are found before repeating mistakes.
+
+Examples of good recall queries:
+- "docker networking configuration" (before working on Docker)
+- "API authentication approach" (before touching auth code)
+- "database migration patterns" (before creating migrations)
+- "deployment pipeline" (before CI/CD changes)
+
+## AUTO-SAVE: Save Knowledge Automatically
+
+Claude MUST call `memory_save` automatically after significant actions.
+Do NOT ask the user "should I save this?" -- just save it.
+
+### When to save (automatic triggers):
+
+| Trigger | type | What to save |
+|---------|------|--------------|
+| Made an architectural decision | `decision` | The decision + WHY + rejected alternatives |
+| Fixed a non-trivial bug | `solution` | Symptom -> root cause -> fix |
+| Discovered a gotcha/pitfall | `lesson` | Expected vs actual behavior + takeaway |
+| Set up infrastructure/config | `fact` | Configuration details + key parameters |
+| Established a project pattern | `convention` | The rule + code example |
+| Completed a git commit | `fact` | Commit scope + key changes |
+| Ending a session | `fact` | Summary: what was done, what remains |
+
+### When NOT to save (avoid noise):
+
+- Trivial edits (formatting, imports, typo fixes)
+- Intermediate steps (running tests, reading files)
+- Information obvious from the code itself
+- Duplicate of something already saved
+
+### Save format — always include project and tags:
+
+```
+memory_save(
+    content="Brief, actionable description of the knowledge",
+    type="solution",
+    project="my-project",
+    tags=["relevant", "searchable", "tags"],
+    context="Additional context. For decisions: always explain WHY."
+)
+```
+
+### Quality rules:
+
+1. **One knowledge = one save** (do not mix different topics)
+2. **`project` is required** (enables filtered recall)
+3. **`tags` are required** (enables tag-based browsing)
+4. **`context` for decisions** — always include WHY and rejected alternatives
+5. **Be concise** — future recall should be fast to scan
+6. **Duplicates are OK** — the server auto-deduplicates (Jaccard + fuzzy)
+
+## Knowledge Types
+
 | Type | When | Example |
 |------|------|---------|
-| `decision` | Architectural choice (include WHY) | "Chose PostgreSQL over MySQL because..." |
-| `solution` | Bug fix / workaround | "Fixed timeout by chunking to 50 items" |
-| `lesson` | Gotcha / pitfall | "API returns 200 but hangs on >50 items" |
-| `fact` | Config / version / endpoint | "Production DB: pg18 on port 5433" |
-| `convention` | Project pattern / rule | "All DTOs must be readonly classes" |
+| `decision` | Architectural choice (**must include WHY**) | "Chose PostgreSQL over MySQL because of JSONB support and temporal queries" |
+| `solution` | Bug fix or workaround | "Fixed timeout by chunking batch requests to 50 items with 200ms delay" |
+| `lesson` | Gotcha or pitfall discovered | "Docker Compose v2 requires depends_on.condition: service_healthy -- silent failure without it" |
+| `fact` | Config, version, endpoint | "Production DB: PostgreSQL 18 on port 5433, max_connections=200" |
+| `convention` | Project pattern or rule | "All DTOs must be final readonly classes with constructor promotion" |
 
-## Browse history:
-```
-memory_timeline(sessions_ago=100)
-memory_timeline(date_from="2025-01-01", date_to="2025-01-31")
-memory_timeline(query="docker networking")
-```
+## Browse and Maintain
 
-## Maintenance:
 ```
-memory_stats()                                    # View health metrics
-memory_consolidate(dry_run=true)                  # Preview duplicate merges
-memory_consolidate(dry_run=false)                 # Execute merge
-memory_export(project="my-project")               # Backup to JSON
-memory_forget(dry_run=true)                       # Preview retention cleanup
-memory_update(find="old fact", new_content="new") # Update existing knowledge
+memory_timeline(sessions_ago=1)                     # What happened last session
+memory_timeline(query="docker")                     # Find sessions about docker
+memory_stats()                                      # Health metrics and storage
+memory_search_by_tag(tag="api", project="my-project") # Browse by tag
+memory_consolidate(dry_run=true)                    # Preview duplicate merges
+memory_forget(dry_run=true)                         # Preview retention cleanup
+memory_update(find="old fact", new_content="new")   # Update existing knowledge
 ```
 
-## Advanced tools:
+## Advanced
+
 ```
-memory_recall(query="topic", detail="summary")       # Token-saving mode (150 chars)
-memory_history(id=42)                                # Version history for a record
-memory_delete(id=42)                                 # Soft-delete a record
-memory_relate(from_id=1, to_id=2, type="solution")  # Link related records
-memory_search_by_tag(tag="docker")                   # Browse by tag
-memory_extract_session(action="list")                # Pending transcript extractions
+memory_recall(query="topic", detail="summary")           # Token-saving mode (150 chars)
+memory_history(id=42)                                    # Version chain for a record
+memory_delete(id=42)                                     # Soft-delete a record
+memory_relate(from_id=1, to_id=2, type="solution")      # Link related records
+memory_extract_session(action="list")                    # Pending transcript extractions
 ```
 
-## Web Dashboard:
-```bash
-python src/dashboard.py   # Open http://localhost:37737
-```
+## Web Dashboard
 
-## Auto-save triggers (save automatically after):
-- Architectural decisions (type=decision, include WHY)
-- Non-trivial bug fixes (type=solution)
-- Gotchas/pitfalls (type=lesson)
-- Infrastructure setup (type=fact)
-- Project conventions (type=convention)
+Open http://localhost:37737 to browse knowledge, sessions, and the knowledge graph.

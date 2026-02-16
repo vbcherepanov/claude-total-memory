@@ -269,23 +269,38 @@ When a duplicate is found, the existing record's `last_confirmed` timestamp is r
 
 ## Web Dashboard
 
-Start the dashboard:
+The installer sets up the dashboard as a system service that starts automatically on login:
 
-macOS / Linux:
+- **macOS**: LaunchAgent (`com.claude-total-memory.dashboard`)
+- **Windows**: Scheduled Task (`ClaudeTotalMemoryDashboard`)
+
+Open [http://localhost:37737](http://localhost:37737) in your browser.
+
+To start manually (if not using the installer):
 
 ```bash
-cd claude-total-memory
+# macOS / Linux
 .venv/bin/python src/dashboard.py
-```
 
-Windows:
-
-```powershell
-cd claude-total-memory
+# Windows
 .venv\Scripts\python.exe src\dashboard.py
 ```
 
-Open [http://localhost:37737](http://localhost:37737) in your browser.
+Dashboard management:
+
+```bash
+# macOS — stop / start / logs
+launchctl bootout gui/$(id -u)/com.claude-total-memory.dashboard
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.claude-total-memory.dashboard.plist
+tail -f ~/.claude-memory/logs/dashboard.log
+```
+
+```powershell
+# Windows — stop / start / remove
+Stop-ScheduledTask -TaskName ClaudeTotalMemoryDashboard
+Start-ScheduledTask -TaskName ClaudeTotalMemoryDashboard
+Unregister-ScheduledTask -TaskName ClaudeTotalMemoryDashboard
+```
 
 The dashboard provides:
 
@@ -313,21 +328,91 @@ All configuration is via environment variables set in the MCP server config:
 
 ---
 
-## CLAUDE.md Integration
+## Making Memory Automatic
 
-Copy `CLAUDE.md.template` to your project root as `CLAUDE.md` to instruct Claude to use memory automatically:
+The MCP server provides the tools -- but Claude needs **instructions** to use them proactively. There are three layers of configuration, from broadest to most specific:
+
+### Layer 1: Global Rules (all projects)
+
+Add memory instructions to `~/.claude/CLAUDE.md` so Claude uses memory in **every** project, even ones without their own CLAUDE.md:
+
+```bash
+# Append the template to your global rules
+cat global-rules.md.template >> ~/.claude/CLAUDE.md
+```
+
+Or copy the relevant sections manually. The key instructions are:
+- **Always recall** before starting a task (`memory_recall`)
+- **Always save** after significant actions (`memory_save`) -- without asking
+- Use the correct knowledge types (decision, solution, lesson, fact, convention)
+
+See `global-rules.md.template` for the full ready-to-paste block.
+
+### Layer 2: Project CLAUDE.md (per project)
+
+Copy `CLAUDE.md.template` to a specific project's root to add project-specific memory rules:
 
 ```bash
 cp CLAUDE.md.template /path/to/your/project/CLAUDE.md
 ```
 
-The template includes instructions for:
-- Searching memory before starting tasks
-- Saving decisions with context
-- Using all knowledge types correctly
-- Browsing history and running maintenance
+Then replace every `my-project` with your actual project name. This ensures all knowledge is tagged with the correct project for filtered recall later.
 
-Customize the `project` parameter in the template to match your project name.
+The project template adds:
+- Auto-recall with project filter before every task
+- Auto-save triggers with project name and tags
+- Knowledge type reference table
+- Maintenance commands
+
+### Layer 3: Custom Agents (per agent)
+
+If you use custom agents (`.claude/agents/*.md`), each agent needs its own memory instructions. See `agent-rules.md.template` for three options:
+
+**Option A: Full block** -- add a complete Memory System section to the agent's .md file with recall/save rules and trigger table.
+
+**Option B: Full agent example** -- use the template as a starting point for a new agent that has memory built in.
+
+**Option C: One-liner** -- add a single line to existing agents:
+
+```
+Use memory_recall before tasks and memory_save after decisions/fixes/lessons. Project: "my-project".
+```
+
+### How the layers work together
+
+```
+~/.claude/CLAUDE.md          → "Always use memory_recall and memory_save"
+                                (applies to ALL projects)
+
+/your-project/CLAUDE.md      → "Project is 'my-app', save with these tags"
+                                (adds project-specific context)
+
+.claude/agents/backend.md    → "You are a backend developer. Use memory."
+                                (adds agent-specific behavior)
+```
+
+All three layers are optional. Each one makes memory more automatic:
+- **Global only**: Claude uses memory everywhere, but without project filtering
+- **Global + Project**: Claude uses memory with proper project tags
+- **All three**: Custom agents also use memory proactively
+
+### What "automatic" means
+
+With proper configuration, Claude will:
+
+1. **At session start** -- search memory for context relevant to the current task
+2. **During work** -- save decisions, bug fixes, gotchas, and conventions as they happen
+3. **At session end** -- save a summary of what was accomplished
+4. **Never ask** "should I save this?" -- it just saves automatically
+5. **Never duplicate** -- the server deduplicates via Jaccard + fuzzy similarity
+
+### Templates reference
+
+| File | Purpose | Copy to |
+|------|---------|---------|
+| `CLAUDE.md.template` | Project-level memory rules | `/your-project/CLAUDE.md` |
+| `global-rules.md.template` | Global memory rules for all projects | `~/.claude/CLAUDE.md` (append) |
+| `agent-rules.md.template` | Guide for configuring custom agents | Read and apply to `.claude/agents/*.md` |
 
 ---
 
