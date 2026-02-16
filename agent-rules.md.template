@@ -1,0 +1,132 @@
+# Claude Total Memory — Agent Configuration Guide
+
+# How to configure custom agents (.claude/agents/) to use memory automatically.
+#
+# Custom agents are defined in .claude/agents/*.md files.
+# Each file is an agent with its own system prompt.
+
+## Option 1: Add memory block to any custom agent
+
+Add this block to the end of any agent's .md file:
+
+```markdown
+## Memory System
+
+You have persistent memory via MCP tools. Use it automatically.
+
+**Before starting work:**
+memory_recall(query="<task description>", project="<project>")
+
+**After significant actions, save automatically:**
+memory_save(content="...", type="decision|solution|lesson|fact|convention", project="<project>", tags=["..."])
+
+Save decisions (with WHY), solutions (symptom→fix), lessons (gotchas), facts (config), conventions (patterns).
+Do not ask whether to save — just do it.
+```
+
+## Option 2: Full agent example with memory
+
+Below is a complete example of a custom agent that uses memory.
+Save as `.claude/agents/my-developer.md`:
+
+```markdown
+# My Developer Agent
+
+You are a senior developer working on this project.
+
+## Rules
+- Write clean, tested code
+- Follow existing patterns in the codebase
+- Run tests after changes
+
+## Memory System
+
+You have persistent memory via MCP tools. Use it proactively:
+
+### Before every task:
+Search for past context:
+memory_recall(query="<description of task>", project="my-project")
+
+If relevant results are found, use them to avoid repeating past mistakes
+and to build on previous decisions.
+
+### After significant work, save automatically:
+
+| Event | Action |
+|-------|--------|
+| Architectural decision | memory_save(type="decision", context="WHY this was chosen") |
+| Bug fix | memory_save(type="solution", context="symptom → cause → fix") |
+| Found a gotcha | memory_save(type="lesson") |
+| Config/setup change | memory_save(type="fact") |
+| New project pattern | memory_save(type="convention") |
+
+Always include: project="my-project", tags=["relevant", "tags"]
+Do NOT ask the user whether to save. Just save it.
+```
+
+## Option 3: Minimal one-liner for existing agents
+
+If you have existing agents and want to add memory with minimal changes,
+add this single line at the top:
+
+```markdown
+Use memory_recall before tasks and memory_save after decisions/fixes/lessons. Project: "my-project".
+```
+
+## Tips for Agent Memory Configuration
+
+### DO:
+- Set a specific `project` name so recalls are filtered
+- Include both recall AND save instructions
+- Tell the agent to save "automatically" or "without asking"
+- List specific trigger events (decisions, bug fixes, etc.)
+
+### DON'T:
+- Tell the agent to save everything (creates noise)
+- Forget to specify the project name
+- Make saving optional ("you may save if you want")
+- Skip the recall step — it's the most valuable part
+
+## How it flows
+
+```
+Session starts
+    |
+    v
+Agent reads its .md file (includes memory instructions)
+    |
+    v
+Agent calls memory_recall("current task", project="my-project")
+    |
+    v
+Agent finds: "Last time we tried approach X and it failed because Y"
+    |
+    v
+Agent avoids mistake, uses approach Z instead
+    |
+    v
+Agent saves: memory_save("Approach Z works because...", type="decision")
+    |
+    v
+Next session: Agent recalls this decision automatically
+```
+
+## Team / Multi-Agent Setup
+
+If you use multiple agents on the same project, they all share the same
+memory database. Use the same `project` name across agents so they can
+find each other's knowledge:
+
+```
+# Agent A saves:
+memory_save(content="API uses JWT auth", project="my-app", type="fact")
+
+# Agent B recalls:
+memory_recall(query="authentication", project="my-app")
+# → finds Agent A's knowledge
+```
+
+Different agents can use different tags to organize their knowledge:
+- Backend agent: tags=["api", "database", "auth"]
+- Frontend agent: tags=["ui", "components", "state"]
+- DevOps agent: tags=["docker", "ci-cd", "deploy"]
