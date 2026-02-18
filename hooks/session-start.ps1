@@ -1,4 +1,4 @@
-# SessionStart hook — remind Claude to use memory_recall at the start of each session
+# SessionStart hook — remind Claude to use memory_recall + self_rules_context
 #
 # Add to %USERPROFILE%\.claude\settings.json:
 #   "hooks": {
@@ -8,4 +8,13 @@
 #     }]
 #   }
 
-Write-Output "MEMORY_HINT: Persistent memory is available. Use memory_recall(query=`"your task`") to search past knowledge before starting work."
+$Project = Split-Path -Leaf (Get-Location)
+$Branch = ""
+try { $Branch = (git rev-parse --abbrev-ref HEAD 2>$null) } catch {}
+
+$Hint = "MEMORY_HINT: Project: $Project"
+if ($Branch) { $Hint += ", Branch: $Branch" }
+$Hint += ". Use memory_recall(query=`"your task`", project=`"$Project`") to search past knowledge."
+$Hint += " Also run self_rules_context(project=`"$Project`") to load behavioral rules."
+
+Write-Output $Hint

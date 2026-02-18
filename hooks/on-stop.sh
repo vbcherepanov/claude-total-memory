@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 #
-# Stop hook — remind Claude to save knowledge when session ends
+# Stop hook — remind Claude to save knowledge and reflect when session ends
 #
 # Add to ~/.claude/settings.json:
 #   "hooks": {
 #     "Stop": [{
 #       "type": "command",
-#       "command": "/path/to/claude-memory/hooks/on-stop.sh"
+#       "command": "/path/to/claude-total-memory/hooks/on-stop.sh"
 #     }]
 #   }
 
-echo "MEMORY_WARNING: Session ending. If you learned anything important, save it with memory_save() before the session closes."
+PROJECT=$(basename "$(pwd)" 2>/dev/null || echo "unknown")
+
+echo "MEMORY_WARNING: Session ending. Before closing:"
+echo "  1. Save important knowledge with memory_save(project=\"${PROJECT}\")"
+echo "  2. Record a reflection: self_reflect(reflection=\"...\", task_summary=\"...\", project=\"${PROJECT}\")"

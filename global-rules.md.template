@@ -92,3 +92,20 @@ At session end, record a brief reflection:
 ```
 self_reflect(reflection="key takeaways", task_summary="what was done", outcome="success|partial|failure")
 ```
+
+### Privacy — automatic redaction
+
+The server strips sensitive data (API keys, JWTs, passwords, emails, credit cards) before storage.
+Use `<private>` tags to explicitly redact content:
+
+```
+memory_save(content="Connected to <private>secret-host:5432</private>", type="fact", project="<project>")
+```
+
+### Auto-Capture — lightweight observations
+
+Use `memory_observe` for quick tracking of file changes (no dedup, no embeddings, 30-day retention):
+
+```
+memory_observe(tool_name="Write", summary="Modified auth middleware", observation_type="change", files_affected=["/src/auth.py"], project="<project>")
+```

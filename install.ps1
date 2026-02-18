@@ -16,7 +16,7 @@ $ErrorActionPreference = "Stop"
 
 Write-Host ""
 Write-Host "=======================================================" -ForegroundColor Cyan
-Write-Host "  Claude Total Memory v2.2 — Installer (Windows)"       -ForegroundColor Cyan
+Write-Host "  Claude Total Memory v4.0 — Installer (Windows)"       -ForegroundColor Cyan
 Write-Host "=======================================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -135,6 +135,45 @@ with open(settings_path, 'w') as f:
 print('  OK: MCP server added to ' + settings_path)
 "@
 
+# -- 4b. Register hooks in settings.json --
+Write-Host "-> Step 4b: Registering hooks..." -ForegroundColor Yellow
+
+$HookSession = (Join-Path $InstallDir "hooks" "session-start.ps1").Replace("\", "/")
+$HookStop = (Join-Path $InstallDir "hooks" "on-stop.ps1").Replace("\", "/")
+$HookBash = (Join-Path $InstallDir "hooks" "memory-trigger.ps1").Replace("\", "/")
+$HookWrite = (Join-Path $InstallDir "hooks" "auto-capture.ps1").Replace("\", "/")
+
+& $VenvPython -c @"
+import json, os
+
+settings_path = r'$ClaudeSettings'
+settings = {}
+if os.path.exists(settings_path):
+    with open(settings_path) as f:
+        settings = json.load(f)
+
+if 'hooks' not in settings:
+    settings['hooks'] = {}
+
+hooks = settings['hooks']
+
+ps = 'powershell -ExecutionPolicy Bypass -File '
+
+hooks['SessionStart'] = [{'type': 'command', 'command': ps + '$HookSession'}]
+hooks['Stop'] = [{'type': 'command', 'command': ps + '$HookStop'}]
+
+post = []
+post.append({'type': 'command', 'command': ps + '$HookBash', 'matcher': 'Bash'})
+post.append({'type': 'command', 'command': ps + '$HookWrite', 'matcher': 'Write'})
+post.append({'type': 'command', 'command': ps + '$HookWrite', 'matcher': 'Edit'})
+hooks['PostToolUse'] = post
+
+with open(settings_path, 'w') as f:
+    json.dump(settings, f, indent=2)
+
+print('  OK: Hooks registered (SessionStart, Stop, PostToolUse:Bash/Write/Edit)')
+"@
+
 # -- 5. Dashboard service (Windows Scheduled Task) --
 Write-Host "-> Step 5: Setting up dashboard service..." -ForegroundColor Yellow
 $DashboardPath = Join-Path $InstallDir "src" "dashboard.py"
@@ -215,8 +254,8 @@ Write-Host ""
 Write-Host "  Claude Code now has persistent memory."
 Write-Host "  Just start 'claude' as usual — memory is automatic."
 Write-Host ""
-Write-Host "  Available MCP tools (13):"
-Write-Host "    memory_recall          — Search all past knowledge"
+Write-Host "  Available MCP tools (20):"
+Write-Host "    memory_recall          — Search all past knowledge (3-level detail)"
 Write-Host "    memory_save            — Save decisions, solutions, lessons"
 Write-Host "    memory_update          — Update existing knowledge"
 Write-Host "    memory_timeline        — Browse session history"
@@ -229,6 +268,13 @@ Write-Host "    memory_delete          — Soft-delete a record"
 Write-Host "    memory_relate          — Link related records"
 Write-Host "    memory_search_by_tag   — Browse by tag"
 Write-Host "    memory_extract_session — Process session transcripts"
+Write-Host "    memory_observe         — Lightweight file change tracking"
+Write-Host "    self_error_log         — Log errors for pattern analysis"
+Write-Host "    self_insight           — Manage insights from error patterns"
+Write-Host "    self_rules             — Manage behavioral rules (SOUL)"
+Write-Host "    self_patterns          — Analyze error patterns & trends"
+Write-Host "    self_reflect           — Save session reflections"
+Write-Host "    self_rules_context     — Load rules at session start"
 Write-Host ""
 Write-Host "  Web dashboard (auto-started):"
 Write-Host "    http://localhost:37737"

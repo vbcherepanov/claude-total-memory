@@ -8,7 +8,7 @@ set -e
 
 echo ""
 echo "======================================================="
-echo "  Claude Total Memory v2.2 — Installer"
+echo "  Claude Total Memory v4.0 — Installer"
 echo "======================================================="
 echo ""
 
@@ -93,6 +93,47 @@ with open(settings_path, 'w') as f:
     json.dump(settings, f, indent=2)
 
 print('  OK: MCP server added to ' + settings_path)
+"
+
+# -- 4b. Register hooks in settings.json --
+echo "-> Step 4b: Registering hooks..."
+
+HOOK_SESSION="$INSTALL_DIR/hooks/session-start.sh"
+HOOK_STOP="$INSTALL_DIR/hooks/on-stop.sh"
+HOOK_BASH="$INSTALL_DIR/hooks/memory-trigger.sh"
+HOOK_WRITE="$INSTALL_DIR/hooks/auto-capture.sh"
+
+python3 -c "
+import json, os
+
+settings_path = '$CLAUDE_SETTINGS'
+settings = {}
+if os.path.exists(settings_path):
+    with open(settings_path) as f:
+        settings = json.load(f)
+
+if 'hooks' not in settings:
+    settings['hooks'] = {}
+
+hooks = settings['hooks']
+
+# SessionStart
+hooks['SessionStart'] = [{'type': 'command', 'command': '$HOOK_SESSION'}]
+
+# Stop
+hooks['Stop'] = [{'type': 'command', 'command': '$HOOK_STOP'}]
+
+# PostToolUse — Bash + Write + Edit
+post = []
+post.append({'type': 'command', 'command': '$HOOK_BASH', 'matcher': 'Bash'})
+post.append({'type': 'command', 'command': '$HOOK_WRITE', 'matcher': 'Write'})
+post.append({'type': 'command', 'command': '$HOOK_WRITE', 'matcher': 'Edit'})
+hooks['PostToolUse'] = post
+
+with open(settings_path, 'w') as f:
+    json.dump(settings, f, indent=2)
+
+print('  OK: Hooks registered (SessionStart, Stop, PostToolUse:Bash/Write/Edit)')
 "
 
 # -- 5. Dashboard service (macOS LaunchAgent) --
@@ -196,8 +237,8 @@ echo ""
 echo "  Claude Code now has persistent memory."
 echo "  Just start 'claude' as usual — memory is automatic."
 echo ""
-echo "  Available MCP tools (13):"
-echo "    memory_recall          — Search all past knowledge"
+echo "  Available MCP tools (20):"
+echo "    memory_recall          — Search all past knowledge (3-level detail)"
 echo "    memory_save            — Save decisions, solutions, lessons"
 echo "    memory_update          — Update existing knowledge"
 echo "    memory_timeline        — Browse session history"
@@ -210,6 +251,13 @@ echo "    memory_delete          — Soft-delete a record"
 echo "    memory_relate          — Link related records"
 echo "    memory_search_by_tag   — Browse by tag"
 echo "    memory_extract_session — Process session transcripts"
+echo "    memory_observe         — Lightweight file change tracking"
+echo "    self_error_log         — Log errors for pattern analysis"
+echo "    self_insight           — Manage insights from error patterns"
+echo "    self_rules             — Manage behavioral rules (SOUL)"
+echo "    self_patterns          — Analyze error patterns & trends"
+echo "    self_reflect           — Save session reflections"
+echo "    self_rules_context     — Load rules at session start"
 echo ""
 echo "  Web dashboard (auto-started on macOS):"
 echo "    http://localhost:37737"
