@@ -1,29 +1,61 @@
-# Claude Total Memory
+<div align="center">
 
-**Persistent memory for Claude Code and Codex CLI across sessions.**
+# 🧠 Claude Total Memory
 
-![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
-![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-green.svg)
-![MCP Server](https://img.shields.io/badge/MCP-Server-purple.svg)
-![Version 4.0](https://img.shields.io/badge/Version-4.0.0-orange.svg)
+### Persistent memory MCP server for Claude Code & Codex CLI
 
-An MCP server that gives Claude Code and OpenAI Codex CLI a persistent, searchable memory and the ability to learn from its own mistakes. It stores decisions, solutions, lessons, facts, and conventions -- then retrieves them automatically across sessions using a 4-tier search pipeline. Works with both Claude Code and Codex CLI using the same shared database. v4.0 adds privacy stripping, branch-aware context, 3-level progressive disclosure, lightweight observations, token cost estimation, and a real-time SSE live feed in the dashboard.
+**Claude forgets everything between sessions. This fixes that.**
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-green.svg)](https://python.org)
+[![MCP Server](https://img.shields.io/badge/MCP-Server-purple.svg)](https://modelcontextprotocol.io)
+[![Version](https://img.shields.io/github/v/release/vbcherepanov/claude-total-memory)](https://github.com/vbcherepanov/claude-total-memory/releases)
+[![GitHub stars](https://img.shields.io/github/stars/vbcherepanov/claude-total-memory)](https://github.com/vbcherepanov/claude-total-memory/stargazers)
+
+[Quick Start](#quick-start) · [Features](#features) · [20 MCP Tools](#mcp-tools) · [Dashboard](#web-dashboard) · [Self-Improving Agent](#self-improving-agent)
+
+</div>
 
 ---
 
-## The Problem
+## Why This Exists
 
-Claude Code starts every session with a blank slate. Yesterday you spent an hour debugging a Docker networking issue and found the fix. Today, Claude has no idea it happened. You explained your project architecture last week. Claude forgot.
+| Without Memory | With Claude Total Memory |
+|---|---|
+| 🔴 Repeating project context every session | 🟢 Claude recalls your architecture, decisions, conventions |
+| 🔴 Re-discovering the same bug fixes | 🟢 Solutions saved and retrieved automatically |
+| 🔴 Claude makes the same mistakes | 🟢 Self-improving: learns from errors across sessions |
+| 🔴 Knowledge lost at context limit | 🟢 Persistent local database, no cloud, no API keys |
+| 🔴 No idea what happened last session | 🟢 Full session timeline with search |
 
-This means you repeat yourself, re-explain decisions, re-discover solutions, and lose the compounding value of working with an AI assistant over time.
+> **20 MCP tools** · **4-tier search** (FTS5 → semantic → fuzzy → graph) · **Self-improving agent** · **Web dashboard** · **Privacy stripping** · **Works with Claude Code + Codex CLI**
 
-Worse, Claude keeps making the same mistakes. It tries the same wrong approach, hits the same API gotcha, or misses the same config requirement -- because it has no way to learn from past failures.
+---
 
-## The Solution
+## How It Compares
 
-Claude Total Memory is an MCP server that runs alongside Claude Code. It provides 20 tools for saving knowledge, retrieving it, and learning from mistakes. When Claude saves a decision, a bug fix, or a project convention, that knowledge persists in a local database. When Claude hits an error, it logs the failure and the fix. Over time, error patterns are detected, insights are extracted, and behavioral rules are formed -- making Claude measurably better at its job.
+| Feature | Claude Total Memory | [mcp-memory-service](https://github.com/doobidoo/mcp-memory-service) | [memory-mcp](https://github.com/yuvalsuede/memory-mcp) |
+|---|---|---|---|
+| Search tiers | 4 (FTS5 + semantic + fuzzy + graph) | Semantic only | None (file-based) |
+| Self-improving agent | ✅ Error → Insight → Rule pipeline | ❌ | ❌ |
+| Knowledge types | 5 (decision, solution, lesson, fact, convention) | 1 (generic) | 1 (summary) |
+| Privacy stripping | ✅ Auto-redacts keys, tokens, emails | ❌ | ❌ |
+| Knowledge graph | ✅ Typed relations + graph expansion | ❌ | ❌ |
+| Web dashboard | ✅ Stats, graph, live feed, SOUL rules | ❌ | ✅ Basic |
+| Decay scoring | ✅ Exponential + spaced repetition | ❌ | ❌ |
+| Deduplication | ✅ Jaccard + fuzzy | ❌ | ❌ |
+| Branch-aware | ✅ Filter by git branch | ❌ | ❌ |
+| Codex CLI support | ✅ Shared database | ❌ | ❌ |
+| MCP tools | 20 | 10 | 3 |
+| Storage | SQLite + ChromaDB (local) | ChromaDB (local) | JSON files |
 
-No cloud services. No API keys. Everything stays on your machine.
+---
+
+## Works With
+
+- **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** — full MCP integration, hooks, auto-triggers
+- **[OpenAI Codex CLI](https://github.com/openai/codex)** — shared memory database, dedicated installer
+- **Any MCP-compatible client** — standard Model Context Protocol server
 
 ---
 
@@ -1037,6 +1069,26 @@ For Claude to use the new self-improvement tools automatically, add the self-imp
 - Rate rules after task completion
 
 See `global-rules.md.template` for the full ready-to-paste block.
+
+---
+
+## Contributing
+
+Contributions are welcome! Feel free to open issues and pull requests.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## Star History
+
+If this project is useful to you, consider giving it a star — it helps others discover it.
+
+[![Star History Chart](https://api.star-history.com/svg?repos=vbcherepanov/claude-total-memory&type=Date)](https://star-history.com/#vbcherepanov/claude-total-memory&Date)
 
 ---
 
