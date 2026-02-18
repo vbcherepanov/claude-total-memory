@@ -1,0 +1,131 @@
+# Claude Total Memory — Global Rules (Codex CLI Edition)
+
+# Copy this content to ~/.codex/AGENTS.md to enable automatic memory
+# usage across ALL your projects with OpenAI Codex CLI.
+#
+# This works alongside project-level AGENTS.md files.
+# Global rules apply everywhere; project AGENTS.md adds project-specific context.
+#
+# For temporary overrides without editing this file, create
+# ~/.codex/AGENTS.override.md — its contents take priority over
+# AGENTS.md for the duration of the session, and you can delete or
+# modify it freely without touching the main rules.
+
+## Persistent Memory (MCP)
+
+You have access to a persistent memory system via MCP tools (memory_recall, memory_save, etc.).
+This memory persists across sessions and projects. USE IT.
+
+### Session Start — ALWAYS search memory first
+
+**IMPORTANT:** Codex CLI does not have automatic session-start hooks.
+You MUST perform these steps manually at the very beginning of every
+conversation, before doing any other work. Treat this as a hard
+requirement, not a suggestion.
+
+1. Search memory for context relevant to the current task:
+
+```
+memory_recall(query="<what the user is asking about>", project="<project-name>")
+```
+
+2. Load behavioral rules learned from past mistakes (see Self-Improvement section):
+
+```
+self_rules_context(project="<project-name>")
+```
+
+If you find relevant past knowledge, mention it briefly:
+"I found previous context about this in memory: [brief summary]"
+
+If you loaded active rules, follow them throughout the session.
+
+### Auto-Save Rules — save without asking
+
+Save knowledge automatically after these events. Do NOT ask "should I save this?".
+
+**SAVE when:**
+- You make or help make an architectural decision -> `type="decision"` (include WHY)
+- You fix a non-trivial bug -> `type="solution"` (symptom -> cause -> fix)
+- You discover a gotcha or unexpected behavior -> `type="lesson"`
+- You set up or configure infrastructure -> `type="fact"`
+- You establish a project pattern or convention -> `type="convention"`
+- A session is ending -> `type="fact"` (summary of what was done)
+
+**DO NOT SAVE:**
+- Trivial changes (typos, formatting, import ordering)
+- Intermediate debugging steps
+- Information that is obvious from the code
+
+**Format:**
+```
+memory_save(
+    content="Concise, actionable knowledge",
+    type="decision|solution|lesson|fact|convention",
+    project="project-name",
+    tags=["relevant", "tags"],
+    context="Why this matters. For decisions: why this was chosen over alternatives."
+)
+```
+
+### Quality Guidelines
+
+1. One topic per save — do not bundle unrelated knowledge
+2. Always set `project` — enables filtered recall later
+3. Always set `tags` — enables tag-based browsing
+4. Be concise — future recall should be quick to scan
+5. For decisions: always explain WHY and what alternatives were rejected
+6. Duplicates are fine — the server auto-deduplicates
+
+### Update Existing Knowledge
+
+When you find that previously saved knowledge is outdated:
+```
+memory_update(find="search query for old record", new_content="corrected information", reason="why updating")
+```
+
+### Maintenance (periodic)
+
+Run these occasionally to keep memory healthy:
+```
+memory_stats()                        # Check health score
+memory_consolidate(dry_run=true)      # Preview merging similar records
+memory_forget(dry_run=true)           # Preview archiving stale records
+```
+
+### Self-Improvement — automatic error learning
+
+At session start, load behavioral rules learned from past mistakes.
+Because Codex CLI lacks session-start hooks, you must do this yourself
+as part of the mandatory startup sequence described above:
+```
+self_rules_context(project="<project-name>")
+```
+
+When any error occurs during work (command failure, wrong assumption, timeout),
+log it automatically — do not ask the user:
+```
+self_error_log(description="what happened", category="code_error|api_error|...", fix="how fixed", project="<project>")
+```
+
+At session end, record a brief reflection:
+```
+self_reflect(reflection="key takeaways", task_summary="what was done", outcome="success|partial|failure")
+```
+
+### Privacy — automatic redaction
+
+The server strips sensitive data (API keys, JWTs, passwords, emails, credit cards) before storage.
+Use `<private>` tags to explicitly redact content:
+
+```
+memory_save(content="Connected to <private>secret-host:5432</private>", type="fact", project="<project>")
+```
+
+### Auto-Capture — lightweight observations
+
+Use `memory_observe` for quick tracking of file changes (no dedup, no embeddings, 30-day retention):
+
+```
+memory_observe(tool_name="Write", summary="Modified auth middleware", observation_type="change", files_affected=["/src/auth.py"], project="<project>")
+```

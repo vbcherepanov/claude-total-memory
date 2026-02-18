@@ -1,0 +1,220 @@
+<!-- Copy to ./AGENTS.md in your project root. Replace "my-project" with your project name. -->
+
+# Memory System — Project Configuration
+
+**CRITICAL: Codex does not have automatic session-start hooks. You MUST call `memory_recall` and `self_rules_context` at the beginning of every session without being prompted.**
+
+# Replace "my-project" with your actual project name everywhere below.
+
+---
+
+## BEFORE EVERY TASK (MANDATORY — NO HOOKS TO REMIND YOU)
+
+**There are no automatic hooks in Codex. You MUST perform these steps manually at the start of every session and before every task. Skipping these steps means losing access to all past decisions, solutions, and lessons.**
+
+### Step 1: Load behavioral rules
+
+```
+self_rules_context(project="my-project")
+```
+
+### Step 2: Search for relevant past knowledge
+
+```
+memory_recall(query="<description of current task>", project="my-project")
+```
+
+**Both steps are MANDATORY. Do not skip them. Do not wait to be asked.**
+
+Examples of good recall queries:
+- "docker networking configuration" (before working on Docker)
+- "API authentication approach" (before touching auth code)
+- "database migration patterns" (before creating migrations)
+- "deployment pipeline" (before CI/CD changes)
+
+---
+
+## AUTO-SAVE: Save Knowledge Automatically
+
+You MUST call `memory_save` automatically after significant actions.
+Do NOT ask the user "should I save this?" -- just save it.
+
+### When to save (automatic triggers):
+
+| Trigger | type | What to save |
+|---------|------|--------------|
+| Made an architectural decision | `decision` | The decision + WHY + rejected alternatives |
+| Fixed a non-trivial bug | `solution` | Symptom -> root cause -> fix |
+| Discovered a gotcha/pitfall | `lesson` | Expected vs actual behavior + takeaway |
+| Set up infrastructure/config | `fact` | Configuration details + key parameters |
+| Established a project pattern | `convention` | The rule + code example |
+| Completed a git commit | `fact` | Commit scope + key changes |
+| Ending a session | `fact` | Summary: what was done, what remains |
+
+### When NOT to save (avoid noise):
+
+- Trivial edits (formatting, imports, typo fixes)
+- Intermediate steps (running tests, reading files)
+- Information obvious from the code itself
+- Duplicate of something already saved
+
+### Save format — always include project and tags:
+
+```
+memory_save(
+    content="Brief, actionable description of the knowledge",
+    type="solution",
+    project="my-project",
+    tags=["relevant", "searchable", "tags"],
+    context="Additional context. For decisions: always explain WHY."
+)
+```
+
+### Quality rules:
+
+1. **One knowledge = one save** (do not mix different topics)
+2. **`project` is required** (enables filtered recall)
+3. **`tags` are required** (enables tag-based browsing)
+4. **`context` for decisions** — always include WHY and rejected alternatives
+5. **Be concise** — future recall should be fast to scan
+6. **Duplicates are OK** — the server auto-deduplicates (Jaccard + fuzzy)
+
+## Knowledge Types
+
+| Type | When | Example |
+|------|------|---------|
+| `decision` | Architectural choice (**must include WHY**) | "Chose PostgreSQL over MySQL because of JSONB support and temporal queries" |
+| `solution` | Bug fix or workaround | "Fixed timeout by chunking batch requests to 50 items with 200ms delay" |
+| `lesson` | Gotcha or pitfall discovered | "Docker Compose v2 requires depends_on.condition: service_healthy -- silent failure without it" |
+| `fact` | Config, version, endpoint | "Production DB: PostgreSQL 18 on port 5433, max_connections=200" |
+| `convention` | Project pattern or rule | "All DTOs must be final readonly classes with constructor promotion" |
+
+## Browse and Maintain
+
+```
+memory_timeline(sessions_ago=1)                     # What happened last session
+memory_timeline(query="docker")                     # Find sessions about docker
+memory_stats()                                      # Health metrics and storage
+memory_search_by_tag(tag="api", project="my-project") # Browse by tag
+memory_consolidate(dry_run=true)                    # Preview duplicate merges
+memory_forget(dry_run=true)                         # Preview retention cleanup
+memory_update(find="old fact", new_content="new")   # Update existing knowledge
+```
+
+## Advanced
+
+```
+memory_recall(query="topic", detail="summary")           # Token-saving mode (150 chars)
+memory_history(id=42)                                    # Version chain for a record
+memory_delete(id=42)                                     # Soft-delete a record
+memory_relate(from_id=1, to_id=2, type="solution")      # Link related records
+memory_extract_session(action="list")                    # Pending transcript extractions
+```
+
+## Self-Improvement (Automatic Error Learning)
+
+The agent learns from mistakes across sessions via a 3-level pipeline.
+
+### On any error (bash failure, wrong assumption, API error) — log it automatically:
+```
+self_error_log(
+    description="What went wrong",
+    category="code_error",
+    fix="How it was fixed",
+    project="my-project"
+)
+```
+
+Categories: `code_error`, `logic_error`, `config_error`, `api_error`, `timeout`, `loop_detected`, `wrong_assumption`, `missing_context`
+
+### When patterns emerge (3+ similar errors) — extract insight:
+```
+self_insight(action="add", content="Lesson learned", category="code_error")
+```
+
+---
+
+## AT SESSION END (MANDATORY — NO HOOKS TO REMIND YOU)
+
+**There are no automatic hooks in Codex to trigger end-of-session actions. You MUST perform these steps before the session ends. Failing to do so means losing all knowledge gained during this session.**
+
+### Step 1: Reflect on the session
+
+```
+self_reflect(reflection="What went well, what to improve", task_summary="What was done", project="my-project")
+```
+
+### Step 2: Save a session summary
+
+```
+memory_save(
+    content="Session summary: <what was accomplished, what remains>",
+    type="fact",
+    project="my-project",
+    tags=["session-summary"]
+)
+```
+
+**Both steps are MANDATORY. Do not skip them. Do not wait to be asked.**
+
+---
+
+### Analyze improvement:
+```
+self_patterns(view="full_report", project="my-project")
+```
+
+## Privacy & Security
+
+### Automatic Redaction
+
+The server automatically strips sensitive data before storing knowledge:
+- API keys (sk-*, key-*, Bearer tokens)
+- JWTs, passwords, credit card numbers, emails
+- IP addresses with ports
+
+You can also use `<private>` tags to explicitly exclude content:
+
+```
+memory_save(
+    content="Connected to <private>prod-db.internal:5432</private> using connection pooling",
+    type="fact",
+    project="my-project"
+)
+```
+
+Everything inside `<private>...</private>` tags is replaced with `[REDACTED]` before storage.
+
+### What is NOT stored
+
+- File contents (only metadata about changes via observations)
+- Environment variables or .env file contents
+- Raw credentials or tokens
+
+## Auto-Capture (Observations)
+
+The `memory_observe` tool provides lightweight tracking of file changes and discoveries
+without the overhead of full knowledge storage (no dedup, no vector embeddings).
+
+```
+memory_observe(
+    tool_name="Write",
+    summary="Created user authentication middleware",
+    observation_type="feature",
+    files_affected=["/src/middleware/auth.py"],
+    project="my-project"
+)
+```
+
+Observation types: `bugfix`, `feature`, `refactor`, `change`, `discovery`, `decision`
+
+Observations are automatically cleaned up after 30 days. Use them for:
+- Tracking what files were modified and why
+- Recording quick discoveries during exploration
+- Building a timeline of changes within a session
+
+For important, long-lived knowledge, use `memory_save` instead.
+
+## Web Dashboard
+
+Open http://localhost:37737 to browse knowledge, sessions, the knowledge graph, and live activity feed.

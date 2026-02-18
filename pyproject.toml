@@ -5,11 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "claude-total-memory"
 version = "4.0.0"
-description = "Persistent memory MCP server for Claude Code — 4-tier search, BM25 scoring, knowledge graph, self-improving agent, privacy stripping, branch-aware context, SSE live feed, web dashboard, and 20 tools"
+description = "Persistent memory MCP server for Claude Code and Codex CLI — 4-tier search, BM25 scoring, knowledge graph, self-improving agent, privacy stripping, branch-aware context, SSE live feed, web dashboard, and 20 tools"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-keywords = ["claude", "mcp", "memory", "ai", "llm", "claude-code", "persistent-memory"]
+keywords = ["claude", "mcp", "memory", "ai", "llm", "claude-code", "codex", "openai", "persistent-memory"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",

@@ -1,13 +1,13 @@
 # Claude Total Memory
 
-**Persistent memory for Claude Code across sessions.**
+**Persistent memory for Claude Code and Codex CLI across sessions.**
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-green.svg)
 ![MCP Server](https://img.shields.io/badge/MCP-Server-purple.svg)
 ![Version 4.0](https://img.shields.io/badge/Version-4.0.0-orange.svg)
 
-An MCP server that gives Claude Code a persistent, searchable memory and the ability to learn from its own mistakes. It stores decisions, solutions, lessons, facts, and conventions -- then retrieves them automatically across sessions using a 4-tier search pipeline. v4.0 adds privacy stripping, branch-aware context, 3-level progressive disclosure, lightweight observations, token cost estimation, and a real-time SSE live feed in the dashboard.
+An MCP server that gives Claude Code and OpenAI Codex CLI a persistent, searchable memory and the ability to learn from its own mistakes. It stores decisions, solutions, lessons, facts, and conventions -- then retrieves them automatically across sessions using a 4-tier search pipeline. Works with both Claude Code and Codex CLI using the same shared database. v4.0 adds privacy stripping, branch-aware context, 3-level progressive disclosure, lightweight observations, token cost estimation, and a real-time SSE live feed in the dashboard.
 
 ---
 
@@ -556,11 +556,21 @@ With proper configuration, Claude will:
 
 ### Templates reference
 
+**Claude Code:**
+
 | File | Purpose | Copy to |
 |------|---------|---------|
 | `CLAUDE.md.template` | Project-level memory rules | `/your-project/CLAUDE.md` |
 | `global-rules.md.template` | Global memory rules for all projects | `~/.claude/CLAUDE.md` (append) |
 | `agent-rules.md.template` | Guide for configuring custom agents | Read and apply to `.claude/agents/*.md` |
+
+**Codex CLI:**
+
+| File | Purpose | Copy to |
+|------|---------|---------|
+| `AGENTS.md.template` | Project-level memory rules | `/your-project/AGENTS.md` |
+| `codex-global-rules.md.template` | Global memory rules for all projects | `~/.codex/AGENTS.md` (append) |
+| `codex-skill/` | Memory skill for Codex | `~/.agents/skills/memory/` |
 
 ---
 
@@ -764,6 +774,150 @@ Claude Code
 - **Dashboard** (`src/dashboard.py`): standalone HTTP server using Python stdlib, read-only SQLite access
 
 The server creates a new session ID on each startup and logs all tool calls to raw JSONL files for auditability.
+
+---
+
+## Using with OpenAI Codex CLI
+
+The same MCP server works with OpenAI Codex CLI. No changes to `server.py` or the dashboard are needed -- the MCP protocol is identical.
+
+### Quick Start (Codex)
+
+If you already have Claude Total Memory installed for Claude Code:
+
+```bash
+bash install-codex.sh
+```
+
+Fresh install:
+
+```bash
+git clone https://github.com/vbcherepanov/claude-total-memory.git
+cd claude-total-memory
+bash install-codex.sh
+```
+
+Windows:
+
+```powershell
+git clone https://github.com/vbcherepanov/claude-total-memory.git
+cd claude-total-memory
+powershell -ExecutionPolicy Bypass -File install-codex.ps1
+```
+
+The Codex installer reuses the same Python venv and memory database. If you already ran `install.sh`, dependencies are not re-downloaded.
+
+### Manual MCP Configuration (Codex)
+
+Edit `~/.codex/config.toml` and add:
+
+```toml
+[mcp_servers.memory]
+command = "/FULL/PATH/TO/claude-total-memory/.venv/bin/python"
+args = ["/FULL/PATH/TO/claude-total-memory/src/server.py"]
+required = true
+startup_timeout_sec = 15.0
+tool_timeout_sec = 120.0
+
+[mcp_servers.memory.env]
+CLAUDE_MEMORY_DIR = "/Users/yourname/.claude-memory"
+EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+```
+
+Windows paths use forward slashes in TOML:
+
+```toml
+[mcp_servers.memory]
+command = "C:/Users/yourname/claude-total-memory/.venv/Scripts/python.exe"
+args = ["C:/Users/yourname/claude-total-memory/src/server.py"]
+required = true
+
+[mcp_servers.memory.env]
+CLAUDE_MEMORY_DIR = "C:/Users/yourname/.claude-memory"
+EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+```
+
+### AGENTS.md Setup (Codex)
+
+Codex CLI uses `AGENTS.md` instead of `CLAUDE.md` for instructions. The setup mirrors the Claude Code approach with three layers:
+
+**Layer 1: Global rules** -- append `codex-global-rules.md.template` to `~/.codex/AGENTS.md`:
+
+```bash
+cat codex-global-rules.md.template >> ~/.codex/AGENTS.md
+```
+
+**Layer 2: Project rules** -- copy `AGENTS.md.template` to your project root:
+
+```bash
+cp AGENTS.md.template /path/to/your/project/AGENTS.md
+# Then replace "my-project" with your project name
+```
+
+**Layer 3: Codex Skill** -- the installer copies `codex-skill/` to `~/.agents/skills/memory/` automatically. To install manually:
+
+```bash
+mkdir -p ~/.agents/skills/memory/agents
+cp codex-skill/SKILL.md ~/.agents/skills/memory/
+cp codex-skill/agents/openai.yaml ~/.agents/skills/memory/agents/
+```
+
+> **Note:** Codex supports `AGENTS.override.md` for temporary instruction overrides without editing the base file.
+
+### Shared Memory
+
+Both Claude Code and Codex CLI point to the same `~/.claude-memory/` database. Knowledge saved by one is instantly available to the other:
+
+```
+                    ~/.claude-memory/
+                    (SQLite + ChromaDB)
+                          |
+              +-----------+-----------+
+              |                       |
+        Claude Code               Codex CLI
+   (~/.claude/settings.json)  (~/.codex/config.toml)
+              |                       |
+              +--- Same server.py ----+
+              +--- Same 20 tools -----+
+              +--- Same dashboard ----+
+```
+
+**Important:** Do not run both CLIs simultaneously. SQLite supports only one writer at a time. Close one CLI before starting the other. The dashboard (read-only) can run alongside either CLI safely.
+
+### Hooks Limitations (Codex)
+
+Codex CLI's hook system is experimental and more limited than Claude Code's. The key difference:
+
+| Hook | Claude Code | Codex CLI |
+|------|-------------|-----------|
+| SessionStart | Stable -- reminds to call `memory_recall` | Not available -- instructions in AGENTS.md compensate |
+| Stop | Stable -- reminds to save knowledge | Not available -- instructions in AGENTS.md compensate |
+| PostToolUse | Stable -- suggests `memory_save` after git/docker | Experimental (`AfterToolUse` in v0.99.0+) |
+| Notification | Stable -- macOS/Windows alerts | `notify` config -- agent-turn-complete only |
+
+Because of this, the `AGENTS.md.template` and `codex-global-rules.md.template` include stronger, more prominent instructions for manual recall and save steps.
+
+An optional `hooks/codex-notify.sh` is provided for the `notify` mechanism:
+
+```toml
+# ~/.codex/config.toml
+notify = ["/path/to/claude-total-memory/hooks/codex-notify.sh"]
+```
+
+### Claude Code vs Codex CLI -- Comparison
+
+| Aspect | Claude Code | Codex CLI |
+|--------|-------------|-----------|
+| Instructions file | `CLAUDE.md` | `AGENTS.md` |
+| Global instructions | `~/.claude/CLAUDE.md` | `~/.codex/AGENTS.md` |
+| MCP config | `~/.claude/settings.json` (JSON) | `~/.codex/config.toml` (TOML) |
+| Hooks | 5 stable events | Experimental |
+| Custom agents | `.claude/agents/*.md` | `.agents/skills/` |
+| Installer | `install.sh` / `install.ps1` | `install-codex.sh` / `install-codex.ps1` |
+| Override mechanism | None | `AGENTS.override.md` |
+| MCP tools | All 20 | All 20 (identical) |
+| Dashboard | Shared | Shared |
+| Memory database | `~/.claude-memory/` | `~/.claude-memory/` (same) |
 
 ---
 
