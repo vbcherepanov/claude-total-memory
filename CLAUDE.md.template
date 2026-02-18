@@ -132,6 +132,57 @@ self_reflect(reflection="What went well, what to improve", task_summary="What wa
 self_patterns(view="full_report", project="my-project")
 ```
 
+## Privacy & Security
+
+### Automatic Redaction
+
+The server automatically strips sensitive data before storing knowledge:
+- API keys (sk-*, key-*, Bearer tokens)
+- JWTs, passwords, credit card numbers, emails
+- IP addresses with ports
+
+You can also use `<private>` tags to explicitly exclude content:
+
+```
+memory_save(
+    content="Connected to <private>prod-db.internal:5432</private> using connection pooling",
+    type="fact",
+    project="my-project"
+)
+```
+
+Everything inside `<private>...</private>` tags is replaced with `[REDACTED]` before storage.
+
+### What is NOT stored
+
+- File contents (only metadata about changes via observations)
+- Environment variables or .env file contents
+- Raw credentials or tokens
+
+## Auto-Capture (Observations)
+
+The `memory_observe` tool provides lightweight tracking of file changes and discoveries
+without the overhead of full knowledge storage (no dedup, no vector embeddings).
+
+```
+memory_observe(
+    tool_name="Write",
+    summary="Created user authentication middleware",
+    observation_type="feature",
+    files_affected=["/src/middleware/auth.py"],
+    project="my-project"
+)
+```
+
+Observation types: `bugfix`, `feature`, `refactor`, `change`, `discovery`, `decision`
+
+Observations are automatically cleaned up after 30 days. Use them for:
+- Tracking what files were modified and why
+- Recording quick discoveries during exploration
+- Building a timeline of changes within a session
+
+For important, long-lived knowledge, use `memory_save` instead.
+
 ## Web Dashboard
 
-Open http://localhost:37737 to browse knowledge, sessions, and the knowledge graph.
+Open http://localhost:37737 to browse knowledge, sessions, the knowledge graph, and live activity feed.

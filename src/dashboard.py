@@ -17,7 +17,10 @@ import json
 import os
 import sqlite3
 import sys
+import time
+import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
@@ -102,6 +105,12 @@ def api_stats(db: sqlite3.Connection) -> dict:
 
     storage_mb = round(db_mb + chroma_mb + raw_mb, 2)
 
+    obs_count = 0
+    try:
+        obs_count = db.execute("SELECT COUNT(*) FROM observations").fetchone()[0]
+    except Exception:
+        pass
+
     return {
         "total_knowledge": total_knowledge,
         "by_type": by_type,
@@ -111,6 +120,7 @@ def api_stats(db: sqlite3.Connection) -> dict:
         "storage_mb": storage_mb,
         "stale_90d": stale,
         "never_recalled": never_recalled,
+        "observations_count": obs_count,
     }
 
 
@@ -406,6 +416,58 @@ def api_self_improvement(db: sqlite3.Connection) -> dict:
         pass
 
     return result
+
+
+def api_observations(
+    db: sqlite3.Connection,
+    project: str | None = None,
+    page: int = 1,
+    limit: int = 50,
+) -> dict:
+    """Paginated observations listing."""
+    try:
+        conds: list[str] = []
+        params: list = []
+        if project:
+            conds.append("project=?")
+            params.append(project)
+        where = (" WHERE " + " AND ".join(conds)) if conds else ""
+        total = db.execute(f"SELECT COUNT(*) FROM observations{where}", params).fetchone()[0]
+        offset = (page - 1) * limit
+        rows = q(
+            db,
+            f"""SELECT id, session_id, tool_name, observation_type, summary,
+                       files_affected, project, branch, created_at
+                FROM observations{where}
+                ORDER BY created_at DESC LIMIT ? OFFSET ?""",
+            (*params, limit, offset),
+        )
+        for row in rows:
+            if isinstance(row.get("files_affected"), str):
+                try:
+                    row["files_affected"] = json.loads(row["files_affected"])
+                except Exception:
+                    row["files_affected"] = []
+        return {"items": rows, "total": total, "page": page, "limit": limit,
+                "pages": max(1, (total + limit - 1) // limit)}
+    except Exception:
+        return {"items": [], "total": 0, "page": 1, "limit": limit, "pages": 1}
+
+
+def api_branches(db: sqlite3.Connection) -> list[str]:
+    """Get distinct branches from sessions and knowledge."""
+    branches = set()
+    try:
+        for r in db.execute("SELECT DISTINCT branch FROM sessions WHERE branch != ''").fetchall():
+            branches.add(r[0])
+    except Exception:
+        pass
+    try:
+        for r in db.execute("SELECT DISTINCT branch FROM knowledge WHERE branch != '' AND status='active'").fetchall():
+            branches.add(r[0])
+    except Exception:
+        pass
+    return sorted(branches)
 
 
 # ============================================================
@@ -855,6 +917,7 @@ td.date-col { white-space: nowrap; color: var(--text-dim); font-size: 13px; }
             <div class="value" id="stat-si" style="color: var(--rule-color)">--</div>
             <div class="label" id="stat-si-detail">-- errors, -- insights, -- rules</div>
         </div>
+        <div class="stat-card"><div class="label">Observations</div><div class="value" id="stat-observations" style="color:var(--insight-color)">--</div></div>
     </div>
 
     <div class="tabs">
@@ -863,6 +926,7 @@ td.date-col { white-space: nowrap; color: var(--text-dim); font-size: 13px; }
         <button class="tab" data-tab="graph">Graph</button>
         <button class="tab" data-tab="self-improvement">Self-Improvement</button>
         <button class="tab" data-tab="rules">Rules (SOUL)</button>
+        <button class="tab" data-tab="live-feed">Live Feed</button>
     </div>
 
     <!-- Knowledge Tab -->
@@ -882,6 +946,7 @@ td.date-col { white-space: nowrap; color: var(--text-dim); font-size: 13px; }
                         <th>Content</th>
                         <th>Score</th>
                         <th>Recalls</th>
+                        <th>Tokens</th>
                         <th>Created</th>
                     </tr>
                 </thead>
@@ -994,6 +1059,15 @@ td.date-col { white-space: nowrap; color: var(--text-dim); font-size: 13px; }
             </table>
         </div>
     </div>
+
+    <!-- Live Feed Tab -->
+    <div class="tab-content" id="tab-live-feed">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div id="feed-status" style="width:10px;height:10px;border-radius:50%;background:#ef4444"></div>
+            <span id="feed-status-text" style="color:var(--text-dim);font-size:13px">Disconnected</span>
+        </div>
+        <div id="feed-list" style="display:flex;flex-direction:column;gap:8px;max-height:70vh;overflow-y:auto"></div>
+    </div>
 </div>
 
 <!-- Detail Modal -->
@@ -1084,6 +1158,7 @@ async function loadStats() {
         document.getElementById('stat-projects').textContent = Object.keys(s.by_project).length;
         document.getElementById('stat-health').textContent = (s.health_score * 100).toFixed(0) + '%';
         document.getElementById('stat-storage').textContent = s.storage_mb.toFixed(1) + ' MB';
+        document.getElementById('stat-observations').textContent = s.observations_count || 0;
 
         // Populate filters
         const typeSelect = document.getElementById('type-filter');
@@ -1138,12 +1213,13 @@ async function loadKnowledge() {
                 '<td class="content-col">' + escapeHtml(truncate(row.content, 100)) + '</td>' +
                 '<td class="num-col">' + (row.confidence != null ? row.confidence.toFixed(2) : '--') + '</td>' +
                 '<td class="num-col">' + (row.recall_count || 0) + '</td>' +
+                '<td class="num-col">' + Math.round((row.content||'').length / 4) + '</td>' +
                 '<td class="date-col">' + formatDate(row.created_at) + '</td>';
             tbody.appendChild(tr);
         }
 
         if (data.items.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:40px">No knowledge found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-dim);padding:40px">No knowledge found</td></tr>';
         }
 
         document.getElementById('page-info').textContent = 'Page ' + currentPage + ' of ' + totalPages;
@@ -1151,7 +1227,7 @@ async function loadKnowledge() {
         document.getElementById('next-btn').disabled = currentPage >= totalPages;
     } catch (e) {
         document.getElementById('knowledge-body').innerHTML =
-            '<tr><td colspan="7" class="loading">Error loading data</td></tr>';
+            '<tr><td colspan="8" class="loading">Error loading data</td></tr>';
     }
 }
 
@@ -1719,6 +1795,7 @@ document.querySelectorAll('.tab').forEach(tab => {
         if (target === 'graph') initGraph();
         if (target === 'self-improvement') loadSelfImprovement();
         if (target === 'rules') loadRules();
+        if (target === 'live-feed') initLiveFeed();
     });
 });
 
@@ -1775,6 +1852,66 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 loadStats();
 loadKnowledge();
 loadSIStats();
+
+// ============================================================
+// Live Feed (SSE)
+// ============================================================
+let feedSource = null;
+let feedInitialized = false;
+const MAX_FEED_ITEMS = 100;
+
+function initLiveFeed() {
+    if (feedInitialized) return;
+    feedInitialized = true;
+    connectSSE();
+}
+
+function connectSSE() {
+    const statusDot = document.getElementById('feed-status');
+    const statusText = document.getElementById('feed-status-text');
+
+    if (feedSource) { try { feedSource.close(); } catch(e) {} }
+
+    feedSource = new EventSource('/api/events');
+
+    feedSource.onopen = () => {
+        statusDot.style.background = '#22c55e';
+        statusText.textContent = 'Connected';
+    };
+
+    feedSource.onerror = () => {
+        statusDot.style.background = '#ef4444';
+        statusText.textContent = 'Disconnected — retrying...';
+    };
+
+    feedSource.addEventListener('knowledge', e => {
+        addFeedItem('knowledge', JSON.parse(e.data));
+    });
+    feedSource.addEventListener('error_log', e => {
+        addFeedItem('error', JSON.parse(e.data));
+    });
+    feedSource.addEventListener('observation', e => {
+        addFeedItem('observation', JSON.parse(e.data));
+    });
+}
+
+function addFeedItem(type, data) {
+    const list = document.getElementById('feed-list');
+    const item = document.createElement('div');
+    item.style.cssText = 'padding:12px;background:var(--card);border-radius:8px;border:1px solid var(--border);animation:fadeIn 0.3s ease';
+    const colors = { knowledge: 'var(--accent)', error: 'var(--error-high)', observation: 'var(--insight-color)' };
+    const color = colors[type] || 'var(--text-dim)';
+    let label = data.summary || data.content || data.description || '';
+    if (label.length > 150) label = label.substring(0, 150) + '...';
+    item.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+        '<span style="color:' + color + ';font-weight:600;text-transform:uppercase;font-size:12px">' + escapeHtml(type) + '</span>' +
+        '<span style="color:var(--text-dim);font-size:12px">' + new Date().toLocaleTimeString() + '</span>' +
+        '</div>' +
+        '<div style="color:var(--text);font-size:14px">' + escapeHtml(label) + '</div>';
+    list.prepend(item);
+    while (list.children.length > MAX_FEED_ITEMS) list.lastChild.remove();
+}
 </script>
 </body>
 </html>
@@ -1815,6 +1952,95 @@ class DashboardHandler(BaseHTTPRequestHandler):
         """Open a read-only DB connection. Returns None if DB is missing."""
         return get_db()
 
+    def _handle_sse(self) -> None:
+        """Server-Sent Events endpoint: polls DB every 2s for new records."""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "keep-alive")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+
+        db = get_db()
+        if not db:
+            self.wfile.write(b"event: error\ndata: {\"error\": \"no database\"}\n\n")
+            self.wfile.flush()
+            return
+
+        try:
+            # Get current max IDs as watermarks
+            last_k = db.execute("SELECT MAX(id) FROM knowledge").fetchone()[0] or 0
+            last_e = 0
+            last_o = 0
+            try:
+                last_e = db.execute("SELECT MAX(id) FROM errors").fetchone()[0] or 0
+            except Exception:
+                pass
+            try:
+                last_o = db.execute("SELECT MAX(id) FROM observations").fetchone()[0] or 0
+            except Exception:
+                pass
+
+            while True:
+                time.sleep(2)
+                # Heartbeat
+                try:
+                    self.wfile.write(b": heartbeat\n\n")
+                    self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError):
+                    break
+
+                try:
+                    # New knowledge
+                    rows = db.execute(
+                        "SELECT id, type, project, substr(content,1,120) as summary, created_at "
+                        "FROM knowledge WHERE id > ? AND status='active' ORDER BY id",
+                        (last_k,)
+                    ).fetchall()
+                    for r in rows:
+                        d = dict(r)
+                        last_k = d["id"]
+                        payload = json.dumps(d, default=str)
+                        self.wfile.write(f"event: knowledge\ndata: {payload}\n\n".encode())
+
+                    # New errors
+                    try:
+                        rows = db.execute(
+                            "SELECT id, category, severity, substr(description,1,120) as summary, created_at "
+                            "FROM errors WHERE id > ? ORDER BY id",
+                            (last_e,)
+                        ).fetchall()
+                        for r in rows:
+                            d = dict(r)
+                            last_e = d["id"]
+                            payload = json.dumps(d, default=str)
+                            self.wfile.write(f"event: error_log\ndata: {payload}\n\n".encode())
+                    except Exception:
+                        pass
+
+                    # New observations
+                    try:
+                        rows = db.execute(
+                            "SELECT id, tool_name, observation_type, summary, created_at "
+                            "FROM observations WHERE id > ? ORDER BY id",
+                            (last_o,)
+                        ).fetchall()
+                        for r in rows:
+                            d = dict(r)
+                            last_o = d["id"]
+                            payload = json.dumps(d, default=str)
+                            self.wfile.write(f"event: observation\ndata: {payload}\n\n".encode())
+                    except Exception:
+                        pass
+
+                    self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError):
+                    break
+                except Exception:
+                    pass
+        finally:
+            db.close()
+
     def do_GET(self) -> None:
         """Route GET requests."""
         parsed = urlparse(self.path)
@@ -1829,6 +2055,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
         # --- Main page ---
         if path in ("", "/"):
             self._send_html(HTML_PAGE)
+            return
+
+        # --- SSE endpoint (no DB close, long-lived) ---
+        if path == "/api/events":
+            self._handle_sse()
             return
 
         # --- API routes require DB ---
@@ -1887,6 +2118,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
             elif path == "/api/self-improvement":
                 self._send_json(api_self_improvement(db))
 
+            elif path == "/api/observations":
+                project = p("project") or None
+                page = max(1, int(p("page", "1")))
+                limit = min(200, max(1, int(p("limit", "50"))))
+                self._send_json(api_observations(db, project, page, limit))
+
+            elif path == "/api/branches":
+                self._send_json(api_branches(db))
+
             else:
                 self._send_error(404, "Not found")
         except Exception as e:
@@ -1901,7 +2141,10 @@ def main() -> None:
     print(f"Database:   {DB_PATH} ({'exists' if DB_PATH.exists() else 'NOT FOUND'})")
     print(f"Dashboard running at http://localhost:{DASHBOARD_PORT}")
 
-    server = HTTPServer(("0.0.0.0", DASHBOARD_PORT), DashboardHandler)
+    class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+        daemon_threads = True
+
+    server = ThreadingHTTPServer(("0.0.0.0", DASHBOARD_PORT), DashboardHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

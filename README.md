@@ -5,9 +5,9 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-green.svg)
 ![MCP Server](https://img.shields.io/badge/MCP-Server-purple.svg)
-![Version 3.0](https://img.shields.io/badge/Version-3.0.0-orange.svg)
+![Version 4.0](https://img.shields.io/badge/Version-4.0.0-orange.svg)
 
-An MCP server that gives Claude Code a persistent, searchable memory and the ability to learn from its own mistakes. It stores decisions, solutions, lessons, facts, and conventions -- then retrieves them automatically across sessions using a 4-tier search pipeline. In v3.0, a new Self-Improving Agent learns from errors, extracts patterns, and builds behavioral rules that persist across sessions.
+An MCP server that gives Claude Code a persistent, searchable memory and the ability to learn from its own mistakes. It stores decisions, solutions, lessons, facts, and conventions -- then retrieves them automatically across sessions using a 4-tier search pipeline. v4.0 adds privacy stripping, branch-aware context, 3-level progressive disclosure, lightweight observations, token cost estimation, and a real-time SSE live feed in the dashboard.
 
 ---
 
@@ -21,7 +21,7 @@ Worse, Claude keeps making the same mistakes. It tries the same wrong approach, 
 
 ## The Solution
 
-Claude Total Memory is an MCP server that runs alongside Claude Code. It provides 19 tools for saving knowledge, retrieving it, and learning from mistakes. When Claude saves a decision, a bug fix, or a project convention, that knowledge persists in a local database. When Claude hits an error, it logs the failure and the fix. Over time, error patterns are detected, insights are extracted, and behavioral rules are formed -- making Claude measurably better at its job.
+Claude Total Memory is an MCP server that runs alongside Claude Code. It provides 20 tools for saving knowledge, retrieving it, and learning from mistakes. When Claude saves a decision, a bug fix, or a project convention, that knowledge persists in a local database. When Claude hits an error, it logs the failure and the fix. Over time, error patterns are detected, insights are extracted, and behavioral rules are formed -- making Claude measurably better at its job.
 
 No cloud services. No API keys. Everything stays on your machine.
 
@@ -33,7 +33,9 @@ No cloud services. No API keys. Everything stays on your machine.
 - 4-tier search pipeline: FTS5 keyword (BM25) -> semantic (ChromaDB) -> fuzzy (SequenceMatcher) -> graph expansion
 - Decay scoring: recent knowledge ranks higher, stale knowledge fades
 - Spaced repetition: frequently recalled knowledge gets boosted
-- Progressive disclosure: summary mode (150 chars) saves tokens, full mode returns everything
+- 3-level progressive disclosure: compact (~50 tokens/result), summary (150 chars), full -- up to 10x token savings
+- Token cost estimation: each result includes estimated tokens, response includes total_tokens
+- Branch-aware context: knowledge and sessions tagged with git branch, filterable on recall
 
 **Knowledge Management**
 - Five knowledge types: decision, solution, lesson, fact, convention
@@ -42,7 +44,18 @@ No cloud services. No API keys. Everything stays on your machine.
 - Knowledge graph with typed relations between records
 - Tag-based browsing and filtering
 
-**Self-Improving Agent** (new in v3.0)
+**Privacy and Security** (new in v4.0)
+- Automatic redaction of sensitive data: API keys, JWTs, passwords, credit card numbers, emails, IP addresses
+- `<private>` tag support for explicit content exclusion
+- All redaction happens before database storage -- sensitive data never persists
+
+**Observations** (new in v4.0)
+- Lightweight file change tracking via `memory_observe` -- no dedup, no vector embeddings
+- Six observation types: bugfix, feature, refactor, change, discovery, decision
+- Automatic cleanup after 30 days
+- Ideal for tracking what changed and why during a session
+
+**Self-Improving Agent** (v3.0)
 - Automatic error logging with structured categories and severity levels
 - Pattern detection: 3+ errors of the same category in 30 days triggers an insight suggestion
 - Insight extraction with ExpeL-style voting (importance + confidence scoring)
@@ -59,10 +72,12 @@ No cloud services. No API keys. Everything stays on your machine.
 
 **Dashboard**
 - Web UI at `localhost:37737`
-- Statistics, health score, knowledge table, session browser
+- Statistics, health score, knowledge table with token estimates, session browser
 - Interactive knowledge graph visualization
 - Self-Improvement tab: error patterns, insights, promotion candidates
 - Rules/SOUL tab: active rules, effectiveness metrics, success rates
+- Live Feed tab (new in v4.0): real-time SSE stream of knowledge, errors, and observations
+- Branch filter for knowledge browsing
 - Read-only -- safe to leave running
 
 ---
@@ -161,14 +176,15 @@ Restart Claude Code. You should see `memory` listed in the MCP servers. Run `mem
 
 ## MCP Tools
 
-### Core (4 tools)
+### Core (5 tools)
 
 | Tool | Description |
 |------|-------------|
-| `memory_recall` | Search all past knowledge. 4-tier search with decay scoring. Use before starting any task. |
-| `memory_save` | Save knowledge with type, project, tags, and context. Auto-deduplicates. |
+| `memory_recall` | Search all past knowledge. 4-tier search with decay scoring. 3-level detail: compact, summary, full. Branch filtering. Token estimation. |
+| `memory_save` | Save knowledge with type, project, tags, context, and branch. Auto-deduplicates. Privacy stripping. |
 | `memory_update` | Find existing knowledge by search query, supersede it, create a new version. |
 | `memory_search_by_tag` | Browse all active knowledge matching a tag (partial match supported). |
+| `memory_observe` | Lightweight observation tracking for file changes and discoveries. No dedup, no embeddings, 30-day retention. |
 
 ### Browsing and Analytics (3 tools)
 
@@ -199,7 +215,7 @@ Restart Claude Code. You should see `memory` listed in the MCP servers. Run `mem
 |------|-------------|
 | `memory_extract_session` | Process pending session transcripts. List, read, and mark as complete. |
 
-### Self-Improvement (6 tools)
+### Self-Improvement (6 tools, v3.0)
 
 | Tool | Description |
 |------|-------------|
@@ -554,9 +570,13 @@ Ready-to-use hooks are provided in the `hooks/` directory:
 
 | Hook | macOS/Linux | Windows | What it does |
 |------|-------------|---------|--------------|
-| SessionStart | `hooks/session-start.sh` | `hooks/session-start.ps1` | Reminds Claude to use `memory_recall` and `self_rules_context` |
-| Stop | `hooks/on-stop.sh` | `hooks/on-stop.ps1` | Reminds Claude to save knowledge |
-| PostToolUse:Bash | `hooks/memory-trigger.sh` | `hooks/memory-trigger.ps1` | Suggests `memory_save` after git/docker |
+| SessionStart | `hooks/session-start.sh` | `hooks/session-start.ps1` | Detects project/branch, reminds Claude to use `memory_recall` and `self_rules_context` |
+| Stop | `hooks/on-stop.sh` | `hooks/on-stop.ps1` | Reminds Claude to save knowledge and reflect |
+| PostToolUse:Bash | `hooks/memory-trigger.sh` | `hooks/memory-trigger.ps1` | Suggests `memory_save` after git/docker/npm/pip/go/cargo/composer |
+| PostToolUse:Write | `hooks/auto-capture.sh` | `hooks/auto-capture.ps1` | Suggests `memory_observe` after file changes (new in v4.0) |
+| PostToolUse:Edit | `hooks/auto-capture.sh` | `hooks/auto-capture.ps1` | Same as Write -- tracks file edits (new in v4.0) |
+
+> **Note:** The `install.sh` / `install.ps1` installer automatically registers all hooks in `settings.json`. Manual registration is only needed for custom setups.
 
 **macOS / Linux** -- add to `~/.claude/settings.json`:
 
@@ -580,6 +600,16 @@ Ready-to-use hooks are provided in the `hooks/` directory:
         "type": "command",
         "command": "/FULL/PATH/TO/claude-total-memory/hooks/memory-trigger.sh",
         "matcher": "Bash"
+      },
+      {
+        "type": "command",
+        "command": "/FULL/PATH/TO/claude-total-memory/hooks/auto-capture.sh",
+        "matcher": "Write"
+      },
+      {
+        "type": "command",
+        "command": "/FULL/PATH/TO/claude-total-memory/hooks/auto-capture.sh",
+        "matcher": "Edit"
       }
     ]
   }
@@ -608,6 +638,16 @@ Ready-to-use hooks are provided in the `hooks/` directory:
         "type": "command",
         "command": "powershell -ExecutionPolicy Bypass -File C:/Users/yourname/claude-total-memory/hooks/memory-trigger.ps1",
         "matcher": "Bash"
+      },
+      {
+        "type": "command",
+        "command": "powershell -ExecutionPolicy Bypass -File C:/Users/yourname/claude-total-memory/hooks/auto-capture.ps1",
+        "matcher": "Write"
+      },
+      {
+        "type": "command",
+        "command": "powershell -ExecutionPolicy Bypass -File C:/Users/yourname/claude-total-memory/hooks/auto-capture.ps1",
+        "matcher": "Edit"
       }
     ]
   }
@@ -637,8 +677,8 @@ The transcript extractor:
 
 ```
 ~/.claude-memory/
-  memory.db              SQLite database (7 tables: sessions, knowledge, relations,
-                         timeline, errors, insights, rules + FTS5 indexes)
+  memory.db              SQLite database (8 tables: sessions, knowledge, relations,
+                         timeline, errors, insights, rules, observations + FTS5 indexes)
   raw/                   Raw JSONL session logs
     mcp_20260215_*.jsonl
   chroma/                ChromaDB vector store (semantic embeddings)
@@ -687,34 +727,35 @@ Typical storage sizes after moderate use:
 
 ## Architecture
 
-The server is a single-file MCP server (`src/server.py`, ~1900 lines) built on:
+The server is a single-file MCP server (`src/server.py`, ~2100 lines) built on:
 
 - **MCP SDK** (`mcp` package): protocol implementation and stdio transport
 - **SQLite FTS5**: full-text search with BM25 scoring, triggers for index sync
 - **ChromaDB**: persistent vector store with cosine similarity search
 - **sentence-transformers**: local embedding model (`all-MiniLM-L6-v2`, 384d)
 
-The database contains 7 tables: `sessions`, `knowledge`, `relations`, `timeline` (core), and `errors`, `insights`, `rules` (self-improvement).
+The database contains 8 tables: `sessions`, `knowledge`, `relations`, `timeline` (core), `observations` (auto-capture), and `errors`, `insights`, `rules` (self-improvement).
 
 ```
 Claude Code
     |
     | (MCP protocol over stdio)
     v
-+--------------------------------------+
-|  MCP Server (server.py) — 19 tools   |
-|                                      |
-|  +--------+  +---------+  +-------+  |
-|  | Store   |  | Recall  |  | Self- |  |
-|  | (write) |  | (read)  |  | Impr. |  |
-|  +----+----+  +----+----+  +---+---+  |
-|       |            |           |      |
-|  +----v------------v-----------v--+   |
-|  |   SQLite (7 tables + FTS5)     |   |
-|  |   + ChromaDB (vectors)         |   |
-|  |   + Relations Graph            |   |
-|  +--------------------------------+   |
-+--------------------------------------+
++----------------------------------------------+
+|  MCP Server (server.py) — 20 tools            |
+|                                                |
+|  +--------+  +---------+  +-------+  +------+ |
+|  | Store   |  | Recall  |  | Self- |  | Obs. | |
+|  | (write) |  | (read)  |  | Impr. |  | (cap)| |
+|  +----+----+  +----+----+  +---+---+  +--+---+ |
+|       |            |           |          |    |
+|  +----v------------v-----------v----------v-+  |
+|  |   SQLite (8 tables + FTS5)               |  |
+|  |   + ChromaDB (vectors)                   |  |
+|  |   + Relations Graph                      |  |
+|  |   + Privacy Stripping                    |  |
+|  +------------------------------------------+  |
++----------------------------------------------+
 ```
 
 - **Store**: handles writes -- save, update, delete, consolidate, retention, dedup
@@ -723,6 +764,70 @@ Claude Code
 - **Dashboard** (`src/dashboard.py`): standalone HTTP server using Python stdlib, read-only SQLite access
 
 The server creates a new session ID on each startup and logs all tool calls to raw JSONL files for auditability.
+
+---
+
+## Upgrading from v3.x
+
+If you are upgrading from v3.x (19 tools) to v4.0 (20 tools):
+
+**1. Update the code**
+
+```bash
+cd /path/to/claude-total-memory
+git pull origin main
+```
+
+**2. Database migration**
+
+No manual migration is needed. The server automatically:
+- Adds `branch` column to `sessions` and `knowledge` tables
+- Creates the new `observations` table
+- Adds missing FTS5 DELETE trigger for errors
+- Adds indexes on the `relations` table
+
+Your existing data is untouched.
+
+**3. Dashboard**
+
+The new tabs (Live Feed, branch filter, token column) and the observations stat card appear automatically. Restart the dashboard:
+
+```bash
+# macOS
+launchctl bootout gui/$(id -u)/com.claude-total-memory.dashboard
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.claude-total-memory.dashboard.plist
+```
+
+**4. Register new hooks (optional)**
+
+The new `auto-capture` hooks suggest `memory_observe` after file changes. Either re-run `install.sh` (it registers all hooks automatically) or add manually:
+
+```json
+{
+  "PostToolUse": [
+    { "type": "command", "command": "/path/to/hooks/auto-capture.sh", "matcher": "Write" },
+    { "type": "command", "command": "/path/to/hooks/auto-capture.sh", "matcher": "Edit" }
+  ]
+}
+```
+
+**5. Update CLAUDE.md templates (optional)**
+
+Copy the updated `CLAUDE.md.template` to your projects to enable privacy tags and observation instructions.
+
+### What's new in v4.0
+
+- **Privacy stripping**: automatic redaction of API keys, JWTs, passwords, emails, credit cards before storage
+- **`<private>` tags**: explicitly exclude sensitive content from knowledge
+- **Branch-aware context**: knowledge tagged with git branch, filterable on recall
+- **3-level progressive disclosure**: compact (~50 tokens/result), summary, full -- up to 10x token savings
+- **Token cost estimation**: each result includes estimated tokens
+- **`memory_observe` tool**: lightweight file change tracking (30-day retention)
+- **SSE Live Feed**: real-time dashboard tab showing knowledge, errors, observations as they happen
+- **Branch filter**: filter knowledge by git branch in the dashboard
+- **Token column**: see token estimates in the knowledge table
+- **BM25 fix**: batch-relative normalization for better ranking
+- **Performance**: optimized search_by_tag, indexed relations table, fixed double dedup
 
 ---
 

@@ -1,4 +1,4 @@
-# Stop hook — remind Claude to save knowledge when session ends
+# Stop hook — remind Claude to save knowledge and reflect when session ends
 #
 # Add to %USERPROFILE%\.claude\settings.json:
 #   "hooks": {
@@ -8,4 +8,8 @@
 #     }]
 #   }
 
-Write-Output "MEMORY_WARNING: Session ending. If you learned anything important, save it with memory_save() before the session closes."
+$Project = Split-Path -Leaf (Get-Location)
+
+Write-Output "MEMORY_WARNING: Session ending. Before closing:"
+Write-Output "  1. Save important knowledge with memory_save(project=`"$Project`")"
+Write-Output "  2. Record a reflection: self_reflect(reflection=`"...`", task_summary=`"...`", project=`"$Project`")"

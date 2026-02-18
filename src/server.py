@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """
-Claude Total Memory — MCP Server v3.0 (Self-Improving Agent)
+Claude Total Memory — MCP Server v4.0 (Ultimate)
 
-Tools (19): memory_recall, memory_save, memory_update, memory_timeline,
+Tools (20): memory_recall, memory_save, memory_update, memory_timeline,
             memory_stats, memory_consolidate, memory_export, memory_forget,
             memory_history, memory_delete, memory_relate, memory_search_by_tag,
-            memory_extract_session,
+            memory_extract_session, memory_observe,
             self_error_log, self_insight, self_rules, self_patterns,
             self_reflect, self_rules_context
 Storage: SQLite FTS5 + ChromaDB (semantic) + relations (graph)
-Features: BM25 scoring, progressive disclosure, decay scoring, fuzzy search,
+Features: BM25 scoring, 3-level progressive disclosure, decay scoring, fuzzy search,
           deduplication, retention zones, consolidation, version history, graph relations,
-          self-improvement pipeline (errors → insights → rules/SOUL)
+          self-improvement pipeline (errors → insights → rules/SOUL),
+          privacy stripping, branch-aware context, token estimation, observations
 """
 
 import asyncio
@@ -20,8 +21,9 @@ import math
 import os
 import re
 import sqlite3
+import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
 
@@ -46,7 +48,21 @@ EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 DECAY_HALF_LIFE = int(os.environ.get("DECAY_HALF_LIFE", "90"))  # days
 ARCHIVE_AFTER_DAYS = int(os.environ.get("ARCHIVE_AFTER_DAYS", "180"))
 PURGE_AFTER_DAYS = int(os.environ.get("PURGE_AFTER_DAYS", "365"))
+OBSERVATION_RETENTION_DAYS = int(os.environ.get("OBSERVATION_RETENTION_DAYS", "30"))
 LOG = lambda msg: sys.stderr.write(f"[memory-mcp] {msg}\n")
+
+# Privacy: patterns to redact before storing
+SENSITIVE_PATTERNS = [
+    re.compile(r'(?:sk|pk|api[_-]?key)[_-]?[a-zA-Z0-9]{20,}', re.I),
+    re.compile(r'(?:password|passwd|pwd|secret|token)\s*[:=]\s*\S+', re.I),
+    re.compile(r'(?:AKIA|ASIA)[A-Z0-9]{16}'),  # AWS keys
+    re.compile(r'ghp_[a-zA-Z0-9]{36}'),  # GitHub PAT
+    re.compile(r'eyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{20,}'),  # JWT
+    re.compile(r'(?:bearer|authorization)\s+\S+', re.I),
+    re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'),  # emails
+    re.compile(r'\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b'),  # credit cards
+]
+PRIVACY_TAG_RE = re.compile(r'<private>.*?</private>', re.DOTALL)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -124,6 +140,8 @@ class Store:
             CREATE INDEX IF NOT EXISTS idx_k_project ON knowledge(project);
             CREATE INDEX IF NOT EXISTS idx_k_session ON knowledge(session_id);
             CREATE INDEX IF NOT EXISTS idx_k_last_confirmed ON knowledge(last_confirmed);
+            CREATE INDEX IF NOT EXISTS idx_rel_from ON relations(from_id);
+            CREATE INDEX IF NOT EXISTS idx_rel_to ON relations(to_id);
             CREATE INDEX IF NOT EXISTS idx_t_session ON timeline(session_id);
             CREATE INDEX IF NOT EXISTS idx_s_started ON sessions(started_at);
             CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(
@@ -149,6 +167,15 @@ class Store:
             self.db.execute("ALTER TABLE knowledge ADD COLUMN recall_count INTEGER DEFAULT 0")
         if "last_recalled" not in cols:
             self.db.execute("ALTER TABLE knowledge ADD COLUMN last_recalled TEXT")
+        # v4.0: branch-aware context
+        if "branch" not in cols:
+            self.db.execute("ALTER TABLE knowledge ADD COLUMN branch TEXT DEFAULT ''")
+            LOG("Migration: added branch to knowledge table")
+
+        sess_cols = {r[1] for r in self.db.execute("PRAGMA table_info(sessions)").fetchall()}
+        if "branch" not in sess_cols:
+            self.db.execute("ALTER TABLE sessions ADD COLUMN branch TEXT DEFAULT ''")
+            LOG("Migration: added branch to sessions table")
 
         # Self-Improvement tables (v3.0)
         tables = {r[0] for r in self.db.execute(
@@ -164,6 +191,11 @@ class Store:
                 LOG("Migration: added resolved_at to errors table")
             # Ensure session index exists
             self.db.execute("CREATE INDEX IF NOT EXISTS idx_e_session ON errors(session_id)")
+
+        # v4.0: Observations table (lightweight auto-capture)
+        if "observations" not in tables:
+            self._create_observations_table()
+            LOG("Migration: created observations table")
 
         self.db.commit()
 
@@ -204,6 +236,10 @@ class Store:
                 VALUES ('delete', old.id, old.description, old.context, old.fix, old.tags);
                 INSERT INTO errors_fts(rowid, description, context, fix, tags)
                 VALUES (new.id, new.description, new.context, new.fix, new.tags);
+            END;
+            CREATE TRIGGER IF NOT EXISTS e_fts_d AFTER DELETE ON errors BEGIN
+                INSERT INTO errors_fts(errors_fts, rowid, description, context, fix, tags)
+                VALUES ('delete', old.id, old.description, old.context, old.fix, old.tags);
             END;
 
             CREATE TABLE IF NOT EXISTS insights (
@@ -295,6 +331,50 @@ class Store:
                 self.db.commit()
                 LOG("FTS5 recreated from scratch: OK")
 
+    def _create_observations_table(self):
+        """Create lightweight observations table for auto-capture."""
+        self.db.executescript("""
+            CREATE TABLE IF NOT EXISTS observations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                tool_name TEXT NOT NULL,
+                observation_type TEXT NOT NULL DEFAULT 'change',
+                summary TEXT NOT NULL,
+                files_affected TEXT DEFAULT '[]',
+                project TEXT DEFAULT 'general',
+                branch TEXT DEFAULT '',
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_obs_session ON observations(session_id);
+            CREATE INDEX IF NOT EXISTS idx_obs_project ON observations(project);
+            CREATE INDEX IF NOT EXISTS idx_obs_type ON observations(observation_type);
+            CREATE INDEX IF NOT EXISTS idx_obs_created ON observations(created_at DESC);
+        """)
+
+    @staticmethod
+    def _sanitize_content(text):
+        """Strip sensitive data: <private> tags and common secret patterns."""
+        if not text:
+            return text, False
+        redacted = False
+        # Strip <private>...</private> blocks
+        cleaned = PRIVACY_TAG_RE.sub("[REDACTED]", text)
+        if cleaned != text:
+            redacted = True
+            text = cleaned
+        # Strip known sensitive patterns
+        for pat in SENSITIVE_PATTERNS:
+            new_text = pat.sub("[REDACTED]", text)
+            if new_text != text:
+                redacted = True
+                text = new_text
+        return text, redacted
+
+    @staticmethod
+    def _estimate_tokens(text):
+        """Rough token estimate: ~4 chars per token for English."""
+        return len(text) // 4 if text else 0
+
     def q(self, sql, params=()):
         return [dict(r) for r in self.db.execute(sql, params).fetchall()]
 
@@ -310,10 +390,11 @@ class Store:
             f.flush()
             os.fsync(f.fileno())
 
-    def session_start(self, sid, project="general"):
+    def session_start(self, sid, project="general", branch=""):
         now = datetime.utcnow().isoformat() + "Z"
-        self.db.execute("INSERT OR IGNORE INTO sessions (id,started_at,project) VALUES (?,?,?)",
-                        (sid, now, project))
+        self.db.execute(
+            "INSERT OR IGNORE INTO sessions (id,started_at,project,branch) VALUES (?,?,?,?)",
+            (sid, now, project, branch))
         self.db.commit()
 
     def total_sessions(self):
@@ -379,20 +460,29 @@ class Store:
 
     # ── CRUD ──
 
-    def save_knowledge(self, sid, content, ktype, project="general", tags=None, context=""):
+    def save_knowledge(self, sid, content, ktype, project="general", tags=None,
+                        context="", branch="", skip_dedup=False):
+        """Save knowledge. Returns (record_id, was_deduplicated, was_redacted)."""
         now = datetime.utcnow().isoformat() + "Z"
 
-        dup_id = self._find_duplicate(content, ktype, project)
-        if dup_id:
-            self.db.execute("UPDATE knowledge SET last_confirmed=? WHERE id=?", (now, dup_id))
-            self.db.commit()
-            LOG(f"Dedup: updated last_confirmed for id={dup_id}")
-            return dup_id
+        # Privacy stripping
+        content, redacted_c = self._sanitize_content(content)
+        context, redacted_x = self._sanitize_content(context)
+        was_redacted = redacted_c or redacted_x
+
+        if not skip_dedup:
+            dup_id = self._find_duplicate(content, ktype, project)
+            if dup_id:
+                self.db.execute("UPDATE knowledge SET last_confirmed=? WHERE id=?", (now, dup_id))
+                self.db.commit()
+                LOG(f"Dedup: updated last_confirmed for id={dup_id}")
+                return dup_id, True, was_redacted
 
         cur = self.db.execute("""
-            INSERT INTO knowledge (session_id,type,content,context,project,tags,source,confidence,created_at,last_confirmed,recall_count)
-            VALUES (?,?,?,?,?,?,'explicit',1.0,?,?,0)
-        """, (sid, ktype, content, context, project, json.dumps(tags or []), now, now))
+            INSERT INTO knowledge (session_id,type,content,context,project,tags,source,confidence,
+                                   created_at,last_confirmed,recall_count,branch)
+            VALUES (?,?,?,?,?,?,'explicit',1.0,?,?,0,?)
+        """, (sid, ktype, content, context, project, json.dumps(tags or []), now, now, branch or ""))
         self.db.commit()
         rid = cur.lastrowid
 
@@ -406,7 +496,7 @@ class Store:
                                     "session_id": sid, "created_at": now, "confidence": 1.0}])
                 except Exception:
                     pass
-        return rid
+        return rid, False, was_redacted
 
     def bump_recall(self, ids):
         """Strengthen memories that are recalled (spaced repetition effect)."""
@@ -470,8 +560,8 @@ class Store:
     def apply_retention(self):
         """Move old unconfirmed records: active→archived→purged."""
         now = datetime.utcnow()
-        archive_cutoff = (now - __import__('datetime').timedelta(days=ARCHIVE_AFTER_DAYS)).isoformat() + "Z"
-        purge_cutoff = (now - __import__('datetime').timedelta(days=PURGE_AFTER_DAYS)).isoformat() + "Z"
+        archive_cutoff = (now - timedelta(days=ARCHIVE_AFTER_DAYS)).isoformat() + "Z"
+        purge_cutoff = (now - timedelta(days=PURGE_AFTER_DAYS)).isoformat() + "Z"
 
         archived = self.db.execute("""
             UPDATE knowledge SET status='archived'
@@ -590,9 +680,9 @@ class Store:
     # ── Search by Tag ──
 
     def search_by_tag(self, tag, project=None):
-        """Find all active knowledge with a matching tag."""
-        conds = ["status='active'"]
-        params = []
+        """Find all active knowledge with a matching tag (SQL pre-filter + Python refine)."""
+        conds = ["status='active'", "tags LIKE ?"]
+        params = [f"%{tag}%"]
         if project:
             conds.append("project=?")
             params.append(project)
@@ -614,6 +704,30 @@ class Store:
                 r["tags"] = tags_list
                 matched.append(r)
         return matched
+
+    # ── Observations (lightweight auto-capture) ──
+
+    def save_observation(self, sid, tool_name, summary, observation_type="change",
+                         files_affected=None, project="general", branch=""):
+        """Save a lightweight observation (no dedup, no ChromaDB)."""
+        now = datetime.utcnow().isoformat() + "Z"
+        summary, _ = self._sanitize_content(summary)
+        cur = self.db.execute("""
+            INSERT INTO observations (session_id, tool_name, observation_type, summary,
+                                      files_affected, project, branch, created_at)
+            VALUES (?,?,?,?,?,?,?,?)
+        """, (sid, tool_name, observation_type, summary,
+              json.dumps(files_affected or []), project, branch or "", now))
+        self.db.commit()
+        return cur.lastrowid
+
+    def cleanup_old_observations(self):
+        """Remove observations older than OBSERVATION_RETENTION_DAYS."""
+        cutoff = (datetime.utcnow() - timedelta(days=OBSERVATION_RETENTION_DAYS)).isoformat() + "Z"
+        deleted = self.db.execute(
+            "DELETE FROM observations WHERE created_at < ?", (cutoff,)).rowcount
+        self.db.commit()
+        return deleted
 
     # ═══════════════════════════════════════════════════════════
     # Self-Improvement: Errors / Insights / Rules
@@ -637,7 +751,6 @@ class Store:
 
     def detect_error_pattern(self, category, project="general"):
         """Detect repeating error patterns (3+ same category in 30 days)."""
-        from datetime import timedelta
         cutoff = (datetime.utcnow() - timedelta(days=30)).isoformat() + "Z"
         row = self.db.execute("""
             SELECT COUNT(*) as cnt, GROUP_CONCAT(id) as ids
@@ -917,7 +1030,6 @@ class Store:
 
     def analyze_patterns(self, view="full_report", project=None, days=30):
         """Analyze error patterns and self-improvement metrics."""
-        from datetime import timedelta
         cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat() + "Z"
         pf = "AND project=?" if project else ""
         pp = (project,) if project else ()
@@ -960,7 +1072,6 @@ class Store:
             result["rule_effectiveness"] = {"rules": stats, "stale_rules": stale}
 
         if view in ("improvement_trend", "full_report"):
-            from datetime import timedelta
             weeks = []
             for w in range(4):
                 start = (datetime.utcnow() - timedelta(days=(w+1)*7)).isoformat() + "Z"
@@ -995,7 +1106,7 @@ class Recall:
     def __init__(self, store: Store):
         self.s = store
 
-    def search(self, query, project=None, ktype="all", limit=10, detail="full"):
+    def search(self, query, project=None, ktype="all", limit=10, detail="full", branch=None):
         results = {}
 
         # Tier 1: FTS5 keyword search with BM25 scoring
@@ -1009,15 +1120,22 @@ class Recall:
             if ktype != "all":
                 conds.append("k.type=?")
                 params.append(ktype)
+            if branch:
+                conds.append("(k.branch=? OR k.branch='')")
+                params.append(branch)
             params.append(limit * 3)
-            for r in self.s.db.execute(f"""
+            fts_rows = self.s.db.execute(f"""
                 SELECT k.*, bm25(knowledge_fts) AS _bm25
                 FROM knowledge_fts f JOIN knowledge k ON k.id=f.rowid
                 WHERE {' AND '.join(conds)} ORDER BY bm25(knowledge_fts) LIMIT ?
-            """, params).fetchall():
+            """, params).fetchall()
+            # Proper BM25 normalization: relative to max in batch
+            raw_scores = [abs(dict(r).get("_bm25", 0)) for r in fts_rows]
+            max_bm25 = max(raw_scores) if raw_scores else 1.0
+            for r in fts_rows:
                 row = dict(r)
                 bm25_raw = abs(row.pop("_bm25", 0))
-                bm25_score = min(2.0, bm25_raw / max(bm25_raw, 1.0))  # normalize to ~0-2 range
+                bm25_score = (bm25_raw / max(max_bm25, 0.01)) * 2.0
                 results[r["id"]] = {"r": row, "score": max(0.5, bm25_score), "via": ["fts"]}
         except Exception:
             pass
@@ -1057,6 +1175,9 @@ class Recall:
                 if ktype != "all":
                     conds2.append("k.type=?")
                     params2.append(ktype)
+                if branch:
+                    conds2.append("(k.branch=? OR k.branch='')")
+                    params2.append(branch)
                 params2.append(limit * 5)
                 candidates = self.s.q(f"""
                     SELECT * FROM knowledge k WHERE {' AND '.join(conds2)}
@@ -1096,6 +1217,7 @@ class Recall:
         if returned_ids:
             self.s.bump_recall(returned_ids)
 
+        total_tokens = 0
         grouped = {}
         for item in ranked:
             r = item["r"]
@@ -1111,20 +1233,54 @@ class Recall:
 
             content = r["content"]
             context = r.get("context", "")
-            if detail == "summary":
+
+            if detail == "compact":
+                # ~50 tokens per result
+                entry = {
+                    "id": r["id"], "type": t,
+                    "title": content[:80] + ("..." if len(content) > 80 else ""),
+                    "project": r.get("project", ""),
+                    "score": round(item["score"], 3),
+                    "created_at": r.get("created_at", ""),
+                }
+                est = Store._estimate_tokens(json.dumps(entry))
+                entry["_tokens"] = est
+                total_tokens += est
+                grouped[t].append(entry)
+            elif detail == "summary":
                 content = content[:150] + ("..." if len(content) > 150 else "")
                 context = ""
+                entry = {
+                    "id": r["id"], "content": content, "context": context,
+                    "project": r.get("project", ""), "tags": tags,
+                    "confidence": r.get("confidence", 1.0),
+                    "created_at": r.get("created_at", ""), "session_id": r.get("session_id", ""),
+                    "score": round(item["score"], 3), "via": item["via"],
+                    "recall_count": r.get("recall_count", 0),
+                    "decay": round(Store._decay_factor(r.get("last_confirmed", ""), DECAY_HALF_LIFE), 3),
+                }
+                est = Store._estimate_tokens(json.dumps(entry))
+                entry["_tokens"] = est
+                total_tokens += est
+                grouped[t].append(entry)
+            else:  # full
+                entry = {
+                    "id": r["id"], "content": content, "context": context,
+                    "project": r.get("project", ""), "tags": tags,
+                    "confidence": r.get("confidence", 1.0),
+                    "created_at": r.get("created_at", ""), "session_id": r.get("session_id", ""),
+                    "score": round(item["score"], 3), "via": item["via"],
+                    "recall_count": r.get("recall_count", 0),
+                    "decay": round(Store._decay_factor(r.get("last_confirmed", ""), DECAY_HALF_LIFE), 3),
+                    "branch": r.get("branch", ""),
+                }
+                est = Store._estimate_tokens(json.dumps(entry))
+                entry["_tokens"] = est
+                total_tokens += est
+                grouped[t].append(entry)
 
-            grouped[t].append({
-                "id": r["id"], "content": content, "context": context,
-                "project": r.get("project", ""), "tags": tags,
-                "confidence": r.get("confidence", 1.0),
-                "created_at": r.get("created_at", ""), "session_id": r.get("session_id", ""),
-                "score": round(item["score"], 3), "via": item["via"],
-                "recall_count": r.get("recall_count", 0),
-                "decay": round(Store._decay_factor(r.get("last_confirmed", ""), DECAY_HALF_LIFE), 3),
-            })
-        return {"query": query, "total": len(ranked), "detail": detail, "results": grouped}
+        return {"query": query, "total": len(ranked), "detail": detail,
+                "total_tokens": total_tokens, "results": grouped}
 
     def timeline(self, query=None, session_number=None, sessions_ago=None,
                  date_from=None, date_to=None, project=None, limit=5):
@@ -1240,7 +1396,20 @@ class Recall:
                 "has_sentence_transformers": HAS_ST,
             },
             "self_improvement": self._si_stats(s),
+            "observations": self._obs_stats(s),
         }
+
+    @staticmethod
+    def _obs_stats(s):
+        """Observations stats (safe: returns empty if table missing)."""
+        try:
+            total = s.db.execute("SELECT COUNT(*) FROM observations").fetchone()[0]
+            by_type = dict(s.db.execute(
+                "SELECT observation_type, COUNT(*) FROM observations GROUP BY observation_type"
+            ).fetchall())
+            return {"total": total, "by_type": by_type}
+        except Exception:
+            return {}
 
     @staticmethod
     def _si_stats(s):
@@ -1278,6 +1447,7 @@ app = Server("claude-total-memory")
 store: Store = None
 recall: Recall = None
 SID: str = None
+BRANCH: str = ""
 
 
 @app.list_tools()
@@ -1296,8 +1466,10 @@ async def list_tools():
                     "type": {"type": "string", "enum": ["decision", "fact", "solution", "lesson", "convention", "all"],
                              "default": "all"},
                     "limit": {"type": "integer", "default": 10},
-                    "detail": {"type": "string", "enum": ["summary", "full"], "default": "full",
-                               "description": "Level of detail: 'summary' truncates content to 150 chars (saves tokens), 'full' returns everything"},
+                    "detail": {"type": "string", "enum": ["compact", "summary", "full"], "default": "full",
+                               "description": "Level of detail: 'compact' ~50 tokens/result (id+title+score), "
+                                              "'summary' truncates content to 150 chars, 'full' returns everything"},
+                    "branch": {"type": "string", "description": "Filter by git branch (also includes branch-agnostic records)"},
                 },
                 "required": ["query"],
             },
@@ -1331,6 +1503,7 @@ async def list_tools():
                     "project": {"type": "string", "default": "general"},
                     "tags": {"type": "array", "items": {"type": "string"}},
                     "context": {"type": "string", "description": "Additional context, WHY for decisions"},
+                    "branch": {"type": "string", "description": "Git branch this knowledge relates to"},
                 },
                 "required": ["content", "type"],
             },
@@ -1596,6 +1769,30 @@ async def list_tools():
                 },
             },
         ),
+        # ── Observations ──
+        Tool(
+            name="memory_observe",
+            description="Save a lightweight observation (auto-capture). No dedup, no ChromaDB — fast and cheap. "
+                        "Use for tracking file changes, tool usage, and session activity. "
+                        "Observations auto-cleanup after 30 days.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "tool_name": {"type": "string", "description": "Which tool triggered this (Write, Edit, Bash, etc.)"},
+                    "summary": {"type": "string", "description": "What happened (e.g. 'Modified auth controller')"},
+                    "observation_type": {
+                        "type": "string",
+                        "enum": ["bugfix", "feature", "refactor", "change", "discovery", "decision"],
+                        "default": "change",
+                        "description": "Type of observation",
+                    },
+                    "files_affected": {"type": "array", "items": {"type": "string"},
+                                       "description": "List of affected file paths"},
+                    "project": {"type": "string", "default": "general"},
+                },
+                "required": ["tool_name", "summary"],
+            },
+        ),
     ]
 
 
@@ -1615,7 +1812,8 @@ async def _do(name, a):
 
     if name == "memory_recall":
         return J(recall.search(a["query"], a.get("project"), a.get("type", "all"),
-                               a.get("limit", 10), a.get("detail", "full")))
+                               a.get("limit", 10), a.get("detail", "full"),
+                               a.get("branch")))
 
     elif name == "memory_timeline":
         kwargs = {k: a.get(k) for k in
@@ -1623,11 +1821,14 @@ async def _do(name, a):
         return J(recall.timeline(**kwargs))
 
     elif name == "memory_save":
-        dup_id = store._find_duplicate(a["content"], a["type"], a.get("project", "general"))
-        rid = store.save_knowledge(
+        rid, was_dedup, was_redacted = store.save_knowledge(
             SID, a["content"], a["type"],
-            a.get("project", "general"), a.get("tags", []), a.get("context", ""))
-        return J({"saved": True, "id": rid, "deduplicated": dup_id is not None})
+            a.get("project", "general"), a.get("tags", []), a.get("context", ""),
+            branch=a.get("branch", BRANCH))
+        result = {"saved": True, "id": rid, "deduplicated": was_dedup}
+        if was_redacted:
+            result["privacy_redacted"] = True
+        return J(result)
 
     elif name == "memory_update":
         res = recall.search(a["find"], limit=3)
@@ -1638,10 +1839,11 @@ async def _do(name, a):
         old_rec = store.q1("SELECT * FROM knowledge WHERE id=?", (old["id"],))
         if not old_rec:
             return J({"error": "Record not found in DB"})
-        new_id = store.save_knowledge(
+        new_id, _, _ = store.save_knowledge(
             SID, a["new_content"], old_rec["type"], old_rec["project"],
             json.loads(old_rec.get("tags", "[]")),
-            f"Updated: {a.get('reason', '')}. Was: {old_rec['content'][:200]}")
+            f"Updated: {a.get('reason', '')}. Was: {old_rec['content'][:200]}",
+            branch=old_rec.get("branch", ""), skip_dedup=True)
         store.db.execute(
             "UPDATE knowledge SET status='superseded',superseded_by=? WHERE id=?",
             (new_id, old["id"]))
@@ -1696,8 +1898,8 @@ async def _do(name, a):
     elif name == "memory_forget":
         dry_run = a.get("dry_run", True)
         if dry_run:
-            archive_cutoff = (datetime.utcnow() - __import__('datetime').timedelta(days=ARCHIVE_AFTER_DAYS)).isoformat() + "Z"
-            purge_cutoff = (datetime.utcnow() - __import__('datetime').timedelta(days=PURGE_AFTER_DAYS)).isoformat() + "Z"
+            archive_cutoff = (datetime.utcnow() - timedelta(days=ARCHIVE_AFTER_DAYS)).isoformat() + "Z"
+            purge_cutoff = (datetime.utcnow() - timedelta(days=PURGE_AFTER_DAYS)).isoformat() + "Z"
             would_archive = store.db.execute("""
                 SELECT COUNT(*) FROM knowledge
                 WHERE status='active' AND last_confirmed < ? AND recall_count = 0 AND confidence < 0.8
@@ -1856,27 +2058,53 @@ async def _do(name, a):
             a.get("view", "full_report"), a.get("project"), a.get("days", 30)))
 
     elif name == "self_reflect":
-        rid = store.save_knowledge(
+        rid, _, _ = store.save_knowledge(
             SID, a["reflection"], "reflection",
             a.get("project", "general"),
             (a.get("tags") or []) + ["self-reflection", a.get("outcome", "success")],
-            f"Task: {a['task_summary']}. Outcome: {a.get('outcome', 'success')}")
+            f"Task: {a['task_summary']}. Outcome: {a.get('outcome', 'success')}",
+            branch=BRANCH)
         return J({"saved": True, "id": rid, "type": "reflection"})
 
     elif name == "self_rules_context":
         return J(store.get_rules_for_context(
             a.get("project", "general"), a.get("categories")))
 
+    elif name == "memory_observe":
+        obs_id = store.save_observation(
+            SID, a["tool_name"], a["summary"],
+            a.get("observation_type", "change"),
+            a.get("files_affected", []),
+            a.get("project", "general"),
+            branch=BRANCH)
+        return J({"observed": True, "id": obs_id})
+
     return J({"error": "Unknown tool"})
 
 
+def _detect_git_branch():
+    """Auto-detect current git branch (safe: returns '' on failure)."""
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            stderr=subprocess.DEVNULL, timeout=2
+        ).decode().strip()
+    except Exception:
+        return ""
+
+
 async def main():
-    global store, recall, SID
+    global store, recall, SID, BRANCH
     store = Store()
     recall = Recall(store)
     SID = f"mcp_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{os.getpid()}"
-    store.session_start(SID)
-    LOG(f"Session: {SID} | Memory: {MEMORY_DIR} | Sessions: {store.total_sessions()}")
+    BRANCH = _detect_git_branch()
+    store.session_start(SID, branch=BRANCH)
+    # Cleanup old observations on startup
+    cleaned = store.cleanup_old_observations()
+    if cleaned:
+        LOG(f"Cleaned {cleaned} old observations (>{OBSERVATION_RETENTION_DAYS}d)")
+    LOG(f"Session: {SID} | Branch: {BRANCH or '(none)'} | Memory: {MEMORY_DIR} | Sessions: {store.total_sessions()}")
     LOG(f"Config: decay={DECAY_HALF_LIFE}d archive={ARCHIVE_AFTER_DAYS}d purge={PURGE_AFTER_DAYS}d")
     async with stdio_server() as (r, w):
         await app.run(r, w, app.create_initialization_options())
