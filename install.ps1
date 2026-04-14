@@ -16,7 +16,7 @@ $ErrorActionPreference = "Stop"
 
 Write-Host ""
 Write-Host "=======================================================" -ForegroundColor Cyan
-Write-Host "  Claude Total Memory v5.0 — Installer (Windows)"       -ForegroundColor Cyan
+Write-Host "  Claude Total Memory v6.0 — Installer (Windows)"       -ForegroundColor Cyan
 Write-Host "=======================================================" -ForegroundColor Cyan
 Write-Host ""
 

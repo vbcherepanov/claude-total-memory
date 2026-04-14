@@ -1,0 +1,11 @@
+name = "json_blob"
+description = "Massive JSON dumps — keep top-level keys + first 200 lines."
+safety = "strict"
+
+[stages]
+strip_lines = [
+    "^\\s*$",
+]
+truncate_chars = 400
+max_lines = 200
+on_empty = "(empty json)"

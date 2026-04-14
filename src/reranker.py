@@ -80,7 +80,16 @@ def hyde_expand(query: str, project: str = None) -> Optional[list]:
 
     Why: "auth JWT" as query might not match "Используем Bearer токен с RS256 подписью".
          But a hypothetical answer about auth WILL be semantically close to that record.
+
+    Returns None if no LLM is configured — caller falls back to plain semantic search.
     """
+    try:
+        from config import has_llm
+        if not has_llm():
+            return None
+    except Exception:
+        pass
+
     context = f" in project {project}" if project else ""
     prompt = f"""You are a developer knowledge base. Write a short factual answer (2-3 sentences) to this query{context}.
 If you don't know, write a plausible answer based on common patterns.

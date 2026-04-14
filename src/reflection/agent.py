@@ -46,10 +46,22 @@ class ReflectionAgent:
       2. Synthesize: pattern finding, clustering, skill proposals
     """
 
-    def __init__(self, db: sqlite3.Connection) -> None:
+    def __init__(
+        self,
+        db: sqlite3.Connection,
+        embedder=None,
+    ) -> None:
+        """
+        Args:
+            db: SQLite connection (row_factory=Row).
+            embedder: Optional callable (text: str) -> list[float]. If None,
+                a fresh server.Store() is instantiated lazily for multi-repr
+                generation. Injected in tests to avoid heavy init.
+        """
         self.db = db
         self.digest = DigestPhase(db)
         self.synthesize = SynthesizePhase(db)
+        self._injected_embedder = embedder
 
     async def run(self, scope: str = "full") -> dict:
         """
@@ -93,16 +105,30 @@ class ReflectionAgent:
         return report
 
     async def run_full(self) -> dict:
-        """Full reflection: digest + synthesize + evolve. Runs every 6 hours."""
+        """Full reflection: digest + synthesize + triple extraction + fact merging.
+
+        Runs every 6 hours. SQLite is not thread-safe, so all phases are sync.
+        """
         LOG("Starting full reflection...")
         started_at = _now()
 
-        # Run synchronously — SQLite connections are not thread-safe
-        # Phase 1: Digest
+        # Phase 1: Digest (dedup, decay, contradictions)
         digest_stats = self.digest.run()
 
-        # Phase 2: Synthesize (depends on clean data from digest)
+        # Phase 2: Synthesize (clusters, patterns — depends on clean data)
         synthesis_stats = self.synthesize.run(days=7)
+
+        # Phase 3: Drain triple extraction queue (async pipeline from memory_save)
+        triple_stats = self._run_triple_extraction()
+
+        # Phase 4: Semantic fact merging (LLM consolidation of related facts)
+        merge_stats = self._run_fact_merger()
+
+        # Phase 5: Drain deep enrichment queue (entities/intent/topics)
+        enrich_stats = self._run_deep_enrichment()
+
+        # Phase 6: Generate multi-representation embeddings (GEM-RAG)
+        repr_stats = self._run_representations()
 
         report = {
             "id": _new_id(),
@@ -112,11 +138,286 @@ class ReflectionAgent:
             "completed_at": _now(),
             "digest": digest_stats,
             "synthesis": synthesis_stats,
+            "triple_extraction": triple_stats,
+            "fact_merge": merge_stats,
+            "deep_enrichment": enrich_stats,
+            "representations": repr_stats,
             "weekly_digest": None,
         }
 
         self._save_report(report)
-        LOG(f"Full reflection complete: digest={digest_stats}, synthesis={synthesis_stats}")
+        LOG(
+            f"Full reflection complete: digest={digest_stats}, "
+            f"synthesis={synthesis_stats}, triples={triple_stats}, "
+            f"merge={merge_stats}, enrich={enrich_stats}, repr={repr_stats}"
+        )
+        return report
+
+    # ──────────────────────────────────────────────
+    # Phase 3 — drain triple extraction queue
+    # ──────────────────────────────────────────────
+
+    def _run_triple_extraction(self, limit: int = 500) -> dict[str, int]:
+        """Pull pending knowledge_ids from the queue and run deep KG extraction.
+
+        Skipped silently if Ollama / model unavailable — items remain in the
+        queue and will be drained on a future run when LLM comes back online.
+        """
+        try:
+            from config import has_llm
+            if not has_llm():
+                LOG("triple extraction skipped: LLM unavailable")
+                return {"processed": 0, "failed": 0, "skipped": 0, "deferred": "no_llm"}
+        except Exception:
+            pass
+
+        try:
+            from triple_extraction_queue import TripleExtractionQueue
+            from ingestion.extractor import ConceptExtractor
+        except Exception as e:  # noqa: BLE001
+            LOG(f"triple extraction imports failed: {e}")
+            return {"processed": 0, "failed": 0, "skipped": 0, "error": str(e)}
+
+        q = TripleExtractionQueue(self.db)
+        extractor = ConceptExtractor(self.db)
+
+        def extract(knowledge_id: int, content: str) -> dict:
+            return extractor.extract_and_link(
+                text=content, knowledge_id=knowledge_id, deep=True
+            )
+
+        try:
+            return q.process_pending(extract, limit=limit)
+        except Exception as e:  # noqa: BLE001
+            LOG(f"triple queue processing error: {e}")
+            return {"processed": 0, "failed": 0, "skipped": 0, "error": str(e)}
+
+    # ──────────────────────────────────────────────
+    # Phase 4 — semantic fact merging
+    # ──────────────────────────────────────────────
+
+    def _run_fact_merger(self) -> dict[str, int]:
+        """Find clusters of related (non-duplicate) facts and synthesize via LLM."""
+        try:
+            from fact_merger import FactMerger
+        except Exception as e:  # noqa: BLE001
+            LOG(f"fact_merger import failed: {e}")
+            return {"clusters_found": 0, "merged": 0, "rejected": 0, "error": str(e)}
+
+        try:
+            similarity = self._make_cosine_similarity_fn()
+            llm_merge = self._make_llm_merge_fn()
+            if similarity is None or llm_merge is None:
+                # Dependencies unavailable; skip silently
+                return {"clusters_found": 0, "merged": 0, "rejected": 0, "skipped": "deps"}
+
+            merger = FactMerger(self.db, similarity_fn=similarity, llm_merge_fn=llm_merge)
+            return merger.run()
+        except Exception as e:  # noqa: BLE001
+            LOG(f"fact_merger error: {e}")
+            return {"clusters_found": 0, "merged": 0, "rejected": 0, "error": str(e)}
+
+    def _make_cosine_similarity_fn(self):
+        """Build a cosine-similarity closure over the embeddings table.
+
+        Returns None if no embeddings are stored yet (cold start).
+        """
+        import struct
+
+        try:
+            count = self.db.execute("SELECT COUNT(*) FROM embeddings").fetchone()[0]
+        except Exception:
+            return None
+        if not count:
+            return None
+
+        cache: dict[int, list[float]] = {}
+
+        def _get(kid: int) -> list[float] | None:
+            if kid in cache:
+                return cache[kid]
+            row = self.db.execute(
+                "SELECT float32_vector, embed_dim FROM embeddings WHERE knowledge_id=?",
+                (kid,),
+            ).fetchone()
+            if row is None:
+                cache[kid] = None  # type: ignore[assignment]
+                return None
+            vec = list(struct.unpack(f"{row['embed_dim']}f", row["float32_vector"]))
+            cache[kid] = vec
+            return vec
+
+        def cosine(id_a: int, id_b: int) -> float:
+            va, vb = _get(id_a), _get(id_b)
+            if not va or not vb or len(va) != len(vb):
+                return 0.0
+            num = sum(x * y for x, y in zip(va, vb))
+            da = sum(x * x for x in va) ** 0.5
+            db2 = sum(y * y for y in vb) ** 0.5
+            if da == 0 or db2 == 0:
+                return 0.0
+            return max(0.0, min(1.0, num / (da * db2)))
+
+        return cosine
+
+    # ──────────────────────────────────────────────
+    # Phase 6 — generate multi-representation embeddings
+    # ──────────────────────────────────────────────
+
+    def _run_representations(self, limit: int = 500) -> dict[str, int]:
+        """Drain representations_queue: LLM-generate views + embed each.
+
+        When LLM is unavailable we still run — the queue worker will save the
+        `raw` embedding (no LLM needed) and skip summary/keywords/etc. The
+        gate inside `generate_representations` returns empty for LLM views.
+        """
+        try:
+            from representations_queue import RepresentationsQueue
+            from representations import generate_representations
+        except Exception as e:  # noqa: BLE001
+            LOG(f"representations imports failed: {e}")
+            return {"processed": 0, "failed": 0, "skipped": 0, "error": str(e)}
+
+        q = RepresentationsQueue(self.db)
+
+        embedder = self._make_embedder()
+        if embedder is None:
+            return {"processed": 0, "failed": 0, "skipped": 0, "skipped_reason": "no embedder"}
+
+        try:
+            return q.process_pending(
+                generator=lambda content, project=None: generate_representations(content, project),
+                embedder=embedder,
+                model_name="auto",
+                limit=limit,
+            )
+        except Exception as e:  # noqa: BLE001
+            LOG(f"representations processing error: {e}")
+            return {"processed": 0, "failed": 0, "skipped": 0, "error": str(e)}
+
+    def _make_embedder(self):
+        """Return an embedder callable, or None if unavailable.
+
+        Priority: injected via constructor → lazy server.Store init.
+        """
+        if self._injected_embedder is not None:
+            return self._injected_embedder
+        try:
+            import server as _srv
+
+            store = _srv.Store()
+            def embed(text: str) -> list[float]:
+                embs = store.embed([text])
+                return embs[0] if embs else []
+            return embed
+        except Exception as e:  # noqa: BLE001
+            LOG(f"embedder init failed: {e}")
+            return None
+
+    # ──────────────────────────────────────────────
+    # Phase 5 — drain deep enrichment queue
+    # ──────────────────────────────────────────────
+
+    def _run_deep_enrichment(self, limit: int = 500) -> dict[str, int]:
+        """Drain queue with deep_enricher.deep_enrich (entities/intent/topics).
+
+        Skipped if no LLM — items wait in queue.
+        """
+        try:
+            from config import has_llm
+            if not has_llm():
+                LOG("deep enrichment skipped: LLM unavailable")
+                return {"processed": 0, "failed": 0, "skipped": 0, "deferred": "no_llm"}
+        except Exception:
+            pass
+
+        try:
+            from deep_enrichment_queue import DeepEnrichmentQueue
+            from deep_enricher import deep_enrich
+        except Exception as e:  # noqa: BLE001
+            LOG(f"deep enrichment imports failed: {e}")
+            return {"processed": 0, "failed": 0, "skipped": 0, "error": str(e)}
+
+        q = DeepEnrichmentQueue(self.db)
+        try:
+            return q.process_pending(deep_enrich, limit=limit)
+        except Exception as e:  # noqa: BLE001
+            LOG(f"deep enrichment processing error: {e}")
+            return {"processed": 0, "failed": 0, "skipped": 0, "error": str(e)}
+
+    def _make_llm_merge_fn(self):
+        """Build an Ollama-backed merger. Returns None if Ollama unreachable."""
+        # Don't even build the closure if no LLM configured
+        try:
+            from config import has_llm
+            if not has_llm():
+                return None
+        except Exception:
+            pass
+
+        import json as _json
+        import urllib.request as _req
+
+        prompt_tmpl = (
+            "You are consolidating related facts into ONE concise sentence.\n"
+            "Preserve any code blocks, URLs, and file paths EXACTLY as written.\n"
+            "Do not invent details not in the sources.\n\n"
+            "SOURCES:\n{sources}\n\nMERGED:"
+        )
+
+        import os as _os
+        model_name = _os.environ.get("MEMORY_LLM_MODEL", "qwen2.5-coder:7b")
+
+        def merge(contents: list[str]) -> str:
+            sources = "\n\n---\n\n".join(f"- {c}" for c in contents)
+            payload = {
+                "model": model_name,
+                "prompt": prompt_tmpl.format(sources=sources),
+                "stream": False,
+                "options": {"num_predict": 200, "temperature": 0.1},
+            }
+            req = _req.Request(
+                "http://localhost:11434/api/generate",
+                data=_json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+            )
+            with _req.urlopen(req, timeout=60) as resp:
+                data = _json.loads(resp.read())
+            return str(data.get("response", "")).strip()
+
+        return merge
+
+    async def run_drain(self) -> dict:
+        """Fast path: drain only the v6 async queues (Phase 3, 5, 6).
+
+        Skips expensive digest/synthesize. Use when you want new edges from a
+        handful of fresh saves ASAP (file-watch trigger after memory_save).
+        Typical latency: 10-30s for <10 pending items vs 2-3 min for run_full.
+        """
+        LOG("Starting drain reflection (queues only)...")
+        started_at = _now()
+
+        triple_stats = self._run_triple_extraction()
+        enrich_stats = self._run_deep_enrichment()
+        repr_stats   = self._run_representations()
+
+        report = {
+            "id": _new_id(),
+            # CHECK constraint on reflection_reports.type only allows
+            # session|periodic|weekly|manual — use 'manual' for drain runs.
+            "type": "manual",
+            "scope": "drain",
+            "started_at": started_at,
+            "completed_at": _now(),
+            "triple_extraction": triple_stats,
+            "deep_enrichment": enrich_stats,
+            "representations": repr_stats,
+        }
+        self._save_report(report)
+        LOG(
+            f"Drain complete: triples={triple_stats}, "
+            f"enrich={enrich_stats}, repr={repr_stats}"
+        )
         return report
 
     async def run_weekly(self) -> dict:

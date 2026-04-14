@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.claude.memory.check-updates</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/vitalii-macpro/claude-memory-server/.venv/bin/python</string>
+    <string>/Users/vitalii-macpro/claude-memory-server/src/tools/check_updates.py</string>
+  </array>
+
+  <!-- Weekly: every Monday at 09:00 -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key>
+    <integer>1</integer>
+    <key>Hour</key>
+    <integer>9</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <false/>
+
+  <key>Nice</key>
+  <integer>15</integer>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/usr/bin:/bin</string>
+    <!-- Set this when you push the repo to GitHub:
+         <key>UPDATE_GH_REPO</key><string>youruser/claude-total-memory</string> -->
+  </dict>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/vitalii-macpro/claude-memory-server</string>
+
+  <key>StandardOutPath</key>
+  <string>/tmp/claude-memory-check-updates.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/claude-memory-check-updates.log</string>
+</dict>
+</plist>

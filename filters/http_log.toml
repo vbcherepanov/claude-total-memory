@@ -1,0 +1,22 @@
+name = "http_log"
+description = "Access logs (nginx, apache, custom) — drop 2xx, keep 4xx/5xx + slow."
+safety = "strict"
+
+[stages]
+strip_ansi = true
+strip_lines = [
+    " 200 ",
+    " 201 ",
+    " 204 ",
+    " 304 ",
+]
+keep_lines = [
+    " (4|5)\\d\\d ",
+    "(error|ERROR|Error)",
+    "(timeout|Timeout|TIMEOUT)",
+    "slow",
+    "rate.?limit",
+]
+truncate_chars = 400
+max_lines = 200
+on_empty = "(no errors or slow requests)"

@@ -1,0 +1,14 @@
+name = "docker_ps"
+description = "Show only non-Exited containers and header."
+safety = "strict"
+
+[stages]
+strip_ansi = true
+keep_lines = [
+    "^CONTAINER ID",
+    "Up ",
+    "Restarting",
+    "Paused",
+]
+max_lines = 50
+on_empty = "(no running containers)"

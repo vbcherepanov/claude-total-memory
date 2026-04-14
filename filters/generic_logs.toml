@@ -1,0 +1,24 @@
+name = "generic_logs"
+description = "Generic log filter: strip debug/info, keep warn/error/fatal. Last-resort default."
+safety = "strict"
+
+[stages]
+strip_ansi = true
+strip_lines = [
+    "^DEBUG",
+    "^\\s*\\[DEBUG\\]",
+    "^TRACE",
+    "^INFO",
+    "^\\s*\\[INFO\\]",
+]
+keep_lines = [
+    "WARN",
+    "ERROR",
+    "FATAL",
+    "Exception",
+    "Traceback",
+    "panic:",
+]
+truncate_chars = 500
+max_lines = 300
+on_empty = "(no warnings or errors)"

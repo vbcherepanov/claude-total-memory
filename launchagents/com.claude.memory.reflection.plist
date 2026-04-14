@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.claude.memory.reflection</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/vitalii-macpro/claude-memory-server/.venv/bin/python</string>
+    <string>/Users/vitalii-macpro/claude-memory-server/src/tools/run_reflection.py</string>
+    <string>--scope=auto</string>
+  </array>
+
+  <!-- Fire every 3600 seconds (safety-net periodic run) -->
+  <key>StartInterval</key>
+  <integer>3600</integer>
+
+  <!-- Fire IMMEDIATELY when memory_save touches the trigger file -->
+  <key>WatchPaths</key>
+  <array>
+    <string>/Users/vitalii-macpro/.claude-memory/.reflect-pending</string>
+  </array>
+
+  <!-- Don't run at load (avoid double-run on startup) -->
+  <key>RunAtLoad</key>
+  <false/>
+
+  <!-- Debounce is handled inside the runner (REFLECT_DEBOUNCE_SEC) -->
+  <key>ThrottleInterval</key>
+  <integer>5</integer>
+
+  <!-- Lower priority so it doesn't fight the MCP server -->
+  <key>Nice</key>
+  <integer>5</integer>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/usr/bin:/bin</string>
+    <key>CLAUDE_MEMORY_DIR</key>
+    <string>/Users/vitalii-macpro/.claude-memory</string>
+    <key>MEMORY_LLM_MODEL</key>
+    <string>qwen2.5-coder:7b</string>
+    <key>REFLECT_DEBOUNCE_SEC</key>
+    <string>5</string>
+  </dict>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/vitalii-macpro/claude-memory-server</string>
+
+  <key>StandardOutPath</key>
+  <string>/tmp/claude-memory-reflection.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/claude-memory-reflection.log</string>
+</dict>
+</plist>

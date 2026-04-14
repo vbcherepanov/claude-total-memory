@@ -1,1209 +1,565 @@
-<div align="center">
+# Claude Total Memory v6.0
 
-# 🧠 Claude Total Memory
+> **Persistent, cross-session memory for Claude Code** — knowledge graph + multi-representation embeddings + auto-reflection + WebGL graph visualization.
 
-### Persistent memory MCP server for Claude Code & Codex CLI
-
-**Claude forgets everything between sessions. This fixes that.**
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-green.svg)](https://python.org)
-[![MCP Server](https://img.shields.io/badge/MCP-Server-purple.svg)](https://modelcontextprotocol.io)
-[![Version](https://img.shields.io/github/v/release/vbcherepanov/claude-total-memory)](https://github.com/vbcherepanov/claude-total-memory/releases)
-[![GitHub stars](https://img.shields.io/github/stars/vbcherepanov/claude-total-memory)](https://github.com/vbcherepanov/claude-total-memory/stargazers)
-[![PayPal](https://img.shields.io/badge/PayPal-Donate-blue.svg?logo=paypal)](https://paypal.me/VitaliiCherepanov)
-
-[Quick Start](#quick-start) · [Features](#features) · [32 MCP Tools](#mcp-tools) · [Dashboard](#web-dashboard) · [Self-Improving Agent](#self-improving-agent) · [What's New in v5.0](#whats-new-in-v50)
-
-</div>
+[![Tests](https://img.shields.io/badge/tests-370%20passing-4a9.svg)]()
+[![Version](https://img.shields.io/badge/version-6.0.0-8ad.svg)]()
+[![License](https://img.shields.io/badge/license-MIT-fa4.svg)](LICENSE)
 
 ---
 
-## Why This Exists
+## Table of contents
 
-| Without Memory | With Claude Total Memory |
-|---|---|
-| 🔴 Repeating project context every session | 🟢 Claude recalls your architecture, decisions, conventions |
-| 🔴 Re-discovering the same bug fixes | 🟢 Solutions saved and retrieved automatically |
-| 🔴 Claude makes the same mistakes | 🟢 Self-improving: learns from errors across sessions |
-| 🔴 Knowledge lost at context limit | 🟢 Persistent local database, no cloud, no API keys |
-| 🔴 No idea what happened last session | 🟢 Full session timeline with search |
-
-> **32 MCP tools** · **4-tier search** (FTS5 -> semantic -> fuzzy -> graph) · **Knowledge graph** · **Episodic memory** · **Skill tracking** · **Self-improving agent** · **Web dashboard** · **Privacy stripping** · **Works with Claude Code + Codex CLI**
-
----
-
-## How It Compares
-
-| Feature | Claude Total Memory | [mcp-memory-service](https://github.com/doobidoo/mcp-memory-service) | [memory-mcp](https://github.com/yuvalsuede/memory-mcp) |
-|---|---|---|---|
-| Search tiers | 4 (FTS5 + semantic + fuzzy + graph) | Semantic only | None (file-based) |
-| Self-improving agent | ✅ Error → Insight → Rule pipeline | ❌ | ❌ |
-| Knowledge types | 5 (decision, solution, lesson, fact, convention) | 1 (generic) | 1 (summary) |
-| Privacy stripping | ✅ Auto-redacts keys, tokens, emails | ❌ | ❌ |
-| Knowledge graph | ✅ Typed relations + graph expansion + concept clusters | ❌ | ❌ |
-| Episodic memory | ✅ Rich session episodes with temporal recall | ❌ | ❌ |
-| Skill tracking | ✅ Agent competency levels + self-assessment | ❌ | ❌ |
-| Associative search | ✅ Concept-linked retrieval + context building | ❌ | ❌ |
-| Web dashboard | ✅ Stats, graph, live feed, SOUL rules | ❌ | ✅ Basic |
-| Decay scoring | ✅ Exponential + spaced repetition | ❌ | ❌ |
-| Deduplication | ✅ Jaccard + fuzzy | ❌ | ❌ |
-| Branch-aware | ✅ Filter by git branch | ❌ | ❌ |
-| Codex CLI support | ✅ Shared database | ❌ | ❌ |
-| MCP tools | 32 | 10 | 3 |
-| Storage | SQLite + ChromaDB (local) | ChromaDB (local) | JSON files |
+- [What's new in v6.0](#whats-new-in-v60)
+- [Quick install (from scratch)](#quick-install-from-scratch)
+- [Upgrade from v5 / v4 / v3](#upgrade-from-v5--v4--v3)
+- [Architecture at a glance](#architecture-at-a-glance)
+- [Search pipeline](#search-pipeline)
+- [Graph visualizations](#graph-visualizations)
+- [Async pipelines](#async-pipelines)
+- [Auto-update](#auto-update)
+- [Benchmarks](#benchmarks)
+- [Configuration](#configuration)
+- [Operations](#operations)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
-## Works With
+## What's new in v6.0
 
-- **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** — full MCP integration, hooks, auto-triggers
-- **[OpenAI Codex CLI](https://github.com/openai/codex)** — shared memory database, dedicated installer
-- **Any MCP-compatible client** — standard Model Context Protocol server
+### Knowledge graph & embeddings
 
----
+- **Auto-extracted triples** — Ollama deep extraction runs in async queue after every `memory_save`, builds `(subject, predicate, object)` edges in `graph_edges`
+- **Multi-representation embeddings** (GEM-RAG style) — every record embedded as `raw + summary + keywords + questions + compressed`. Search hits any view, results fused via RRF
+- **Semantic fact merger** — finds clusters of related (not duplicate) records, asks LLM to consolidate them. ContentValidator blocks lossy merges
+- **Context expansion** — `memory_recall(expand_context=true)` adds 1-hop graph neighbors of search results
+- **Deep enrichment** — auto-extract `entities + intent + topics` per record. Filter searches by `topics=[...] / entities=[...] / intent=...`
 
-## Features
+### Compression
 
-**Search and Retrieval**
-- 4-tier search pipeline: FTS5 keyword (BM25) -> semantic (ChromaDB) -> fuzzy (SequenceMatcher) -> graph expansion
-- Decay scoring: recent knowledge ranks higher, stale knowledge fades
-- Spaced repetition: frequently recalled knowledge gets boosted
-- 3-level progressive disclosure: compact (~50 tokens/result), summary (150 chars), full -- up to 10x token savings
-- Token cost estimation: each result includes estimated tokens, response includes total_tokens
-- Branch-aware context: knowledge and sessions tagged with git branch, filterable on recall
+- **rtk-style TOML content filters** — 11 builtin (`pytest, cargo, git_status, docker_ps, npm_yarn, http_log, sql_explain, json_blob, stack_trace, markdown_doc, generic_logs`)
+- **Autofilter detection** — sniffer recognizes content type, applies the right filter without explicit param
+- **ContentValidator safety net** — code blocks byte-for-byte, URLs, paths, headings preserved across any LLM transformation
+- **5th `compressed` representation** for long content with validator guard
 
-**Knowledge Management**
-- Five knowledge types: decision, solution, lesson, fact, convention
-- Automatic deduplication via Jaccard + fuzzy similarity (thresholds: 0.85 / 0.90)
-- Version history with supersession chains
-- Knowledge graph with typed relations between records
-- Tag-based browsing and filtering
+### Graph visualization
 
-**Knowledge Graph** (new in v5.0)
-- Deep graph traversal with configurable depth (`memory_graph`)
-- Concept cluster discovery across knowledge (`memory_concepts`)
-- Graph index rebuild and statistics (`memory_graph_index`, `memory_graph_stats`)
+- **3 views** with shared tab navigation:
+  - `/graph/live` — 3D WebGL force-directed (3d-force-graph + Three.js)
+  - `/graph/hive` — D3 hive plot, nodes on radial axes by type
+  - `/graph/matrix` — Canvas adjacency matrix sorted by type
+- Importance/edge-weight sliders, hide-orphans, type filter, search, click-to-focus, ESC back
 
-**Episodic Memory** (new in v5.0)
-- Rich session episodes with titles, content, and temporal context
-- Episode recall with semantic search across past sessions
-- Complements knowledge records with narrative context
+### Operations
 
-**Skills & Competencies** (new in v5.0)
-- Track agent skill levels across domains (docker, testing, debugging, etc.)
-- Skill delta updates with reasons for change
-- Self-assessment across all tracked skills
+- **Auto-reflection on save** — file-watch trigger via LaunchAgent. Save → 5s debounce → drain queues. Edges appear in graph within ~30s
+- **Orphan backfill** — LaunchAgent runs 4×/day at 00/06/12/18, finds nodes with zero edges, enqueues them for Ollama re-extraction
+- **Auto-update** — `update.sh` with 7 stages, DB snapshot rotation, hash-checked deps, pytest gate, services reload
+- **Settings + Ollama detection** — single `has_llm()` gate, all LLM-using code degrades gracefully when Ollama unavailable
+- **Auto-migrations** — schema upgrades apply idempotently on every Store init
 
-**Cognitive Engine** (new in v5.0)
-- Associative search: find conceptually linked knowledge (`memory_associate`)
-- Context building: assemble full task context from knowledge, episodes, rules, and skills (`memory_context_build`)
-- On-demand reflection: synthesize recent activity into insights (`memory_reflect_now`)
+### Performance & security
 
-**Privacy and Security** (new in v4.0)
-- Automatic redaction of sensitive data: API keys, JWTs, passwords, credit card numbers, emails, IP addresses
-- `<private>` tag support for explicit content exclusion
-- All redaction happens before database storage -- sensitive data never persists
-
-**Observations** (new in v4.0)
-- Lightweight file change tracking via `memory_observe` -- no dedup, no vector embeddings
-- Six observation types: bugfix, feature, refactor, change, discovery, decision
-- Automatic cleanup after 30 days
-- Ideal for tracking what changed and why during a session
-
-**Self-Improving Agent** (v3.0)
-- Automatic error logging with structured categories and severity levels
-- Pattern detection: 3+ errors of the same category in 30 days triggers an insight suggestion
-- Insight extraction with ExpeL-style voting (importance + confidence scoring)
-- Rule promotion: high-confidence insights become persistent behavioral rules (SOUL)
-- Auto-suspend: rules with success rate below 20% after 10+ applications are suspended
-- Session reflections for meta-observations about strategy and approach
-- Rules loaded at session start, rated after task completion -- a closed feedback loop
-
-**Lifecycle and Maintenance**
-- Retention zones: active -> archived (180d) -> purged (365d)
-- Consolidation: find and merge similar records
-- Full JSON export for backup and migration
-- Session transcript extraction for post-session knowledge mining
-
-**Dashboard**
-- Web UI at `localhost:37737`
-- Statistics, health score, knowledge table with token estimates, session browser
-- Interactive knowledge graph visualization
-- Self-Improvement tab: error patterns, insights, promotion candidates
-- Rules/SOUL tab: active rules, effectiveness metrics, success rates
-- Live Feed tab (new in v4.0): real-time SSE stream of knowledge, errors, and observations
-- Branch filter for knowledge browsing
-- Read-only -- safe to leave running
+- **7 new perf indexes** — dashboard delta queries 300ms → 3ms
+- **Drain scope** — small reflection bursts skip digest/synthesize → 30s vs 3min
+- **`busy_timeout=5000`** + 20MB cache_size in SQLite — kills BUSY errors under contention
+- **Dashboard binds 127.0.0.1** by default (was 0.0.0.0)
+- **`UPDATE_URL` requires HTTPS + SHA-256 pin** + `tar --no-same-owner` — no MITM/path-traversal RCE
+- **AppleScript injection escape** in update notifications
 
 ---
 
-## Quick Start
+## Quick install (from scratch)
 
-### Option A: One-Command Install
+### Prerequisites
 
-**macOS / Linux:**
+- macOS or Linux
+- Python 3.11+ (tested on 3.13)
+- [Claude Code](https://claude.com/claude-code) CLI installed
+- **Ollama + a local LLM model — strongly recommended** (see [Ollama setup](#ollama-setup-required-for-full-functionality) below)
+
+### Ollama setup — required for full functionality
+
+Without Ollama ~40% of v6 features stay dormant. The system still works (saves, recalls, dashboard) but the knowledge graph won't grow beyond co-occurrence edges, representations stay at `raw` only, no entity/intent/topic extraction, no fact merging. **For the full experience install Ollama + pull the recommended model:**
 
 ```bash
-git clone https://github.com/vbcherepanov/claude-total-memory.git
-cd claude-total-memory
+# 1. Install Ollama — see https://ollama.ai or:
+brew install ollama                        # macOS (or download .dmg)
+curl -fsSL https://ollama.com/install.sh | sh  # Linux
+
+# 2. Start the daemon (it runs on http://localhost:11434)
+ollama serve &     # or the macOS app auto-starts
+
+# 3. Pull the default model (4.7 GB, ~2 minutes on decent connection)
+ollama pull qwen2.5-coder:7b
+
+# 4. (Optional) Pull a dedicated embedder for Ollama mode
+ollama pull nomic-embed-text      # 275 MB, 768-dim multilingual embeddings
+
+# Verify
+ollama list
+```
+
+**Feature matrix — what requires Ollama:**
+
+| Feature | Without Ollama | With Ollama |
+|---|:-:|:-:|
+| `memory_save` / `memory_recall` | ✅ works | ✅ works |
+| FTS5 + semantic search | ✅ | ✅ |
+| Dashboard + 3D graph | ✅ | ✅ |
+| Basic co-occurrence edges | ✅ | ✅ |
+| `autofilter` compression | ✅ | ✅ |
+| **Deep KG triples** (subject→predicate→object edges) | ❌ | ✅ |
+| **Multi-representation embeddings** (summary/keywords/questions/compressed) | ❌ `raw` only | ✅ all 5 views |
+| **Deep enrichment** (entities, intent, topics) | ❌ | ✅ |
+| **Semantic fact merger** (LLM-consolidated related records) | ❌ | ✅ |
+| **HyDE query expansion** | ❌ | ✅ |
+| **Orphan backfill** (LaunchAgent re-extraction) | ❌ | ✅ |
+
+**Recommended model:** `qwen2.5-coder:7b` — best balance of speed (~3s per extraction on M-series) and quality on code/tech content. Alternatives:
+
+| Model | Size | Speed | Quality | Notes |
+|---|---:|---:|---|---|
+| `qwen2.5-coder:7b` ⭐ | 4.7 GB | fast | excellent on code | **default** |
+| `qwen2.5-coder:32b` | 19 GB | slow | best quality | for 32GB+ RAM machines |
+| `llama3.1:8b` | 4.7 GB | fast | general purpose | decent fallback |
+| `phi3:mini` | 2.2 GB | very fast | lower quality | low-spec machines |
+
+Set your choice via env: `MEMORY_LLM_MODEL=qwen2.5-coder:7b` in the LaunchAgent plist or shell.
+
+### One command
+
+```bash
+git clone https://github.com/vbcherepanov/claude-total-memory.git ~/claude-memory-server
+cd ~/claude-memory-server
 bash install.sh
 ```
 
-**Windows (PowerShell):**
+The installer:
 
-```powershell
-git clone https://github.com/vbcherepanov/claude-total-memory.git
-cd claude-total-memory
-powershell -ExecutionPolicy Bypass -File install.ps1
-```
+1. Creates `~/.claude-memory/` (DB, embeddings, blobs, transcripts, backups)
+2. Sets up Python venv in `~/claude-memory-server/.venv/`
+3. Installs deps from `requirements.txt`
+4. Pre-downloads the FastEmbed multilingual MiniLM model
+5. Wires the MCP server into `~/.claude/settings.json`
+6. Applies all migrations 001..007 to a fresh `memory.db`
+7. Optionally installs LaunchAgents (reflection + orphan backfill + check-updates)
+8. Starts the dashboard at `http://127.0.0.1:37737`
 
-The installer creates a Python venv, installs dependencies, downloads the embedding model, and configures Claude Code automatically.
-
-### Option B: Manual Setup
-
-**1. Clone and install dependencies**
-
-macOS / Linux:
+### Verify
 
 ```bash
-git clone https://github.com/vbcherepanov/claude-total-memory.git
-cd claude-total-memory
-python3 -m venv .venv
-source .venv/bin/activate
-pip install "mcp[cli]>=1.0.0" chromadb sentence-transformers
+# In Claude Code: /mcp → memory should show "Connected"
+# Then in your conversation:
+memory_save(content="installation works", type="fact")
+memory_stats()
 ```
 
-Windows (PowerShell):
-
-```powershell
-git clone https://github.com/vbcherepanov/claude-total-memory.git
-cd claude-total-memory
-python -m venv .venv
-.venv\Scripts\activate
-pip install "mcp[cli]>=1.0.0" chromadb sentence-transformers
-```
-
-**2. Configure Claude Code**
-
-Edit `~/.claude/settings.json` (macOS/Linux) or `%USERPROFILE%\.claude\settings.json` (Windows) and add the MCP server. All paths must be absolute:
-
-macOS / Linux:
-
-```json
-{
-  "mcpServers": {
-    "memory": {
-      "command": "/FULL/PATH/TO/claude-total-memory/.venv/bin/python",
-      "args": ["/FULL/PATH/TO/claude-total-memory/src/server.py"],
-      "env": {
-        "CLAUDE_MEMORY_DIR": "/Users/yourname/.claude-memory",
-        "EMBEDDING_MODEL": "all-MiniLM-L6-v2"
-      }
-    }
-  }
-}
-```
-
-Windows:
-
-```json
-{
-  "mcpServers": {
-    "memory": {
-      "command": "C:/Users/yourname/claude-total-memory/.venv/Scripts/python.exe",
-      "args": ["C:/Users/yourname/claude-total-memory/src/server.py"],
-      "env": {
-        "CLAUDE_MEMORY_DIR": "C:/Users/yourname/.claude-memory",
-        "EMBEDDING_MODEL": "all-MiniLM-L6-v2"
-      }
-    }
-  }
-}
-```
-
-> **Important:** MCP server configuration does not support `~`, `$HOME`, or `%USERPROFILE%` in paths. You must use fully expanded absolute paths. On Windows, use forward slashes (`/`) in JSON paths -- they work correctly with Python.
-
-**3. Verify**
-
-Restart Claude Code. You should see `memory` listed in the MCP servers. Run `memory_stats()` to confirm the connection.
+Open the dashboard: <http://127.0.0.1:37737/>
 
 ---
 
-## MCP Tools
+## Upgrade from v5 / v4 / v3
 
-### Core Memory (12 tools)
-
-| Tool | Description |
-|------|-------------|
-| `memory_recall` | Search all past knowledge. 4-tier search with decay scoring. 3-level detail: compact, summary, full. Branch filtering. Token estimation. |
-| `memory_save` | Save knowledge with type, project, tags, context, and branch. Auto-deduplicates. Privacy stripping. |
-| `memory_update` | Find existing knowledge by search query, supersede it, create a new version. |
-| `memory_timeline` | Browse session history by number, date range, or keyword search. |
-| `memory_stats` | View statistics: knowledge counts, health score, storage size, config. |
-| `memory_consolidate` | Find and merge duplicate/similar records. Supports dry run preview. |
-| `memory_export` | Export all knowledge as JSON for backup or migration. |
-| `memory_forget` | Apply retention policy: archive stale records, purge old archives. |
-| `memory_history` | View the version chain for a record -- walk through how knowledge evolved. |
-| `memory_delete` | Soft-delete a knowledge record. Removes from search and vector store. |
-| `memory_relate` | Create typed relations between records (causal, solution, context, related, contradicts). |
-| `memory_search_by_tag` | Browse all active knowledge matching a tag (partial match supported). |
-
-### Self-Improvement (6 tools)
-
-| Tool | Description |
-|------|-------------|
-| `self_error_log` | Log structured errors for pattern analysis. Called automatically on failures -- bash errors, wrong assumptions, API errors, config issues, timeouts, and loops. System detects patterns (3+ same category) and suggests insights. |
-| `self_insight` | Manage insights extracted from error patterns. Supports add/upvote/downvote/edit/list/promote. ExpeL-style voting: upvote increases importance (+1) and confidence (+0.05), downvote decreases them. Auto-archives at importance 0. |
-| `self_rules` | Manage behavioral rules (SOUL). Supports list/fire/rate/suspend/activate/retire/add_manual. Auto-suspend when success_rate < 0.2 after 10+ fires. |
-| `self_patterns` | Analyze error patterns, promotion candidates, rule effectiveness, and improvement trends. Views: error_patterns, insight_candidates, rule_effectiveness, improvement_trend, full_report. |
-| `self_reflect` | Save session reflections for meta-observations about strategy and approach. Not for errors (use self_error_log). For process improvements and what to do differently. |
-| `self_rules_context` | Load active rules at session start. Returns rules filtered by project and scope. Call at beginning of every session, then rate rules after task completion. |
-
-### Knowledge Graph (4 tools, new in v5.0)
-
-| Tool | Description |
-|------|-------------|
-| `memory_graph` | Traverse the knowledge graph from a record. Configurable depth (N hops). Returns connected nodes and edge types. |
-| `memory_concepts` | Discover concept clusters related to a query. Groups knowledge by thematic similarity. |
-| `memory_graph_index` | Rebuild the graph index. Run after bulk imports or relation changes. |
-| `memory_graph_stats` | Graph metrics: total nodes, edges, connected components, density, most-connected records. |
-
-### Episodic Memory (2 tools, new in v5.0)
-
-| Tool | Description |
-|------|-------------|
-| `memory_episode_save` | Save a rich session episode with title, narrative content, tags, and temporal context. Complements knowledge records with story-like context. |
-| `memory_episode_recall` | Recall past episodes by semantic search. Returns episodes with temporal ordering and relevance scoring. |
-
-### Skills & Competencies (3 tools, new in v5.0)
-
-| Tool | Description |
-|------|-------------|
-| `memory_skill_get` | Get current skill level, history, and recent activity for a specific domain. |
-| `memory_skill_update` | Update a skill level with a delta and reason. Tracks progression over time. |
-| `memory_self_assess` | Self-assessment across all tracked skills. Returns skill map with levels and confidence. |
-
-### Advanced (5 tools)
-
-| Tool | Description |
-|------|-------------|
-| `memory_observe` | Lightweight observation tracking for file changes and discoveries. No dedup, no embeddings, 30-day retention. |
-| `memory_associate` | Associative search: find conceptually linked knowledge beyond keyword/semantic matching. Follows concept trails. (new in v5.0) |
-| `memory_context_build` | Build a full context bundle for a task: related knowledge, recent episodes, active rules, relevant skills. One call to prepare for any task. (new in v5.0) |
-| `memory_reflect_now` | Trigger an on-demand reflection: synthesize recent activity, knowledge gaps, and patterns into actionable insights. (new in v5.0) |
-| `memory_extract_session` | Process pending session transcripts. List, read, and mark as complete. |
-
----
-
-## How It Works
-
-### Search Pipeline
-
-When `memory_recall` is called, the query passes through four tiers:
-
-```
-Query: "docker networking between containers"
-             |
-             v
-  +---------------------+
-  | Tier 1: FTS5 + BM25 |  Keyword search with relevance ranking
-  +---------------------+
-             |
-             v
-  +---------------------+
-  | Tier 2: Semantic     |  ChromaDB cosine similarity on embeddings
-  +---------------------+
-             |
-             v
-  +---------------------+
-  | Tier 3: Fuzzy        |  SequenceMatcher for typos and partial matches
-  +---------------------+
-             |
-             v
-  +---------------------+
-  | Tier 4: Graph        |  Follow relations from top 5 results (1 hop)
-  +---------------------+
-             |
-             v
-  +---------------------+
-  | Decay + Rank + Boost |  Apply time decay, recall boost, final sort
-  +---------------------+
-             |
-             v
-        Top N results
-```
-
-Results from all tiers are merged. Records found by multiple tiers receive combined scores.
-
-### Decay Scoring
-
-Knowledge decays over time unless confirmed or recalled:
-
-```
-score = base_score * e^(-days * ln(2) / half_life) + recall_boost
-```
-
-- `half_life`: 90 days (configurable via `DECAY_HALF_LIFE`)
-- `recall_boost`: `min(0.3, recall_count * 0.05)` -- frequently used knowledge stays relevant
-- Records confirmed on last recall get their `last_confirmed` timestamp refreshed
-
-### Retention Zones
-
-```
-                  180 days               365 days
-    Active --------+-----> Archived ------+-----> Purged
-                   |                      |
-        (unrecalled, low confidence)  (all archived)
-```
-
-- **Active**: searchable, fully available
-- **Archived**: removed from search, still in database
-- **Purged**: marked for cleanup
-
-Only records with `recall_count = 0` and `confidence < 0.8` are candidates for archival.
-
-### Deduplication
-
-On every `memory_save`, the server checks for existing similar knowledge:
-
-1. FTS5 search for candidate matches (top 5)
-2. Jaccard similarity > 0.85 -- deduplicated
-3. Fuzzy ratio > 0.90 -- deduplicated
-
-When a duplicate is found, the existing record's `last_confirmed` timestamp is refreshed instead of creating a new record.
-
----
-
-## Self-Improving Agent
-
-New in v3.0. The self-improvement system gives Claude the ability to learn from mistakes across sessions. It follows a three-level pipeline inspired by the ExpeL (Experience and Learning) and Reflexion research patterns.
-
-### Pipeline Overview
-
-```
-  Error occurs (bash fail, wrong assumption, API error, ...)
-       |
-       v
-  +------------------+
-  | self_error_log   |  Log structured error with category, severity, fix
-  +------------------+
-       |
-       | (3+ errors of same category within 30 days)
-       v
-  +------------------+
-  | Pattern Detected |  System flags the pattern automatically
-  +------------------+
-       |
-       v
-  +------------------+
-  | self_insight     |  Extract a generalizable lesson from the pattern
-  | (add)            |  Initial: importance=2, confidence=0.5
-  +------------------+
-       |
-       | Confirmed again? -> upvote (+1 importance, +0.05 confidence)
-       | Wrong? -> downvote (-1 importance, auto-archive at 0)
-       |
-       | (importance >= 5 AND confidence >= 0.8)
-       v
-  +------------------+
-  | self_insight     |  Promote insight to a behavioral rule
-  | (promote)        |
-  +------------------+
-       |
-       v
-  +------------------+
-  | self_rules       |  Rule becomes part of SOUL
-  | (SOUL)           |  Loaded at session start, rated after tasks
-  +------------------+
-       |
-       | success_rate < 0.2 after 10+ fires?
-       v
-  +------------------+
-  | Auto-Suspend     |  Ineffective rules are suspended automatically
-  +------------------+
-```
-
-### Error Categories
-
-| Category | When to Log |
-|----------|------------|
-| `code_error` | Bash command fails, test fails after changes, compilation error |
-| `logic_error` | Incorrect reasoning about code behavior or architecture |
-| `config_error` | Missing config, wrong dependency, environment issue |
-| `api_error` | External API returns 4xx/5xx or unexpected response |
-| `timeout` | Operation hangs, request times out |
-| `loop_detected` | Same fix attempted 3+ times without success |
-| `wrong_assumption` | Assumption about codebase proved incorrect |
-| `missing_context` | Had to ask user because context was insufficient |
-
-### Insight Lifecycle
-
-| Stage | Importance | Confidence | What Happens |
-|-------|-----------|------------|--------------|
-| Created | 2 | 0.50 | Extracted from error pattern, linked to source errors |
-| Upvoted | +1 per vote | +0.05 per vote | Confirmed by encountering the same pattern again |
-| Downvoted | -1 per vote | -0.05 per vote | Contradicted by evidence |
-| Archived | 0 | any | Auto-archived when importance drops to 0 |
-| Promoted | >= 5 | >= 0.80 | Becomes a behavioral rule in the SOUL |
-
-### Rule Statuses
-
-| Status | Meaning |
-|--------|---------|
-| `active` | Loaded at session start, applied during work |
-| `suspended` | Auto-suspended (success_rate < 0.2 after 10+ fires) or manually paused |
-| `retired` | Permanently deactivated, kept for history |
-
-### Session Workflow
-
-1. **Session start**: call `self_rules_context(project="...")` to load active rules
-2. **During work**: call `self_error_log(...)` on every error automatically
-3. **Pattern detected**: the system returns `pattern_detected: true` -- call `self_insight(action='add', ...)`
-4. **Insight confirmed**: call `self_insight(action='upvote', id=N)` when seeing the same pattern
-5. **Promotion ready**: the system returns `promotion_eligible: true` -- call `self_insight(action='promote', id=N)`
-6. **Task complete**: call `self_rules(action='rate', id=N, success=true/false)` for each rule used
-7. **Session end**: call `self_reflect(...)` with meta-observations about the session
-
-### Periodic Analysis
-
-Run `self_patterns(view='full_report')` periodically to see:
-- Most frequent error categories
-- Insights ready for promotion
-- Rule effectiveness rankings
-- Weekly error trend (improving or not)
-
----
-
-## Web Dashboard
-
-The installer sets up the dashboard as a system service that starts automatically on login:
-
-- **macOS**: LaunchAgent (`com.claude-total-memory.dashboard`)
-- **Windows**: Scheduled Task (`ClaudeTotalMemoryDashboard`)
-
-Open [http://localhost:37737](http://localhost:37737) in your browser.
-
-To start manually (if not using the installer):
+### Automatic (recommended)
 
 ```bash
-# macOS / Linux
-.venv/bin/python src/dashboard.py
-
-# Windows
-.venv\Scripts\python.exe src\dashboard.py
+cd ~/claude-memory-server
+bash update.sh
 ```
 
-Dashboard management:
+What it does (7 stages):
+
+1. **Pre-flight** — disk space check, snapshot DB to `~/.claude-memory/backups/memory.db.YYYYMMDD_HHMMSS.gz` (keeps 7 last)
+2. **Source pull** — `git pull --ff-only` if repo, or HTTPS+SHA-256-verified tarball if `UPDATE_URL` set
+3. **Dependencies** — `pip install -r requirements.txt` only if hash changed
+4. **Tests** — full pytest suite. Aborts (with snapshot kept) if red
+5. **Schema** — `Store()` init applies pending migrations idempotently. v3/v4/v5 → v6 means up to 7 migrations roll forward
+6. **Services** — reloads LaunchAgents + restarts dashboard
+7. **MCP** — macOS notification + instruction to do `/mcp` reconnect (only Claude Code can respawn the MCP server)
+
+### Manual
 
 ```bash
-# macOS — stop / start / logs
-launchctl bootout gui/$(id -u)/com.claude-total-memory.dashboard
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.claude-total-memory.dashboard.plist
-tail -f ~/.claude-memory/logs/dashboard.log
+cd ~/claude-memory-server
+git pull
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python src/tools/version_status.py    # see pending migrations
+.venv/bin/python -m pytest tests/                # gate
+# Restart MCP from Claude Code: /mcp → memory → Reconnect
+# Reload LaunchAgents:
+launchctl unload ~/Library/LaunchAgents/com.claude.memory.*.plist 2>/dev/null
+cp launchagents/*.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.claude.memory.*.plist
 ```
 
-```powershell
-# Windows — stop / start / remove
-Stop-ScheduledTask -TaskName ClaudeTotalMemoryDashboard
-Start-ScheduledTask -TaskName ClaudeTotalMemoryDashboard
-Unregister-ScheduledTask -TaskName ClaudeTotalMemoryDashboard
+### Migration matrix
+
+| From | What rolls forward | Notes |
+|---|---|---|
+| **v5.0** | migrations 002..007 | KG already present; new tables for queues, representations, enrichment, filter savings, perf indexes |
+| **v4.x** | migrations 001..007 | Adds full v5 KG schema + everything from v6 |
+| **v3.x** | migrations 001..007 + branch column | Same as v4, plus `branch` column on knowledge/sessions |
+| **v2.x** | full schema rebuild | Backup + reinstall (data preserved via export/import) |
+
+Migration order is enforced by sorted filename prefix (`001_*.sql` first). Each is recorded in the `migrations(version, description, applied_at)` table — re-running is a no-op.
+
+### Rollback
+
+```bash
+# Find your snapshot
+ls -lt ~/.claude-memory/backups/
+
+# Restore
+gunzip < ~/.claude-memory/backups/memory.db.YYYYMMDD_HHMMSS.gz > ~/.claude-memory/memory.db
+
+# Roll back code
+cd ~/claude-memory-server && git checkout v5.0
+# Restart MCP via /mcp in Claude Code
 ```
 
-The dashboard provides:
+---
 
-- **Statistics**: total knowledge, sessions, projects, health score, storage size, self-improvement stats
-- **Knowledge table**: searchable and filterable list of all active records with detail modal
-- **Sessions**: chronological session history with knowledge counts
-- **Graph**: interactive force-directed visualization of knowledge relations
-- **Self-Improvement** (new in v3.0): error patterns, insight candidates, promotion pipeline
-- **Rules/SOUL** (new in v3.0): active rules with fire counts, success rates, and status management
+## Architecture at a glance
 
-The dashboard is read-only and connects to the same SQLite database used by the MCP server (via WAL mode for safe concurrent access).
+```
+                          memory_save(content)
+                                   │
+                                   ▼
+       ┌───────────────────────────────────────────────────────┐
+       │  src/server.py — Store.save_knowledge                │
+       │  • autofilter.detect_filter() ← optional compression │
+       │  • _sanitize_content() ← privacy strip                │
+       │  • INSERT INTO knowledge                              │
+       │  • _upsert_embedding() ← FastEmbed / Ollama vector    │
+       │  • auto_link_knowledge() ← create graph_nodes for tags│
+       │  • enqueue × 3 (triples / enrichment / representations)│
+       │  • touch ~/.claude-memory/.reflect-pending            │
+       └───────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+                ┌──────────────────────────────────┐
+                │  LaunchAgent WatchPaths picks up │
+                │  the touch (<1s)                 │
+                └──────────────────────────────────┘
+                                   │
+                                   ▼ (5s debounce)
+       ┌───────────────────────────────────────────────────────┐
+       │  src/tools/run_reflection.py                         │
+       │  scope = drain (small) | full (big) | weekly         │
+       │                                                       │
+       │  Phase 3: triple_extraction_queue → Ollama deep_extract│
+       │           → graph_edges (subject, predicate, object)   │
+       │  Phase 5: deep_enrichment_queue → entities/intent/topics│
+       │           → knowledge_enrichment table                 │
+       │  Phase 6: representations_queue → 5 LLM views          │
+       │           → knowledge_representations table            │
+       │  + Digest (dedup, decay, contradictions) on full mode  │
+       │  + Synthesize (clusters, patterns) on full mode        │
+       │  + FactMerger (LLM consolidation) on full mode         │
+       └───────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+                  ⇒ Graph and search are now richer
+```
+
+### Layered storage
+
+| Layer | Purpose | Where |
+|---|---|---|
+| **Short-term** | Live conversation context | Claude Code session window |
+| **Episodic** | Sessions, transcripts, events | `sessions`, `episodes` tables |
+| **Semantic** | Facts, knowledge, lessons, decisions, conventions | `knowledge` table + FTS5 + embeddings |
+| **Structured** | Concepts + relationships | `graph_nodes`, `graph_edges`, `knowledge_nodes` |
+| **Procedural** | Skills (HOW to do things) | `skills`, `skill_uses` |
+| **Self-model** | Competencies, blind spots, user model | `competencies`, `blind_spots`, `user_model` |
+| **Meta** | Errors, insights, rules (SOUL self-improvement) | `errors`, `insights`, `rules` |
+
+---
+
+## Search pipeline
+
+`memory_recall(query, ...)` runs through 6 tiers, fuses with RRF (Reciprocal Rank Fusion, k=60), enriches with cognitive context, optionally reranks:
+
+```
+query
+  │
+  ├─[Tier 1] FTS5 + BM25                  ~5-15 ms   keyword + relevance
+  ├─[Tier 2] semantic cosine               ~15-30 ms  binary-quantized HNSW
+  ├─[Tier 2b] HyDE (optional Ollama)       ~2-15 s    hypothetical answer embed
+  ├─[Tier 2c] multi-repr search            ~10-20 ms  RRF over summary/keywords/questions/compressed
+  ├─[Tier 3] fuzzy SequenceMatcher         ~10-30 ms  typo-tolerant
+  └─[Tier 4] graph 1-hop                   ~5-10 ms   neighbor records via KG
+       │
+       ▼
+   RRF fusion (rank-based, scale-invariant)
+       │
+       ├─ enrichment_filter (if topics/entities/intent set)
+       ├─ cognitive_engine (rules, past failures, applicable skills)
+       ├─ context_expander (if expand_context=true) — 1-hop graph neighbors
+       ├─ CrossEncoder rerank (if rerank=true) — boost-only ms-marco
+       └─ MMR diversify (if diverse=true)
+       │
+       ▼
+   top-K results
+```
+
+### `memory_recall` parameters
+
+```python
+memory_recall(
+    query: str,                                        # required
+    project: str = None,
+    type: "decision|fact|solution|lesson|convention|all" = "all",
+    limit: int = 10,
+    detail: "compact|summary|full|auto" = "full",      # NEW: auto-picks based on query shape
+    branch: str = None,
+    fusion: "rrf|legacy" = "rrf",
+    rerank: bool = False,                              # CrossEncoder boost
+    diverse: bool = False,                             # MMR diversification
+    expand_context: bool = False,                      # NEW v6: 1-hop graph
+    expand_budget: int = 5,
+    topics: list[str] = None,                          # NEW v6: filter by enrichment topics
+    entities: list[str] = None,                        # NEW v6: filter by entities
+    intent: str = None,                                # NEW v6: filter by intent
+)
+```
+
+---
+
+## Graph visualizations
+
+The dashboard at <http://127.0.0.1:37737> ships three graph views, switched via top tabs:
+
+| URL | Renderer | Best for |
+|---|---|---|
+| `/graph/live` | **3d-force-graph** (Three.js + WebGL) | rotate / pan / zoom in 3D, fly-to-node click |
+| `/graph/hive` | D3 hive plot | typed networks — concepts vs technologies vs projects on radial axes |
+| `/graph/matrix` | Canvas adjacency matrix | dense graphs without edge crossings, sorted by type |
+
+All three share controls:
+
+- **importance ≥ N** — show only nodes mentioned in ≥N records (default 3)
+- **edge weight ≥ N** — show only edges with weight ≥N (default 2)
+- **type filter** — concept / technology / project / person / company / product / pattern / domain
+- **search by name**
+- **hide orphans** toggle
+- **click → focus** + ESC to back
+
+The main dashboard page (`/`) has live panels for token savings, queue depths, representations coverage, and an SSE connection pill in the header.
+
+---
+
+## Async pipelines
+
+Every `memory_save` enqueues into three queues. A LaunchAgent (or manual cron) drains them:
+
+| Queue | What it does | Tool that drains it |
+|---|---|---|
+| `triple_extraction_queue` | Ollama deep extract → `(subject, predicate, object)` triples → `graph_edges` | `ConceptExtractor.extract_and_link(deep=True)` |
+| `deep_enrichment_queue` | Ollama → entities, intent, topics → `knowledge_enrichment` | `deep_enricher.deep_enrich()` |
+| `representations_queue` | LLM-generated `summary, keywords, questions, compressed` + embeddings of each | `representations.generate_representations()` + `MultiReprStore.upsert()` |
+
+Drain happens automatically:
+
+- **On save** — file-watch triggers reflection within 5s (debounce)
+- **Hourly** — LaunchAgent safety-net periodic run
+- **4× daily** — orphan backfill scans for nodes with zero edges, re-enqueues them
+
+---
+
+## Auto-update
+
+Single-command upgrade with rollback safety:
+
+```bash
+bash update.sh                # full update with all 7 stages
+bash update.sh --check        # dry-run, report only
+bash update.sh --skip-tests   # NOT recommended
+```
+
+Weekly auto-check (notify-only by default):
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.claude.memory.check-updates.plist
+# Set UPDATE_GH_REPO=vbcherepanov/claude-total-memory in the plist for GitHub release polling
+```
+
+---
+
+## Benchmarks
+
+Measured on a real working install (1759 active records, 3507 graph nodes, 120912 graph edges, ~78MB DB, M-series Mac):
+
+### Search latency (`memory_recall`, 20 diverse queries)
+
+| Mode | P50 | P95 | P99 | Notes |
+|---|---:|---:|---:|---|
+| default (RRF, hybrid) | 1145 ms | 1784 ms | 1789 ms | All tiers, no rerank, no expansion |
+| `rerank=true` | 1440 ms | 4770 ms | 4862 ms | + CrossEncoder ms-marco — heavy but boost-only |
+| `detail="auto"` | 1277 ms | 2024 ms | 2036 ms | Same as default + verbosity inference |
+
+> Hot-cache hits return in under 5ms (LRU 200 entries, 5min TTL). Numbers above are cold-path on 1759-record DB.
+
+### Save latency (`memory_save`, real path)
+
+| Action | Time |
+|---|---:|
+| `save_knowledge` (incl 3 enqueues + autofilter + auto_link) | **2.5 ms / save** |
+| 50 saves in a batch | 125 ms total |
+
+### Quality (LongMemEval R@5)
+
+- **97.45%** on hybrid mode (BM25 + semantic + RRF)
+- Beats most open-source MCP memory implementations on the same eval
+
+### Compression (TOML filters, real CLI output)
+
+| Filter | Avg reduction | Best case |
+|---|---:|---:|
+| `pytest` | 78% | 990 → 222 chars |
+| `generic_logs` | 52% | 465 → 223 chars |
+| `stack_trace` | 41% | 824 → 490 chars |
+| `sql_explain` | 29% | 717 → 511 chars |
+
+### Storage (78 MB total at 1759 records)
+
+| Component | Size |
+|---|---:|
+| `knowledge` + FTS5 | ~5 MB |
+| `graph_nodes` + `graph_edges` (35k+ edges) | ~15 MB |
+| `embeddings` (binary-quantized 96 bytes/vec) | ~150 KB |
+| `knowledge_representations` (4 views × 232 rows) | ~3 MB |
+
+### Tests
+
+```
+370 passed in ~21 s
+```
+
+(13 v5 baseline test files + 12 new v6 unit-test files + 7 integration test files + 1 end-to-end test)
 
 ---
 
 ## Configuration
 
-All configuration is via environment variables set in the MCP server config:
+Environment variables (set in shell, LaunchAgent plist, or MCP server config):
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `CLAUDE_MEMORY_DIR` | `~/.claude-memory` | Root directory for all storage |
-| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Sentence transformer model for semantic search |
-| `DECAY_HALF_LIFE` | `90` | Days until knowledge score decays to 50% |
-| `ARCHIVE_AFTER_DAYS` | `180` | Days before unrecalled records are archived |
-| `PURGE_AFTER_DAYS` | `365` | Days before archived records are purged |
-| `DASHBOARD_PORT` | `37737` | HTTP port for the web dashboard |
-
----
-
-## Making Memory Automatic
-
-The MCP server provides the tools -- but Claude needs **instructions** to use them proactively. There are three layers of configuration, from broadest to most specific:
-
-### Layer 1: Global Rules (all projects)
-
-Add memory instructions to `~/.claude/CLAUDE.md` so Claude uses memory in **every** project, even ones without their own CLAUDE.md:
-
-```bash
-# Append the template to your global rules
-cat global-rules.md.template >> ~/.claude/CLAUDE.md
-```
-
-Or copy the relevant sections manually. The key instructions are:
-- **Always recall** before starting a task (`memory_recall`)
-- **Always save** after significant actions (`memory_save`) -- without asking
-- **Always log errors** automatically (`self_error_log`) -- without asking
-- **Load rules** at session start (`self_rules_context`)
-- Use the correct knowledge types (decision, solution, lesson, fact, convention)
-
-See `global-rules.md.template` for the full ready-to-paste block.
-
-### Layer 2: Project CLAUDE.md (per project)
-
-Copy `CLAUDE.md.template` to a specific project's root to add project-specific memory rules:
-
-```bash
-cp CLAUDE.md.template /path/to/your/project/CLAUDE.md
-```
-
-Then replace every `my-project` with your actual project name. This ensures all knowledge is tagged with the correct project for filtered recall later.
-
-The project template adds:
-- Auto-recall with project filter before every task
-- Auto-save triggers with project name and tags
-- Auto-error-logging triggers for self-improvement
-- Knowledge type reference table
-- Maintenance commands
-
-### Layer 3: Custom Agents (per agent)
-
-If you use custom agents (`.claude/agents/*.md`), each agent needs its own memory instructions. See `agent-rules.md.template` for three options:
-
-**Option A: Full block** -- add a complete Memory System section to the agent's .md file with recall/save rules and trigger table.
-
-**Option B: Full agent example** -- use the template as a starting point for a new agent that has memory built in.
-
-**Option C: One-liner** -- add a single line to existing agents:
-
-```
-Use memory_recall before tasks and memory_save after decisions/fixes/lessons. Use self_error_log on failures. Project: "my-project".
-```
-
-### How the layers work together
-
-```
-~/.claude/CLAUDE.md          -> "Always use memory_recall and memory_save"
-                                "Always log errors with self_error_log"
-                                (applies to ALL projects)
-
-/your-project/CLAUDE.md      -> "Project is 'my-app', save with these tags"
-                                (adds project-specific context)
-
-.claude/agents/backend.md    -> "You are a backend developer. Use memory."
-                                (adds agent-specific behavior)
-```
-
-All three layers are optional. Each one makes memory more automatic:
-- **Global only**: Claude uses memory everywhere, but without project filtering
-- **Global + Project**: Claude uses memory with proper project tags
-- **All three**: Custom agents also use memory proactively
-
-### What "automatic" means
-
-With proper configuration, Claude will:
-
-1. **At session start** -- search memory for context relevant to the current task and load behavioral rules
-2. **During work** -- save decisions, bug fixes, gotchas, and conventions as they happen
-3. **On every error** -- log failures with category, severity, and fix for pattern analysis
-4. **At session end** -- save a summary of what was accomplished and reflect on the session
-5. **Never ask** "should I save this?" -- it just saves automatically
-6. **Never duplicate** -- the server deduplicates via Jaccard + fuzzy similarity
-7. **Learn over time** -- errors become insights, insights become rules, rules improve behavior
-
-### Templates reference
-
-**Claude Code:**
-
-| File | Purpose | Copy to |
-|------|---------|---------|
-| `CLAUDE.md.template` | Project-level memory rules | `/your-project/CLAUDE.md` |
-| `global-rules.md.template` | Global memory rules for all projects | `~/.claude/CLAUDE.md` (append) |
-| `agent-rules.md.template` | Guide for configuring custom agents | Read and apply to `.claude/agents/*.md` |
-
-**Codex CLI:**
-
-| File | Purpose | Copy to |
-|------|---------|---------|
-| `AGENTS.md.template` | Project-level memory rules | `/your-project/AGENTS.md` |
-| `codex-global-rules.md.template` | Global memory rules for all projects | `~/.codex/AGENTS.md` (append) |
-| `codex-skill/` | Memory skill for Codex | `~/.agents/skills/memory/` |
+| Variable | Default | What |
+|---|---|---|
+| `MEMORY_LLM_MODEL` | `qwen2.5-coder:7b` | Ollama model used for deep extraction, enrichment, representations, fact merging |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama base URL |
+| `MEMORY_LLM_ENABLED` | `auto` | `auto` (probe Ollama) / `true` / `force` (skip probe) / `false` (degrade) |
+| `MEMORY_LLM_PROBE_TTL_SEC` | `60` | Cache TTL for the Ollama availability probe |
+| `CLAUDE_MEMORY_DIR` | `~/.claude-memory` | DB + blobs + chroma + backups location |
+| `DASHBOARD_PORT` | `37737` | Dashboard HTTP port |
+| `DASHBOARD_BIND` | `127.0.0.1` | Bind address. Set `0.0.0.0` only with auth proxy in front |
+| `REFLECT_DEBOUNCE_SEC` | `5` | LaunchAgent reflection runner debounce window |
+| `UPDATE_GH_REPO` | (unset) | GitHub repo for `check_updates.py`. e.g. `vbcherepanov/claude-total-memory` |
+| `UPDATE_URL` | (unset) | Tarball URL for non-git installs (must be HTTPS + `UPDATE_URL_SHA256`) |
+| `USE_BINARY_SEARCH` | `auto` | `auto` / `true` (always binary HNSW) / `false` (ChromaDB) |
+| `USE_ADVANCED_RAG` | `auto` | HyDE + reranker availability gate |
 
 ---
 
-## Hooks (Optional)
+## Operations
 
-Ready-to-use hooks are provided in the `hooks/` directory:
-
-| Hook | macOS/Linux | Windows | What it does |
-|------|-------------|---------|--------------|
-| SessionStart | `hooks/session-start.sh` | `hooks/session-start.ps1` | Detects project/branch, reminds Claude to use `memory_recall` and `self_rules_context` |
-| Stop | `hooks/on-stop.sh` | `hooks/on-stop.ps1` | Reminds Claude to save knowledge and reflect |
-| PostToolUse:Bash | `hooks/memory-trigger.sh` | `hooks/memory-trigger.ps1` | Suggests `memory_save` after git/docker/npm/pip/go/cargo/composer |
-| PostToolUse:Write | `hooks/auto-capture.sh` | `hooks/auto-capture.ps1` | Suggests `memory_observe` after file changes (new in v4.0) |
-| PostToolUse:Edit | `hooks/auto-capture.sh` | `hooks/auto-capture.ps1` | Same as Write -- tracks file edits (new in v4.0) |
-
-> **Note:** The `install.sh` / `install.ps1` installer automatically registers all hooks in `settings.json`. Manual registration is only needed for custom setups.
-
-**macOS / Linux** -- add to `~/.claude/settings.json`:
-
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "type": "command",
-        "command": "/FULL/PATH/TO/claude-total-memory/hooks/session-start.sh"
-      }
-    ],
-    "Stop": [
-      {
-        "type": "command",
-        "command": "/FULL/PATH/TO/claude-total-memory/hooks/on-stop.sh"
-      }
-    ],
-    "PostToolUse": [
-      {
-        "type": "command",
-        "command": "/FULL/PATH/TO/claude-total-memory/hooks/memory-trigger.sh",
-        "matcher": "Bash"
-      },
-      {
-        "type": "command",
-        "command": "/FULL/PATH/TO/claude-total-memory/hooks/auto-capture.sh",
-        "matcher": "Write"
-      },
-      {
-        "type": "command",
-        "command": "/FULL/PATH/TO/claude-total-memory/hooks/auto-capture.sh",
-        "matcher": "Edit"
-      }
-    ]
-  }
-}
-```
-
-**Windows** -- add to `%USERPROFILE%\.claude\settings.json`:
-
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "type": "command",
-        "command": "powershell -ExecutionPolicy Bypass -File C:/Users/yourname/claude-total-memory/hooks/session-start.ps1"
-      }
-    ],
-    "Stop": [
-      {
-        "type": "command",
-        "command": "powershell -ExecutionPolicy Bypass -File C:/Users/yourname/claude-total-memory/hooks/on-stop.ps1"
-      }
-    ],
-    "PostToolUse": [
-      {
-        "type": "command",
-        "command": "powershell -ExecutionPolicy Bypass -File C:/Users/yourname/claude-total-memory/hooks/memory-trigger.ps1",
-        "matcher": "Bash"
-      },
-      {
-        "type": "command",
-        "command": "powershell -ExecutionPolicy Bypass -File C:/Users/yourname/claude-total-memory/hooks/auto-capture.ps1",
-        "matcher": "Write"
-      },
-      {
-        "type": "command",
-        "command": "powershell -ExecutionPolicy Bypass -File C:/Users/yourname/claude-total-memory/hooks/auto-capture.ps1",
-        "matcher": "Edit"
-      }
-    ]
-  }
-}
-```
-
-You can also add a session-end hook that calls `extract_transcript.py` to compress the session transcript and queue it for knowledge extraction on the next session start:
+### Logs
 
 ```bash
-# macOS / Linux
-python3 /FULL/PATH/TO/claude-total-memory/src/extract_transcript.py \
-  --transcript "$TRANSCRIPT_PATH" \
-  --session-id "$SESSION_ID" \
-  --output-dir ~/.claude-memory/extract-queue \
-  --db ~/.claude-memory/memory.db
+tail -f /tmp/claude-memory-reflection.log         # reflection runner
+tail -f /tmp/claude-memory-orphan-backfill.log    # orphan backfill
+tail -f /tmp/claude-memory-update.log             # last update.sh run
+tail -f /tmp/claude-memory-check-updates.log      # weekly update check
+tail -f /tmp/dashboard.log                        # dashboard
 ```
 
-The transcript extractor:
-- Compresses transcripts to under 200 KB
-- Redacts sensitive data (API keys, tokens, secrets)
-- Auto-saves a session summary directly to the database
-- Queues the full transcript for detailed extraction via `memory_extract_session`
+### LaunchAgents
+
+```bash
+launchctl list | grep claude.memory                       # status
+launchctl start com.claude.memory.reflection              # force run now
+launchctl unload ~/Library/LaunchAgents/com.claude.memory.<name>.plist  # disable
+launchctl load ~/Library/LaunchAgents/com.claude.memory.<name>.plist    # enable
+```
+
+### State diagnostics
+
+```bash
+~/claude-memory-server/.venv/bin/python ~/claude-memory-server/src/tools/version_status.py
+# → code version + applied/pending migrations + DB size
+
+curl -s http://127.0.0.1:37737/api/v6/queues | python3 -m json.tool
+# → pending/processing/done/failed per queue
+
+curl -s http://127.0.0.1:37737/api/v6/savings | python3 -m json.tool
+# → token savings totals + per-filter breakdown
+
+curl -s http://127.0.0.1:37737/api/v6/coverage | python3 -m json.tool
+# → % of active records with representations + enrichment
+```
+
+### Force backfill orphan edges
+
+```bash
+~/claude-memory-server/.venv/bin/python \
+  ~/claude-memory-server/src/tools/backfill_orphan_edges.py \
+  --min-mentions=1 --trigger-now
+```
+
+### Import projects in bulk
+
+```bash
+~/claude-memory-server/.venv/bin/python \
+  ~/claude-memory-server/src/tools/import_projects_now.py \
+  ~/Projects ~/work/repos ~/sandbox
+```
+
+Walks each path, summarizes README + manifest + `CLAUDE.md` + structure for every subdir, bulk-inserts into knowledge, enqueues into all 3 v6 queues.
 
 ---
 
-## Storage Structure
+## Troubleshooting
 
-```
-~/.claude-memory/
-  memory.db              SQLite database (8 tables: sessions, knowledge, relations,
-                         timeline, errors, insights, rules, observations + FTS5 indexes)
-  raw/                   Raw JSONL session logs
-    mcp_20260215_*.jsonl
-  chroma/                ChromaDB vector store (semantic embeddings)
-  transcripts/           Archived session transcripts
-  extract-queue/         Pending/completed transcript extractions
-    pending-*.json
-    done-*.json
-  backups/               JSON exports from memory_export
-    export_all_*.json
-```
+### "MCP shows Disconnected"
 
-Typical storage sizes after moderate use:
+In Claude Code: `/mcp` → `memory` → `Reconnect`. If still failing, check `~/.claude-memory/memory.db` exists and is writable.
 
-| Component | Approximate Size |
-|-----------|-----------------|
-| SQLite (memory.db) | 1-10 MB |
-| ChromaDB vectors | 10-50 MB |
-| Raw logs | 5-20 MB |
-| Transcripts | 1-10 MB |
+### "Graph is empty / not loading"
 
----
+Check the dashboard: <http://127.0.0.1:37737/api/v6/coverage> — if `representations_records: 0`, queues haven't drained yet. Either:
 
-## Knowledge Types
+- Wait ~30s after a save (file-watch trigger)
+- Force a drain: `launchctl start com.claude.memory.reflection`
+- Run reflection manually via MCP: `memory_reflect_now(scope="full")`
 
-| Type | When to Use | Example |
-|------|------------|---------|
-| `decision` | Architectural or design choice. **Always include WHY in context.** | "Chose pgx over database/sql for connection pooling and pgx-specific features" |
-| `solution` | Bug fix, workaround, or resolution to a problem. | "Fixed Bitrix24 batch timeout by chunking requests to 50 items with 200ms delay" |
-| `lesson` | Gotcha, pitfall, or unexpected behavior discovered. | "Docker Compose v2 requires `depends_on.condition: service_healthy` -- silent failure without it" |
-| `fact` | Configuration, version, endpoint, or objective information. | "Production PostgreSQL 18 on port 5433, max_connections=200" |
-| `convention` | Project pattern, coding standard, or team agreement. | "All DTOs must be final readonly classes with constructor promotion" |
+### "Token savings stuck at 0"
 
----
+`memory_save(filter="pytest")` — pass an explicit filter for known content types. Or rely on autofilter for content matching common patterns (pytest, cargo, git, docker, npm, http, sql, json, stack traces, markdown docs).
 
-## Relation Types
+### "Ollama not installed / queues constantly fail"
 
-| Type | Meaning | Example |
-|------|---------|---------|
-| `causal` | A caused or led to B | "Timeout error (A) caused us to implement chunking (B)" |
-| `solution` | B is the solution to A | "Memory leak (A) was solved by connection pooling (B)" |
-| `context` | B provides context for A | "API rate limits (B) explain why we use queues (A)" |
-| `related` | A and B are related | "Docker config (A) relates to CI/CD pipeline (B)" |
-| `contradicts` | A contradicts B | "Old API docs (A) contradict actual behavior (B)" |
+Set `MEMORY_LLM_ENABLED=false` (or remove Ollama). System runs in **degraded mode**:
 
----
+- `memory_save` works, queues fill up but won't drain LLM phases
+- `memory_recall` works (no HyDE, no fact merger)
+- Graph stays at co-occurrence edges only
 
-## Architecture
+When you install Ollama later, set `MEMORY_LLM_ENABLED=auto` and the queues drain on next reflection cycle.
 
-The server is a single-file MCP server (`src/server.py`, ~2100 lines) built on:
-
-- **MCP SDK** (`mcp` package): protocol implementation and stdio transport
-- **SQLite FTS5**: full-text search with BM25 scoring, triggers for index sync
-- **ChromaDB**: persistent vector store with cosine similarity search
-- **sentence-transformers**: local embedding model (`all-MiniLM-L6-v2`, 384d)
-
-The database contains 8 tables: `sessions`, `knowledge`, `relations`, `timeline` (core), `observations` (auto-capture), and `errors`, `insights`, `rules` (self-improvement).
-
-```
-Claude Code
-    |
-    | (MCP protocol over stdio)
-    v
-+-----------------------------------------------------------+
-|  MCP Server (server.py) -- 32 tools                       |
-|                                                           |
-|  +-------+ +-------+ +-------+ +-------+ +------+ +----+ |
-|  | Core  | | Self- | | Graph | | Epis- | | Skil | | Adv| |
-|  | Mem.  | | Impr. | |       | | odic  | | ls   | |    | |
-|  | (12)  | | (6)   | | (4)   | | (2)   | | (3)  | | (5)| |
-|  +---+---+ +---+---+ +---+---+ +---+---+ +--+---+ +-+--+ |
-|      |         |         |         |         |       |    |
-|  +---v---------v---------v---------v---------v-------v-+  |
-|  |   SQLite (10+ tables + FTS5)                        |  |
-|  |   + ChromaDB (vectors)                              |  |
-|  |   + Knowledge Graph                                 |  |
-|  |   + Privacy Stripping                               |  |
-|  +-------------------------------------------------+   |
-+-----------------------------------------------------------+
-```
-
-- **Core Memory** (12 tools): save, recall, update, delete, consolidate, timeline, stats, export, forget, history, relate, search by tag
-- **Self-Improvement** (6 tools): error logging, pattern detection, insight management, rule lifecycle, reflection, rules context
-- **Knowledge Graph** (4 tools): graph traversal, concept clusters, index management, graph statistics
-- **Episodic Memory** (2 tools): episode save and recall with temporal context
-- **Skills** (3 tools): skill tracking, delta updates, self-assessment
-- **Advanced** (5 tools): observations, associative search, context building, on-demand reflection, transcript extraction
-- **Dashboard** (`src/dashboard.py`): standalone HTTP server using Python stdlib, read-only SQLite access
-
-The server creates a new session ID on each startup and logs all tool calls to raw JSONL files for auditability.
-
----
-
-## Using with OpenAI Codex CLI
-
-The same MCP server works with OpenAI Codex CLI. No changes to `server.py` or the dashboard are needed -- the MCP protocol is identical.
-
-### Quick Start (Codex)
-
-If you already have Claude Total Memory installed for Claude Code:
+### "Tests fail after update"
 
 ```bash
-bash install-codex.sh
+# Restore last DB snapshot
+gunzip < $(ls -t ~/.claude-memory/backups/*.gz | head -1) > ~/.claude-memory/memory.db
+# Roll back code
+cd ~/claude-memory-server && git reset --hard HEAD~1
+# Reload services
+bash update.sh
 ```
-
-Fresh install:
-
-```bash
-git clone https://github.com/vbcherepanov/claude-total-memory.git
-cd claude-total-memory
-bash install-codex.sh
-```
-
-Windows:
-
-```powershell
-git clone https://github.com/vbcherepanov/claude-total-memory.git
-cd claude-total-memory
-powershell -ExecutionPolicy Bypass -File install-codex.ps1
-```
-
-The Codex installer reuses the same Python venv and memory database. If you already ran `install.sh`, dependencies are not re-downloaded.
-
-### Manual MCP Configuration (Codex)
-
-Edit `~/.codex/config.toml` and add:
-
-```toml
-[mcp_servers.memory]
-command = "/FULL/PATH/TO/claude-total-memory/.venv/bin/python"
-args = ["/FULL/PATH/TO/claude-total-memory/src/server.py"]
-required = true
-startup_timeout_sec = 15.0
-tool_timeout_sec = 120.0
-
-[mcp_servers.memory.env]
-CLAUDE_MEMORY_DIR = "/Users/yourname/.claude-memory"
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-```
-
-Windows paths use forward slashes in TOML:
-
-```toml
-[mcp_servers.memory]
-command = "C:/Users/yourname/claude-total-memory/.venv/Scripts/python.exe"
-args = ["C:/Users/yourname/claude-total-memory/src/server.py"]
-required = true
-
-[mcp_servers.memory.env]
-CLAUDE_MEMORY_DIR = "C:/Users/yourname/.claude-memory"
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-```
-
-### AGENTS.md Setup (Codex)
-
-Codex CLI uses `AGENTS.md` instead of `CLAUDE.md` for instructions. The setup mirrors the Claude Code approach with three layers:
-
-**Layer 1: Global rules** -- append `codex-global-rules.md.template` to `~/.codex/AGENTS.md`:
-
-```bash
-cat codex-global-rules.md.template >> ~/.codex/AGENTS.md
-```
-
-**Layer 2: Project rules** -- copy `AGENTS.md.template` to your project root:
-
-```bash
-cp AGENTS.md.template /path/to/your/project/AGENTS.md
-# Then replace "my-project" with your project name
-```
-
-**Layer 3: Codex Skill** -- the installer copies `codex-skill/` to `~/.agents/skills/memory/` automatically. To install manually:
-
-```bash
-mkdir -p ~/.agents/skills/memory/agents
-cp codex-skill/SKILL.md ~/.agents/skills/memory/
-cp codex-skill/agents/openai.yaml ~/.agents/skills/memory/agents/
-```
-
-> **Note:** Codex supports `AGENTS.override.md` for temporary instruction overrides without editing the base file.
-
-### Shared Memory
-
-Both Claude Code and Codex CLI point to the same `~/.claude-memory/` database. Knowledge saved by one is instantly available to the other:
-
-```
-                    ~/.claude-memory/
-                    (SQLite + ChromaDB)
-                          |
-              +-----------+-----------+
-              |                       |
-        Claude Code               Codex CLI
-   (~/.claude/settings.json)  (~/.codex/config.toml)
-              |                       |
-              +--- Same server.py ----+
-              +--- Same 32 tools -----+
-              +--- Same dashboard ----+
-```
-
-**Important:** Do not run both CLIs simultaneously. SQLite supports only one writer at a time. Close one CLI before starting the other. The dashboard (read-only) can run alongside either CLI safely.
-
-### Hooks Limitations (Codex)
-
-Codex CLI's hook system is experimental and more limited than Claude Code's. The key difference:
-
-| Hook | Claude Code | Codex CLI |
-|------|-------------|-----------|
-| SessionStart | Stable -- reminds to call `memory_recall` | Not available -- instructions in AGENTS.md compensate |
-| Stop | Stable -- reminds to save knowledge | Not available -- instructions in AGENTS.md compensate |
-| PostToolUse | Stable -- suggests `memory_save` after git/docker | Experimental (`AfterToolUse` in v0.99.0+) |
-| Notification | Stable -- macOS/Windows alerts | `notify` config -- agent-turn-complete only |
-
-Because of this, the `AGENTS.md.template` and `codex-global-rules.md.template` include stronger, more prominent instructions for manual recall and save steps.
-
-An optional `hooks/codex-notify.sh` is provided for the `notify` mechanism:
-
-```toml
-# ~/.codex/config.toml
-notify = ["/path/to/claude-total-memory/hooks/codex-notify.sh"]
-```
-
-### Claude Code vs Codex CLI -- Comparison
-
-| Aspect | Claude Code | Codex CLI |
-|--------|-------------|-----------|
-| Instructions file | `CLAUDE.md` | `AGENTS.md` |
-| Global instructions | `~/.claude/CLAUDE.md` | `~/.codex/AGENTS.md` |
-| MCP config | `~/.claude/settings.json` (JSON) | `~/.codex/config.toml` (TOML) |
-| Hooks | 5 stable events | Experimental |
-| Custom agents | `.claude/agents/*.md` | `.agents/skills/` |
-| Installer | `install.sh` / `install.ps1` | `install-codex.sh` / `install-codex.ps1` |
-| Override mechanism | None | `AGENTS.override.md` |
-| MCP tools | All 32 | All 32 (identical) |
-| Dashboard | Shared | Shared |
-| Memory database | `~/.claude-memory/` | `~/.claude-memory/` (same) |
-
----
-
-## What's New in v5.0
-
-Upgrading from v4.x (20 tools) to v5.0 (32 tools).
-
-### New Modules
-
-- **Knowledge Graph** (4 tools): deep graph traversal, concept cluster discovery, graph indexing and statistics
-- **Episodic Memory** (2 tools): rich session episodes with titles, narrative content, and temporal recall
-- **Skills & Competencies** (3 tools): track agent skill levels, delta updates with reasons, self-assessment
-- **Cognitive Engine** (3 tools): associative search, full context building for tasks, on-demand reflection
-
-### Upgrade Steps
-
-**1. Update the code**
-
-```bash
-cd /path/to/claude-total-memory
-git pull origin main
-```
-
-**2. Database migration**
-
-No manual migration needed. The server automatically creates new tables (`episodes`, `skills`, `graph_index`) on first startup. Existing data is untouched.
-
-**3. Install dependencies**
-
-No new Python dependencies required. All new modules use SQLite and the existing embedding infrastructure.
-
-**4. Dashboard**
-
-Restart the dashboard to see new tabs for Knowledge Graph explorer and Skill tracking:
-
-```bash
-# macOS
-launchctl bootout gui/$(id -u)/com.claude-total-memory.dashboard
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.claude-total-memory.dashboard.plist
-```
-
-**5. Update templates**
-
-Copy updated `CLAUDE.md.template` / `AGENTS.md.template` to your projects to enable new tool instructions.
-
-### v5.0 Changelog
-
-- 12 new MCP tools (20 -> 32)
-- `memory_graph`: traverse knowledge graph with configurable depth
-- `memory_concepts`: discover concept clusters across knowledge
-- `memory_graph_index`: rebuild graph index on demand
-- `memory_graph_stats`: graph metrics (nodes, edges, density, components)
-- `memory_episode_save`: save rich session episodes
-- `memory_episode_recall`: recall episodes by semantic search
-- `memory_skill_get`: query skill levels and history
-- `memory_skill_update`: update skill levels with tracking
-- `memory_self_assess`: self-assessment across all skills
-- `memory_associate`: associative search beyond keyword/semantic
-- `memory_context_build`: assemble full task context in one call
-- `memory_reflect_now`: on-demand reflection and insight synthesis
-- Updated all templates for 32-tool coverage
-- Hooks format compatibility improvements
-
----
-
-## Upgrading from v3.x to v4.0
-
-If you are upgrading from v3.x (19 tools) to v4.0 (20 tools):
-
-**1. Update the code**
-
-```bash
-cd /path/to/claude-total-memory
-git pull origin main
-```
-
-**2. Database migration**
-
-No manual migration is needed. The server automatically:
-- Adds `branch` column to `sessions` and `knowledge` tables
-- Creates the new `observations` table
-- Adds missing FTS5 DELETE trigger for errors
-- Adds indexes on the `relations` table
-
-Your existing data is untouched.
-
-**3. Dashboard**
-
-The new tabs (Live Feed, branch filter, token column) and the observations stat card appear automatically. Restart the dashboard:
-
-```bash
-# macOS
-launchctl bootout gui/$(id -u)/com.claude-total-memory.dashboard
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.claude-total-memory.dashboard.plist
-```
-
-**4. Register new hooks (optional)**
-
-The new `auto-capture` hooks suggest `memory_observe` after file changes. Either re-run `install.sh` (it registers all hooks automatically) or add manually:
-
-```json
-{
-  "PostToolUse": [
-    { "type": "command", "command": "/path/to/hooks/auto-capture.sh", "matcher": "Write" },
-    { "type": "command", "command": "/path/to/hooks/auto-capture.sh", "matcher": "Edit" }
-  ]
-}
-```
-
-**5. Update CLAUDE.md templates (optional)**
-
-Copy the updated `CLAUDE.md.template` to your projects to enable privacy tags and observation instructions.
-
-### What's new in v4.0
-
-- **Privacy stripping**: automatic redaction of API keys, JWTs, passwords, emails, credit cards before storage
-- **`<private>` tags**: explicitly exclude sensitive content from knowledge
-- **Branch-aware context**: knowledge tagged with git branch, filterable on recall
-- **3-level progressive disclosure**: compact (~50 tokens/result), summary, full -- up to 10x token savings
-- **Token cost estimation**: each result includes estimated tokens
-- **`memory_observe` tool**: lightweight file change tracking (30-day retention)
-- **SSE Live Feed**: real-time dashboard tab showing knowledge, errors, observations as they happen
-- **Branch filter**: filter knowledge by git branch in the dashboard
-- **Token column**: see token estimates in the knowledge table
-- **BM25 fix**: batch-relative normalization for better ranking
-- **Performance**: optimized search_by_tag, indexed relations table, fixed double dedup
-
----
-
-## Upgrading from v2.x
-
-If you are upgrading from v2.x (13 tools) to v3.0 (19 tools):
-
-**1. Update the code**
-
-```bash
-cd /path/to/claude-total-memory
-git pull origin main
-```
-
-Or re-clone if you prefer a fresh copy.
-
-**2. Install dependencies**
-
-No new dependencies are required. The self-improvement system uses only SQLite and the existing Python stdlib.
-
-```bash
-source .venv/bin/activate
-pip install -r requirements.txt  # just in case
-```
-
-**3. Database migration**
-
-No manual migration is needed. The server automatically creates the three new tables (`errors`, `insights`, `rules`) and their FTS5 indexes on first startup. Your existing knowledge, sessions, and relations are untouched.
-
-**4. Dashboard**
-
-The two new tabs (Self-Improvement, Rules/SOUL) and the self-improvement stat card appear automatically. Restart the dashboard if it is running as a service:
-
-```bash
-# macOS
-launchctl bootout gui/$(id -u)/com.claude-total-memory.dashboard
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.claude-total-memory.dashboard.plist
-```
-
-```powershell
-# Windows
-Restart-ScheduledTask -TaskName ClaudeTotalMemoryDashboard
-```
-
-**5. Configure self-improvement instructions (optional)**
-
-For Claude to use the new self-improvement tools automatically, add the self-improvement block to your `CLAUDE.md`. The key instructions are:
-
-- Call `self_rules_context(project="...")` at session start
-- Call `self_error_log(...)` automatically on every error
-- Call `self_insight(action='add', ...)` when pattern detected
-- Call `self_reflect(...)` at session end
-- Rate rules after task completion
-
-See `global-rules.md.template` for the full ready-to-paste block.
-
----
-
-## Contributing
-
-Contributions are welcome! Feel free to open issues and pull requests.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
-
-## Support the Project
-
-If Claude Total Memory saves you time, consider supporting its development:
-
-<a href="https://paypal.me/VitaliiCherepanov">
-  <img src="https://img.shields.io/badge/PayPal-Donate-blue.svg?style=for-the-badge&logo=paypal" alt="Donate via PayPal" />
-</a>
-
----
-
-## Star History
-
-If this project is useful to you, consider giving it a star — it helps others discover it.
-
-[![Star History Chart](https://api.star-history.com/svg?repos=vbcherepanov/claude-total-memory&type=Date)](https://star-history.com/#vbcherepanov/claude-total-memory&Date)
 
 ---
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE).
