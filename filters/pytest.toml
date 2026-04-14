@@ -1,0 +1,29 @@
+name = "pytest"
+description = "Keep only test failures, errors, and summary. Drops PASSED, deprecation warnings, tracebacks of collection."
+safety = "strict"
+
+[stages]
+strip_ansi = true
+strip_lines = [
+    "^Deprecation",
+    "^collecting",
+    "^collected",
+    "^platform ",
+    "^rootdir",
+    "^plugins:",
+    "^cachedir",
+]
+keep_lines = [
+    "FAILED",
+    "ERROR",
+    "passed",
+    "failed",
+    "error",
+    "^\\S+\\.py:\\d+:",
+    "^E\\s",
+    "^>",
+    "AssertionError",
+    "^=+ ",
+]
+max_lines = 200
+on_empty = "(all tests passed)"

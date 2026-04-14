@@ -168,8 +168,14 @@ class Store:
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA synchronous=NORMAL")
+        # Avoid SQLITE_BUSY when reflection runner / dashboard hold reader locks.
+        self.db.execute("PRAGMA busy_timeout=5000")
+        # Larger negative value = larger page cache (SQLite uses kibibytes when
+        # negative). 20MB cache cuts disk I/O for repeat reads in hot path.
+        self.db.execute("PRAGMA cache_size=-20000")
         self._schema()
         self._migrate()
+        self._apply_sql_migrations()
         self._check_fts()
 
         self.chroma = None
@@ -676,6 +682,57 @@ class Store:
                 self.db.commit()
                 LOG("FTS5 recreated from scratch: OK")
 
+    def _apply_sql_migrations(self):
+        """Idempotently apply all migrations/*.sql in sorted order.
+
+        Tracks applied migrations in a `migrations(version, description, applied_at)`
+        table. Each file's basename prefix before the first underscore (e.g. "001"
+        from "001_v5_schema.sql") is used as the version key. Safe to run at
+        every startup — already-applied migrations are skipped.
+        """
+        from pathlib import Path as _Path
+        import datetime as _dt
+
+        migrations_dir = _Path(__file__).resolve().parent.parent / "migrations"
+        if not migrations_dir.is_dir():
+            return
+
+        # Ensure tracker table
+        self.db.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS migrations (
+                version TEXT PRIMARY KEY,
+                description TEXT NOT NULL,
+                applied_at TEXT NOT NULL
+            );
+            """
+        )
+        self.db.commit()
+
+        applied = {
+            r[0] for r in self.db.execute("SELECT version FROM migrations").fetchall()
+        }
+
+        for sql_path in sorted(migrations_dir.glob("*.sql")):
+            # Version = digits before the first underscore (e.g. "001", "002")
+            stem = sql_path.stem
+            version = stem.split("_", 1)[0]
+            if version in applied:
+                continue
+            description = stem[len(version) + 1 :].replace("_", " ") or stem
+            try:
+                self.db.executescript(sql_path.read_text())
+                self.db.execute(
+                    "INSERT OR IGNORE INTO migrations (version, description, applied_at) "
+                    "VALUES (?, ?, ?)",
+                    (version, description, _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")),
+                )
+                self.db.commit()
+                LOG(f"Applied migration {version}: {description}")
+            except Exception as e:
+                LOG(f"Migration {version} failed: {e}")
+                # don't mark applied — will retry next startup
+
     def _create_observations_table(self):
         """Create lightweight observations table for auto-capture."""
         self.db.executescript("""
@@ -806,9 +863,45 @@ class Store:
     # ── CRUD ──
 
     def save_knowledge(self, sid, content, ktype, project="general", tags=None,
-                        context="", branch="", skip_dedup=False):
-        """Save knowledge. Returns (record_id, was_deduplicated, was_redacted)."""
+                        context="", branch="", skip_dedup=False, filter_name=None):
+        """Save knowledge. Returns (record_id, was_deduplicated, was_redacted).
+
+        Optional `filter_name` runs the content through a TOML-defined
+        rtk-style pipeline BEFORE dedup/save — shrinks noisy CLI output
+        (pytest, cargo, etc.) while a hard whitelist keeps URLs/paths/code.
+        """
         now = datetime.utcnow().isoformat() + "Z"
+
+        # Optional content filter (token-saving preprocessor)
+        # Auto-detect filter when caller didn't specify one.
+        if not filter_name:
+            try:
+                from autofilter import detect_filter
+                filter_name = detect_filter(content)
+                if filter_name:
+                    LOG(f"autofilter detected: {filter_name}")
+            except Exception as e:
+                LOG(f"autofilter error: {e}")
+        filter_stats = None
+        if filter_name:
+            try:
+                from pathlib import Path as _Path
+                from content_filter import load_filter_config, filter_with_stats as _fws
+                cfg_path = _Path(__file__).resolve().parent.parent / "filters" / f"{filter_name}.toml"
+                if cfg_path.exists():
+                    cfg = load_filter_config(cfg_path)
+                    safety = cfg.get("safety", "strict")
+                    content, filter_stats = _fws(content, cfg.get("stages", {}), safety=safety)
+                    filter_stats["filter_name"] = filter_name
+                    LOG(
+                        f"filter '{filter_name}' applied: "
+                        f"{filter_stats['input_chars']} -> {filter_stats['output_chars']} "
+                        f"chars (-{filter_stats['reduction_pct']}%)"
+                    )
+                else:
+                    LOG(f"filter '{filter_name}' not found at {cfg_path}")
+            except Exception as e:
+                LOG(f"filter '{filter_name}' failed: {e}")
 
         # Privacy stripping
         content, redacted_c = self._sanitize_content(content)
@@ -852,6 +945,58 @@ class Store:
                                 tags if isinstance(tags, list) else json.loads(tags or "[]"))
         except Exception as e:
             LOG(f"Auto-link error: {e}")
+
+        # Enqueue for async deep triple extraction (processed by reflection agent)
+        try:
+            from triple_extraction_queue import TripleExtractionQueue
+            TripleExtractionQueue(self.db).enqueue(rid)
+        except Exception as e:
+            LOG(f"Triple-enqueue error: {e}")
+
+        # Enqueue for async deep metadata enrichment (entities/intent/topics)
+        try:
+            from deep_enrichment_queue import DeepEnrichmentQueue
+            DeepEnrichmentQueue(self.db).enqueue(rid)
+        except Exception as e:
+            LOG(f"Deep-enrich-enqueue error: {e}")
+
+        # Enqueue for async multi-representation embedding generation (GEM-RAG)
+        try:
+            from representations_queue import RepresentationsQueue
+            RepresentationsQueue(self.db).enqueue(rid)
+        except Exception as e:
+            LOG(f"Repr-enqueue error: {e}")
+
+        # Ping the reflection runner (watched by LaunchAgent). The runner
+        # debounces: within the debounce window, multiple saves coalesce into
+        # one drain run. If no agent is watching, this is a cheap no-op.
+        try:
+            trigger_path = MEMORY_DIR / ".reflect-pending"
+            trigger_path.touch()
+        except Exception as e:
+            LOG(f"Reflect-trigger touch failed: {e}")
+
+        # Persist filter savings metric if a filter ran
+        if filter_stats:
+            try:
+                self.db.execute(
+                    """INSERT INTO filter_savings
+                         (knowledge_id, filter_name, input_chars, output_chars,
+                          reduction_pct, safety, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        rid,
+                        filter_stats.get("filter_name", "unknown"),
+                        filter_stats.get("input_chars", 0),
+                        filter_stats.get("output_chars", 0),
+                        filter_stats.get("reduction_pct", 0.0),
+                        filter_stats.get("safety", "strict"),
+                        now,
+                    ),
+                )
+                self.db.commit()
+            except Exception as e:
+                LOG(f"filter_savings log error: {e}")
 
         return rid, False, was_redacted
 
@@ -1666,6 +1811,44 @@ class Recall:
             hyde_tier.sort(key=lambda x: x[1], reverse=True)
             tier_rankings["hyde"] = [doc_id for doc_id, _ in hyde_tier]
 
+        # ── Tier 2c: Multi-representation search (summary/keywords/questions) ──
+        # Safe no-op when knowledge_representations is empty or no embedder.
+        try:
+            from multi_repr_search import has_representations, search as _repr_search
+
+            if can_embed and has_representations(self.s.db):
+                # Reuse query embedding if already computed above; else compute now
+                try:
+                    q_emb = embs[0]  # noqa: F821 — defined in upstream can_embed branch
+                except (NameError, UnboundLocalError):
+                    q_emb_list = self.s.embed([query])
+                    q_emb = q_emb_list[0] if q_emb_list else None
+                if q_emb:
+                    repr_hits = _repr_search(
+                        self.s.db, q_emb, project=project, n_candidates=100, top_n=limit * 3
+                    )
+                    if repr_hits:
+                        repr_tier: list[tuple[int, float]] = []
+                        for kid, score in repr_hits:
+                            repr_tier.append((kid, score))
+                            if kid in results:
+                                # RRF scores are small (~0.016) — scale to align with cosine tiers
+                                results[kid]["score"] += score * 20.0
+                                if "multi_repr" not in results[kid]["via"]:
+                                    results[kid]["via"].append("multi_repr")
+                            else:
+                                rec = self.s.q1("SELECT * FROM knowledge WHERE id=?", (kid,))
+                                if rec:
+                                    results[kid] = {
+                                        "r": rec,
+                                        "score": score * 20.0,
+                                        "via": ["multi_repr"],
+                                    }
+                        repr_tier.sort(key=lambda x: x[1], reverse=True)
+                        tier_rankings["multi_repr"] = [doc_id for doc_id, _ in repr_tier]
+        except Exception as e:
+            LOG(f"multi_repr tier error: {e}")
+
         # ── Tier 3: Fuzzy search (catches typos and partial matches) ──
         if len(results) < limit:
             try:
@@ -1963,6 +2146,59 @@ class Recall:
             embed_count = 0
             embed_mb = 0
 
+        # Filter savings — total tokens approx saved by content_filter
+        try:
+            fs_row = s.db.execute(
+                "SELECT COUNT(*) AS n, "
+                "       COALESCE(SUM(input_chars), 0) AS inp, "
+                "       COALESCE(SUM(output_chars), 0) AS outp "
+                "FROM filter_savings"
+            ).fetchone()
+            fs_inp = int(fs_row["inp"]) if fs_row else 0
+            fs_out = int(fs_row["outp"]) if fs_row else 0
+            filter_savings = {
+                "applied_count": int(fs_row["n"]) if fs_row else 0,
+                "chars_saved": fs_inp - fs_out,
+                "tokens_saved_estimate": (fs_inp - fs_out) // 4,
+                "total_reduction_pct": (
+                    round((1 - fs_out / fs_inp) * 100, 1) if fs_inp else 0.0
+                ),
+            }
+        except Exception:
+            filter_savings = {"applied_count": 0, "chars_saved": 0, "tokens_saved_estimate": 0, "total_reduction_pct": 0.0}
+
+        # v6.0 async queues — visibility for operators
+        def _queue_counts(table: str) -> dict:
+            try:
+                rows = s.db.execute(
+                    f"SELECT status, COUNT(*) AS c FROM {table} GROUP BY status"
+                ).fetchall()
+                out = {"pending": 0, "processing": 0, "done": 0, "failed": 0}
+                for r in rows:
+                    out[r[0]] = r[1]
+                return out
+            except Exception:
+                return {"pending": 0, "processing": 0, "done": 0, "failed": 0, "error": "table missing"}
+
+        queues = {
+            "triple_extraction": _queue_counts("triple_extraction_queue"),
+            "deep_enrichment": _queue_counts("deep_enrichment_queue"),
+            "representations": _queue_counts("representations_queue"),
+        }
+        # v6.0 storage
+        try:
+            repr_count = s.db.execute(
+                "SELECT COUNT(*) FROM knowledge_representations"
+            ).fetchone()[0]
+        except Exception:
+            repr_count = 0
+        try:
+            enrich_count = s.db.execute(
+                "SELECT COUNT(*) FROM knowledge_enrichment"
+            ).fetchone()[0]
+        except Exception:
+            enrich_count = 0
+
         return {
             "sessions": s.total_sessions(),
             "knowledge": {
@@ -1979,6 +2215,13 @@ class Recall:
                 "health_score": round(max(0, 1.0 - (stale / max(active, 1)) * 0.5 - (never_recalled / max(active, 1)) * 0.3), 2),
             },
             "timeline_events": s.db.execute("SELECT COUNT(*) FROM timeline").fetchone()[0],
+            "v6_queues": queues,
+            "v6_storage": {
+                "representations_rows": repr_count,
+                "enrichment_rows": enrich_count,
+            },
+            "v6_filter_savings": filter_savings,
+            "v6_llm": (lambda: __import__("config").get_status())(),
             "storage_mb": {
                 "transcripts": round(trans_mb, 1),
                 "raw_logs": round(raw_mb, 1),
@@ -2075,9 +2318,10 @@ async def list_tools():
                     "type": {"type": "string", "enum": ["decision", "fact", "solution", "lesson", "convention", "all"],
                              "default": "all"},
                     "limit": {"type": "integer", "default": 10},
-                    "detail": {"type": "string", "enum": ["compact", "summary", "full"], "default": "full",
+                    "detail": {"type": "string", "enum": ["compact", "summary", "full", "auto"], "default": "full",
                                "description": "Level of detail: 'compact' ~50 tokens/result (id+title+score), "
-                                              "'summary' truncates content to 150 chars, 'full' returns everything"},
+                                              "'summary' truncates content to 150 chars, 'full' returns everything, "
+                                              "'auto' picks based on query complexity (paths/urls/code → full, short → compact)"},
                     "branch": {"type": "string", "description": "Filter by git branch (also includes branch-agnostic records)"},
                     "fusion": {"type": "string", "enum": ["rrf", "legacy"], "default": "rrf",
                                "description": "Score fusion method: 'rrf' = Reciprocal Rank Fusion (better multi-tier ranking), "
@@ -2086,6 +2330,16 @@ async def list_tools():
                                "description": "Enable CrossEncoder re-ranking for higher precision (adds ~30ms latency)"},
                     "diverse": {"type": "boolean", "default": False,
                                 "description": "Enable MMR diversity to reduce redundant results (useful for broad queries)"},
+                    "expand_context": {"type": "boolean", "default": False,
+                                       "description": "Add graph-related records (1-hop neighbors via knowledge graph) as 'expansion' results"},
+                    "expand_budget": {"type": "integer", "default": 5,
+                                      "description": "Max number of additional records to include via graph expansion"},
+                    "topics": {"type": "array", "items": {"type": "string"},
+                               "description": "Filter results to records tagged with any of these topics (from deep enrichment)"},
+                    "entities": {"type": "array", "items": {"type": "string"},
+                                 "description": "Filter by extracted entity names (technology/person/project, case-insensitive)"},
+                    "intent": {"type": "string",
+                               "description": "Filter by classified intent (question|procedural|fact|decision|problem|solution|incident|plan)"},
                 },
                 "required": ["query"],
             },
@@ -2120,6 +2374,8 @@ async def list_tools():
                     "tags": {"type": "array", "items": {"type": "string"}},
                     "context": {"type": "string", "description": "Additional context, WHY for decisions"},
                     "branch": {"type": "string", "description": "Git branch this knowledge relates to"},
+                    "filter": {"type": "string",
+                               "description": "Optional content filter (pytest|cargo|git_status|docker_ps|generic_logs). Trims noisy CLI output while preserving URLs/paths/code."},
                 },
                 "required": ["content", "type"],
             },
@@ -2592,10 +2848,55 @@ async def _do(name, a):
     J = lambda x: json.dumps(x, ensure_ascii=False, indent=2, default=str)
 
     if name == "memory_recall":
+        detail_param = a.get("detail", "full")
+        if detail_param == "auto":
+            try:
+                from verbosity import analyze_query_complexity
+                detail_param = analyze_query_complexity(a["query"])
+            except Exception as e:
+                LOG(f"auto-verbosity failed: {e}")
+                detail_param = "full"
+
         result = recall.search(a["query"], a.get("project"), a.get("type", "all"),
-                               a.get("limit", 10), a.get("detail", "full"),
+                               a.get("limit", 10), detail_param,
                                a.get("branch"), a.get("fusion", "rrf"),
                                a.get("rerank", False), a.get("diverse", False))
+        if a.get("detail") == "auto":
+            result["auto_detail"] = detail_param
+
+        # Optional enrichment filter (topics / entities / intent from knowledge_enrichment)
+        if a.get("topics") or a.get("entities") or a.get("intent"):
+            try:
+                from enrichment_filter import filter_by_enrichment
+
+                topics_f = a.get("topics") or None
+                entities_f = a.get("entities") or None
+                intent_f = a.get("intent") or None
+
+                for group_name in list(result.get("results", {}).keys()):
+                    group = result["results"][group_name]
+                    candidate_ids = [
+                        item["id"] for item in group
+                        if isinstance(item.get("id"), int)
+                    ]
+                    kept_ids = set(
+                        filter_by_enrichment(
+                            store.db, candidate_ids,
+                            topics=topics_f, entities=entities_f, intent=intent_f,
+                        )
+                    )
+                    filtered = [
+                        item for item in group
+                        if isinstance(item.get("id"), int) and item["id"] in kept_ids
+                    ]
+                    result["results"][group_name] = filtered
+                # Recompute total
+                result["total"] = sum(len(g) for g in result["results"].values())
+                result["filtered_by"] = {
+                    "topics": topics_f, "entities": entities_f, "intent": intent_f,
+                }
+            except Exception as e:
+                LOG(f"Enrichment filter error: {e}")
 
         # Enrich with CognitiveEngine associative activation
         try:
@@ -2628,6 +2929,49 @@ async def _do(name, a):
         except Exception as e:
             LOG(f"CognitiveEngine enrichment error: {e}")
 
+        # Optional graph-based context expansion (1-hop neighbors)
+        if a.get("expand_context"):
+            try:
+                from context_expander import ContextExpander
+
+                seed_ids: list[int] = []
+                for group in result.get("results", {}).values():
+                    for item in group:
+                        kid = item.get("id")
+                        if isinstance(kid, int):
+                            seed_ids.append(kid)
+                if seed_ids:
+                    expander = ContextExpander(store.db)
+                    extra_ids = expander.expand(
+                        seed_ids=seed_ids,
+                        budget=int(a.get("expand_budget", 5)),
+                        depth=1,
+                    )
+                    if extra_ids:
+                        placeholders = ",".join("?" * len(extra_ids))
+                        rows = store.db.execute(
+                            f"SELECT id, type, content, project, tags, created_at "
+                            f"FROM knowledge WHERE id IN ({placeholders})",
+                            extra_ids,
+                        ).fetchall()
+                        expansion: list[dict] = []
+                        for r in rows:
+                            expansion.append(
+                                {
+                                    "id": r["id"],
+                                    "type": r["type"],
+                                    "content": r["content"],
+                                    "project": r["project"],
+                                    "tags": r["tags"],
+                                    "created_at": r["created_at"],
+                                    "via": ["graph_expansion"],
+                                }
+                            )
+                        if expansion:
+                            result["expansion"] = expansion
+            except Exception as e:
+                LOG(f"Context expansion error: {e}")
+
         return J(result)
 
     elif name == "memory_timeline":
@@ -2639,7 +2983,7 @@ async def _do(name, a):
         rid, was_dedup, was_redacted = store.save_knowledge(
             SID, a["content"], a["type"],
             a.get("project", "general"), a.get("tags", []), a.get("context", ""),
-            branch=a.get("branch", BRANCH))
+            branch=a.get("branch", BRANCH), filter_name=a.get("filter"))
         # Invalidate cache on write
         if store.cache is not None:
             store.cache.invalidate(project=a.get("project"))

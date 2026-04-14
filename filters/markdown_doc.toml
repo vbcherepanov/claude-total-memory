@@ -1,0 +1,12 @@
+name = "markdown_doc"
+description = "Long markdown docs — keep all headings + first 80 lines per section."
+safety = "strict"
+
+[stages]
+strip_lines = [
+    "^\\s*<!--",
+    "^\\s*$",
+]
+truncate_chars = 600
+max_lines = 400
+on_empty = "(empty doc)"

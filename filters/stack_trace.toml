@@ -1,0 +1,24 @@
+name = "stack_trace"
+description = "Python/JS/Go tracebacks — keep error message + first 30 frames."
+safety = "strict"
+
+[stages]
+strip_ansi = true
+strip_lines = [
+    "^\\s+at node:internal",
+    "^\\s+at internal/",
+    "^\\s+at process\\.",
+]
+keep_lines = [
+    "Traceback",
+    "^\\s*File \"",
+    "^\\s+at ",
+    "^\\w+Error",
+    "^\\w+Exception",
+    "^panic:",
+    "^goroutine",
+    "^Caused by",
+    "^\\s+at\\s+\\S+\\.\\w+\\(",
+]
+max_lines = 80
+on_empty = "(no stack trace)"

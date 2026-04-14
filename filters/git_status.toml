@@ -1,0 +1,15 @@
+name = "git_status"
+description = "Condense git status --porcelain output."
+safety = "strict"
+
+[stages]
+strip_ansi = true
+strip_lines = [
+    "^On branch",
+    "^Your branch is",
+    "^\\s+$",
+    "^nothing to commit",
+    "^  \\(use \"git ",
+]
+max_lines = 100
+on_empty = "(clean working tree)"

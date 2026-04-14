@@ -32,12 +32,14 @@ DB_PATH = MEMORY_DIR / "memory.db"
 
 
 def get_db() -> sqlite3.Connection | None:
-    """Open a read-only SQLite connection with WAL mode."""
+    """Open a read-only SQLite connection."""
     if not DB_PATH.exists():
         return None
     db = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
     db.row_factory = sqlite3.Row
-    db.execute("PRAGMA journal_mode=WAL")
+    # Note: cannot set PRAGMA journal_mode on a read-only handle.
+    # Callers that want WAL should enable it on the writer process
+    # (Store.__init__ already does this for the main MCP server).
     return db
 
 
@@ -1306,7 +1308,17 @@ td.date-col { white-space: nowrap; color: var(--text-dim); font-size: 13px; }
     <header>
         <div>
             <h1><span>Claude</span> Total Memory</h1>
-            <div class="subtitle">Read-only dashboard &mdash; memory.db</div>
+            <div class="subtitle" style="display:flex;align-items:center;gap:10px;">
+                <span>Read-only dashboard &mdash; memory.db</span>
+                <span id="header-feed-status" title="Live feed status (SSE)"
+                      style="display:inline-flex;align-items:center;gap:6px;
+                             padding:3px 8px;border-radius:10px;background:rgba(255,255,255,0.05);
+                             border:1px solid #333;font-size:11px;">
+                    <span id="header-feed-dot" style="width:8px;height:8px;border-radius:50%;
+                                                       background:#ef4444;display:inline-block;"></span>
+                    <span id="header-feed-text" style="color:var(--text-dim);">Disconnected</span>
+                </span>
+            </div>
         </div>
     </header>
 
@@ -1342,10 +1354,13 @@ td.date-col { white-space: nowrap; color: var(--text-dim); font-size: 13px; }
         <div class="stat-card"><div class="label">Blind Spots</div><div class="value" id="stat-blind-spots" style="color: var(--lesson)">--</div></div>
     </div>
 
+    <!-- V6_PANELS_HERE -->
+
     <div class="tabs">
         <button class="tab active" data-tab="knowledge">Knowledge</button>
         <button class="tab" data-tab="sessions">Sessions</button>
         <button class="tab" data-tab="graph">Graph</button>
+        <a class="tab" href="/graph/live" style="text-decoration:none;">Graph Live 🔴</a>
         <button class="tab" data-tab="self-improvement">Self-Improvement</button>
         <button class="tab" data-tab="rules">Rules (SOUL)</button>
         <button class="tab" data-tab="v5-graph">Graph v5</button>
@@ -1354,7 +1369,6 @@ td.date-col { white-space: nowrap; color: var(--text-dim); font-size: 13px; }
         <button class="tab" data-tab="v5-self">Self Model</button>
         <button class="tab" data-tab="v5-reflection">Reflection</button>
         <button class="tab" data-tab="live-feed">Live Feed</button>
-        <a href="/graph" class="tab" style="text-decoration:none" target="_blank">Interactive Graph &nearr;</a>
     </div>
 
     <!-- Knowledge Tab -->
@@ -3075,6 +3089,12 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 // Init
 // ============================================================
 loadStats();
+// Connect Live Feed SSE on page load (independent from loadStats).
+// Defer one tick so a slow loadStats doesn't block the connection.
+setTimeout(() => {
+    try { initLiveFeed(); }
+    catch (e) { console.error('initLiveFeed failed:', e); }
+}, 0);
 loadKnowledge();
 loadSIStats();
 loadV5Stats();
@@ -3092,23 +3112,27 @@ function initLiveFeed() {
     connectSSE();
 }
 
-function connectSSE() {
-    const statusDot = document.getElementById('feed-status');
-    const statusText = document.getElementById('feed-status-text');
+function _setFeedStatus(color, text) {
+    // Tab pane indicators (when Live Feed tab visible)
+    const dot = document.getElementById('feed-status');
+    const lbl = document.getElementById('feed-status-text');
+    if (dot) dot.style.background = color;
+    if (lbl) lbl.textContent = text;
+    // Header pill (always visible)
+    const hdot = document.getElementById('header-feed-dot');
+    const hlbl = document.getElementById('header-feed-text');
+    if (hdot) hdot.style.background = color;
+    if (hlbl) hlbl.textContent = text;
+}
 
+function connectSSE() {
     if (feedSource) { try { feedSource.close(); } catch(e) {} }
 
+    _setFeedStatus('#facc15', 'Connecting…');
     feedSource = new EventSource('/api/events');
 
-    feedSource.onopen = () => {
-        statusDot.style.background = '#22c55e';
-        statusText.textContent = 'Connected';
-    };
-
-    feedSource.onerror = () => {
-        statusDot.style.background = '#ef4444';
-        statusText.textContent = 'Disconnected — retrying...';
-    };
+    feedSource.onopen = () => _setFeedStatus('#22c55e', 'Connected');
+    feedSource.onerror = () => _setFeedStatus('#ef4444', 'Reconnecting…');
 
     feedSource.addEventListener('knowledge', e => {
         addFeedItem('knowledge', JSON.parse(e.data));
@@ -3798,7 +3822,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _send_html(self, html: str, status: int = 200) -> None:
-        """Send an HTML response."""
+        """Send an HTML response, injecting v6 panels when the marker is present."""
+        if "<!-- V6_PANELS_HERE -->" in html:
+            try:
+                from dashboard_v6 import V6_PANELS_HTML
+                html = html.replace("<!-- V6_PANELS_HERE -->", V6_PANELS_HTML)
+            except Exception:
+                # Marker left in place if import fails — harmless
+                pass
         body = html.encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -3924,6 +3955,29 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._send_html(GRAPH_PAGE)
             return
 
+        # --- Live graph visualization (v6) ---
+        if path == "/graph/live":
+            try:
+                from dashboard_v6 import GRAPH_LIVE_HTML
+                self._send_html(GRAPH_LIVE_HTML)
+            except Exception as e:
+                self._send_error(500, f"graph live error: {e}")
+            return
+        if path == "/graph/hive":
+            try:
+                from dashboard_v6 import GRAPH_HIVE_HTML
+                self._send_html(GRAPH_HIVE_HTML)
+            except Exception as e:
+                self._send_error(500, f"graph hive error: {e}")
+            return
+        if path == "/graph/matrix":
+            try:
+                from dashboard_v6 import GRAPH_MATRIX_HTML
+                self._send_html(GRAPH_MATRIX_HTML)
+            except Exception as e:
+                self._send_error(500, f"graph matrix error: {e}")
+            return
+
         # --- System status (no DB required) ---
         if path == "/status":
             self._send_json(api_system_status())
@@ -3943,6 +3997,39 @@ class DashboardHandler(BaseHTTPRequestHandler):
         try:
             if path == "/api/stats":
                 self._send_json(api_stats(db))
+
+            # v6.0 endpoints (savings, queues, coverage, graph delta)
+            elif path == "/api/v6/savings":
+                from dashboard_v6 import api_v6_savings
+                self._send_json(api_v6_savings(db))
+            elif path == "/api/v6/queues":
+                from dashboard_v6 import api_v6_queues
+                self._send_json(api_v6_queues(db))
+            elif path == "/api/v6/coverage":
+                from dashboard_v6 import api_v6_coverage
+                self._send_json(api_v6_coverage(db))
+            elif path == "/api/graph/delta":
+                from dashboard_v6 import api_graph_delta
+                since = p("since") or None
+                limit_n = min(5000, max(1, int(p("limit", "200"))))
+                offset_n = max(0, int(p("offset", "0")))
+                min_m = max(0, int(p("min_mentions", "0")))
+                min_w = max(0.0, float(p("min_edge_weight", "0")))
+                self._send_json(api_graph_delta(db, since, limit_n, offset_n, min_m, min_w))
+            elif path == "/api/graph/by_type":
+                from dashboard_v6 import api_graph_by_type
+                self._send_json(api_graph_by_type(
+                    db,
+                    max(0, int(p("min_mentions", "3"))),
+                    min(200, max(10, int(p("limit_per_type", "80")))),
+                ))
+            elif path == "/api/graph/matrix":
+                from dashboard_v6 import api_graph_matrix
+                self._send_json(api_graph_matrix(
+                    db,
+                    max(1, int(p("min_mentions", "5"))),
+                    min(500, max(20, int(p("limit", "200")))),
+                ))
 
             elif path == "/api/knowledge":
                 search = p("q") or None
@@ -4058,7 +4145,12 @@ def main() -> None:
                 pass
             super().server_bind()
 
-    server = ThreadingHTTPServer(("0.0.0.0", DASHBOARD_PORT), DashboardHandler)
+    # Bind to loopback by default; opt-in LAN via DASHBOARD_BIND.
+    # Never expose DB / graph / filter contents to any non-127.0.0.1 host.
+    bind_addr = os.environ.get("DASHBOARD_BIND", "127.0.0.1").strip() or "127.0.0.1"
+    server = ThreadingHTTPServer((bind_addr, DASHBOARD_PORT), DashboardHandler)
+    print(f"Dashboard at http://{bind_addr}:{DASHBOARD_PORT}  "
+          f"(DASHBOARD_BIND to override)")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

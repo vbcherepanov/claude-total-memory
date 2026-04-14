@@ -1,0 +1,27 @@
+name = "npm_yarn"
+description = "npm/yarn/pnpm install/build output — drop progress, keep errors."
+safety = "strict"
+
+[stages]
+strip_ansi = true
+strip_lines = [
+    "^npm WARN deprecated",
+    "^\\s*$",
+    "^\\[\\d+/\\d+\\] ",   # yarn progress
+    "Resolving packages",
+    "Fetching packages",
+    "Linking dependencies",
+    "Building fresh packages",
+    "^npm notice",
+]
+keep_lines = [
+    "^npm ERR",
+    "^npm WARN(?! deprecated)",
+    "^error ",
+    "^warning ",
+    "^\\d+ vulnerabilit",
+    "added \\d+ packages",
+    "audit ",
+]
+max_lines = 200
+on_empty = "(no errors or warnings)"

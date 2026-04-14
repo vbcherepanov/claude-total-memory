@@ -1,0 +1,25 @@
+name = "cargo"
+description = "Rust compiler output: keep errors/warnings with source spans, drop 'Compiling' progress."
+safety = "strict"
+
+[stages]
+strip_ansi = true
+strip_lines = [
+    "^\\s+Compiling ",
+    "^\\s+Downloading ",
+    "^\\s+Finished ",
+    "^\\s+Running ",
+    "^\\s+Fresh ",
+    "^\\s+Blocking ",
+]
+keep_lines = [
+    "^error",
+    "^warning",
+    "^\\s+-->",
+    "^\\s+\\|",
+    "^\\s+=\\s+help:",
+    "^\\s+=\\s+note:",
+    "^\\s+\\^+",
+]
+max_lines = 300
+on_empty = "(cargo: no errors or warnings)"

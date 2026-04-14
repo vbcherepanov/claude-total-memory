@@ -1,0 +1,99 @@
+{
+  "version": "6.0.0",
+  "measured_at": "2026-04-14",
+  "environment": {
+    "platform": "macOS Darwin 25.4.0",
+    "python": "3.13",
+    "embedder": "fastembed paraphrase-multilingual-MiniLM-L12-v2 (384-dim)",
+    "llm": "ollama qwen2.5-coder:7b",
+    "hardware": "Apple Silicon M-series"
+  },
+  "dataset": {
+    "knowledge_active": 1759,
+    "graph_nodes": 3507,
+    "graph_edges": 120912,
+    "embeddings": 1541,
+    "knowledge_representations": 232,
+    "enrichment_records": 63,
+    "db_size_mb": 77.8
+  },
+  "search_latency_ms": {
+    "queries_run": 20,
+    "modes": {
+      "default_rrf_hybrid": {
+        "p50": 1144.7,
+        "p95": 1783.7,
+        "p99": 1788.9,
+        "mean": 1149.9,
+        "notes": "FTS5 + semantic + multi-repr + fuzzy + graph 1-hop, RRF fusion"
+      },
+      "rerank_true": {
+        "p50": 1440.3,
+        "p95": 4770.2,
+        "p99": 4861.8,
+        "mean": 1566.9,
+        "notes": "+ CrossEncoder ms-marco-MiniLM-L-6-v2 boost-only rerank"
+      },
+      "detail_auto": {
+        "p50": 1277.2,
+        "p95": 2024.3,
+        "p99": 2035.8,
+        "mean": 1285.9,
+        "notes": "Verbosity inference picks compact/summary/full per query shape"
+      }
+    },
+    "cache_hit_ms": "<5"
+  },
+  "save_latency_ms": {
+    "save_knowledge_full_path": 2.5,
+    "batch_50_total_ms": 125,
+    "components_included": [
+      "autofilter detection",
+      "privacy sanitize",
+      "INSERT knowledge",
+      "embedding upsert (binary + float32)",
+      "auto_link_knowledge (graph_nodes for tags)",
+      "enqueue triple_extraction_queue",
+      "enqueue deep_enrichment_queue",
+      "enqueue representations_queue",
+      "touch .reflect-pending"
+    ]
+  },
+  "quality": {
+    "longmemeval": {
+      "recall_at_5": 0.9745,
+      "recall_at_5_pct": "97.45%",
+      "mode": "hybrid (BM25 + semantic + RRF)",
+      "comparison": "Beats most open-source MCP memory implementations"
+    }
+  },
+  "compression": {
+    "filter_pytest": {
+      "avg_pct": 78,
+      "best": "990 -> 222 chars"
+    },
+    "filter_generic_logs": {
+      "avg_pct": 52,
+      "best": "465 -> 223 chars"
+    },
+    "filter_stack_trace": {
+      "avg_pct": 41,
+      "best": "824 -> 490 chars"
+    },
+    "filter_sql_explain": {
+      "avg_pct": 29,
+      "best": "717 -> 511 chars"
+    }
+  },
+  "tests": {
+    "total": 370,
+    "passing": 370,
+    "duration_seconds": 21,
+    "breakdown": {
+      "v5_baseline_files": 13,
+      "v6_unit_files": 12,
+      "v6_integration_files": 7,
+      "v6_e2e_files": 1
+    }
+  }
+}

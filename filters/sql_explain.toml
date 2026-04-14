@@ -1,0 +1,17 @@
+name = "sql_explain"
+description = "EXPLAIN / EXPLAIN ANALYZE output — keep plan + cost lines."
+safety = "strict"
+
+[stages]
+strip_lines = [
+    "^\\s*$",
+    "^\\(\\d+ rows?\\)",
+]
+keep_lines = [
+    "Seq Scan|Index Scan|Index Only|Bitmap|Hash|Nested Loop|Merge",
+    "actual time=|cost=|rows=|width=",
+    "Planning Time|Execution Time|Total runtime",
+    "Buffers:|I/O Timings",
+]
+max_lines = 100
+on_empty = "(empty plan)"

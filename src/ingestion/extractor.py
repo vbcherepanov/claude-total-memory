@@ -43,7 +43,9 @@ class ConceptExtractor:
     2. Deep extraction via Ollama (create new concepts) -- ~2-5 seconds
     """
 
-    OLLAMA_MODEL: str = "qwen2.5-coder:32b"
+    # Overridable via env; falls back to a model that's actually installed locally.
+    import os as _os
+    OLLAMA_MODEL: str = _os.environ.get("MEMORY_LLM_MODEL", "qwen2.5-coder:7b")
 
     EXTRACTION_PROMPT: str = """Analyze this content and extract structured information.
 Return ONLY valid JSON, no explanation.
@@ -132,6 +134,14 @@ Content:
 
         if not text:
             return empty
+
+        # Skip silently if no LLM is configured (no errors, no logs)
+        try:
+            from config import has_llm
+            if not has_llm():
+                return empty
+        except Exception:
+            pass
 
         # Truncate very long text to avoid overwhelming the model
         max_chars = 6000

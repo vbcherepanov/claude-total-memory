@@ -8,7 +8,7 @@ set -e
 
 echo ""
 echo "======================================================="
-echo "  Claude Total Memory v5.0 — Installer"
+echo "  Claude Total Memory v6.0 — Installer"
 echo "======================================================="
 echo ""
 
@@ -144,6 +144,46 @@ with open(settings_path, 'w') as f:
 
 print('  OK: Hooks registered (SessionStart, SessionEnd, Stop, PostToolUse:Bash/Write|Edit)')
 "
+
+# -- 4c. Ollama check + optional install prompt --
+echo ""
+echo "-> Step 4c: Checking Ollama (optional but strongly recommended)..."
+OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
+MEMORY_LLM_MODEL="${MEMORY_LLM_MODEL:-qwen2.5-coder:7b}"
+
+# Probe Ollama
+if curl -sf --max-time 2 "$OLLAMA_URL/api/tags" >/dev/null 2>&1; then
+    echo "  OK: Ollama is running at $OLLAMA_URL"
+    # Check model
+    if curl -sf --max-time 2 "$OLLAMA_URL/api/tags" | grep -q "\"$MEMORY_LLM_MODEL\""; then
+        echo "  OK: Model '$MEMORY_LLM_MODEL' is installed"
+    else
+        echo "  WARN: Model '$MEMORY_LLM_MODEL' NOT installed."
+        echo "        For full v6.0 features, pull it now:"
+        echo "          ollama pull $MEMORY_LLM_MODEL"
+        echo "        Without it: deep KG triples, multi-repr, enrichment, fact merger disabled."
+    fi
+else
+    echo "  WARN: Ollama NOT detected at $OLLAMA_URL"
+    echo ""
+    echo "  Without Ollama, ~40% of v6 features stay dormant:"
+    echo "    - Deep KG triples (subject -> predicate -> object edges)"
+    echo "    - Multi-representation embeddings (summary/keywords/questions/compressed)"
+    echo "    - Entity/intent/topic extraction (deep enrichment)"
+    echo "    - Semantic fact merger + HyDE query expansion"
+    echo ""
+    echo "  To enable the full experience:"
+    if [ "$(uname)" = "Darwin" ]; then
+        echo "    brew install ollama  (or download from https://ollama.ai)"
+    else
+        echo "    curl -fsSL https://ollama.com/install.sh | sh"
+    fi
+    echo "    ollama serve &"
+    echo "    ollama pull $MEMORY_LLM_MODEL"
+    echo ""
+    echo "  System will still install now and work in degraded mode."
+    echo "  Set MEMORY_LLM_ENABLED=auto after Ollama is ready — it picks up automatically."
+fi
 
 # -- 5. Dashboard service (macOS LaunchAgent) --
 echo "-> Step 5: Setting up dashboard service..."

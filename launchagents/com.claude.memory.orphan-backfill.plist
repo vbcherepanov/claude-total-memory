@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.claude.memory.orphan-backfill</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/vitalii-macpro/claude-memory-server/.venv/bin/python</string>
+    <string>/Users/vitalii-macpro/claude-memory-server/src/tools/backfill_orphan_edges.py</string>
+    <string>--min-mentions=1</string>
+    <string>--limit=500</string>
+    <string>--trigger-now</string>
+  </array>
+
+  <!-- Fire at 00:00, 06:00, 12:00, 18:00 every day (4× per day) -->
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict>
+      <key>Hour</key>
+      <integer>0</integer>
+      <key>Minute</key>
+      <integer>0</integer>
+    </dict>
+    <dict>
+      <key>Hour</key>
+      <integer>6</integer>
+      <key>Minute</key>
+      <integer>0</integer>
+    </dict>
+    <dict>
+      <key>Hour</key>
+      <integer>12</integer>
+      <key>Minute</key>
+      <integer>0</integer>
+    </dict>
+    <dict>
+      <key>Hour</key>
+      <integer>18</integer>
+      <key>Minute</key>
+      <integer>0</integer>
+    </dict>
+  </array>
+
+  <key>RunAtLoad</key>
+  <false/>
+
+  <!-- Lower priority so it doesn't compete with MCP server -->
+  <key>Nice</key>
+  <integer>10</integer>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/usr/bin:/bin</string>
+    <key>CLAUDE_MEMORY_DIR</key>
+    <string>/Users/vitalii-macpro/.claude-memory</string>
+    <key>MEMORY_LLM_MODEL</key>
+    <string>qwen2.5-coder:7b</string>
+  </dict>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/vitalii-macpro/claude-memory-server</string>
+
+  <key>StandardOutPath</key>
+  <string>/tmp/claude-memory-orphan-backfill.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/claude-memory-orphan-backfill.log</string>
+</dict>
+</plist>
