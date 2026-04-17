@@ -56,14 +56,14 @@ What's inside:
 
 Install (one line, macOS/Linux):
 
-  curl -fsSL https://raw.githubusercontent.com/vbcherepanov/claude-total-memory/main/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/vbcherepanov/total-agent-memory/main/install.sh | bash
 
 TypeScript SDK: npm i @vbch/total-agent-memory-client
 
 Reproduce the benchmark yourself — evals/longmemeval-2026-04-17.json
 has the raw results, benchmarks/longmemeval_bench.py is the runner.
 
-GitHub: https://github.com/vbcherepanov/claude-total-memory
+GitHub: https://github.com/vbcherepanov/total-agent-memory
 Comparison with mem0/Letta/Zep/Supermemory/Cognee/LangMem/Mastra:
   docs/vs-competitors.md
 
@@ -86,7 +86,7 @@ LangMem    :  p95 59.82s
 MCP-native, temporal KG, procedural memory, cross-project analogy.
 Free, MIT, runs on your laptop.
 
-github.com/vbcherepanov/claude-total-memory
+github.com/vbcherepanov/total-agent-memory
 ```
 
 **Thread version (5 tweets):**
@@ -97,7 +97,7 @@ github.com/vbcherepanov/claude-total-memory
    Public LongMemEval: 96.2% R@5 vs Supermemory 85.4%. 38.8 ms/query.
    100% local.
    
-   github.com/vbcherepanov/claude-total-memory
+   github.com/vbcherepanov/total-agent-memory
 
 2/ Space is crowded — mem0 ($24M), Letta ($10M), Zep ($12M),
    Supermemory ($2.6M), Cognee ($7.5M), LangMem.
@@ -191,11 +191,11 @@ over Supermemory). Temporal knowledge graph, procedural memory, AST
 codebase ingest, cross-project analogy. MIT licensed, reproducible
 benchmarks.
 
-- Repo: https://github.com/vbcherepanov/claude-total-memory
+- Repo: https://github.com/vbcherepanov/total-agent-memory
 - Npm SDK: https://www.npmjs.com/package/@vbch/total-agent-memory-client
-- Benchmarks: https://github.com/vbcherepanov/claude-total-memory/blob/main/evals/longmemeval-2026-04-17.json
+- Benchmarks: https://github.com/vbcherepanov/total-agent-memory/blob/main/evals/longmemeval-2026-04-17.json
 - Comparison with mem0 / Letta / Zep / Supermemory / Cognee / LangMem:
-  https://github.com/vbcherepanov/claude-total-memory/blob/main/docs/vs-competitors.md
+  https://github.com/vbcherepanov/total-agent-memory/blob/main/docs/vs-competitors.md
 ```
 
 Target lists:
@@ -243,7 +243,7 @@ Integrates via MCP so it works with Claude Code, Codex CLI, Cursor,
 and anything that speaks Model Context Protocol. TypeScript SDK
 shipped today.
 
-Repo: github.com/vbcherepanov/claude-total-memory
+Repo: github.com/vbcherepanov/total-agent-memory
 Benchmark raw results: evals/longmemeval-2026-04-17.json
 
 Would love feedback on where the other memory layers still beat us —
@@ -293,7 +293,7 @@ across every project using Jaccard + Dempster-Shafer fusion.
 **TypeScript SDK** — `@vbch/total-agent-memory-client` on npm.
 
 **Rebrand** — formerly `claude-total-memory`, now `total-agent-memory`.
-The GitHub URL stays (vbcherepanov/claude-total-memory) to avoid breaking
+The GitHub URL stays (vbcherepanov/total-agent-memory) to avoid breaking
 existing installs.
 
 ### Breaking changes
@@ -303,7 +303,7 @@ None. Existing v6.x databases auto-migrate.
 ### Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vbcherepanov/claude-total-memory/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/vbcherepanov/total-agent-memory/main/install.sh | bash
 npm i @vbch/total-agent-memory-client  # TypeScript/JavaScript
 ```
 
