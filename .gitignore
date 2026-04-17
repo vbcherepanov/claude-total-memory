@@ -1,6 +1,5 @@
 # Python
 __pycache__/
-.pytest_cache/
 *.py[cod]
 *$py.class
 *.egg-info/
@@ -39,10 +38,6 @@ backups/
 .env
 .env.local
 
-# Benchmarks output
+# Benchmark datasets (large, downloaded on demand)
 benchmarks/data/
-
-# Docker
-docker-compose.override.yml
-hooks/_docker-launchers/
-.claude/
+benchmarks/longmemeval_s*.json

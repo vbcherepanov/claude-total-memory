@@ -65,31 +65,36 @@ mkdir -p "$HOME/.claude"
 PY_PATH="$VENV_DIR/bin/python"
 SRV_PATH="$INSTALL_DIR/src/server.py"
 
-# Claude Code reads MCP server config from ~/.claude.json (managed via the
-# 'claude mcp' CLI), NOT from ~/.claude/settings.json — writing 'mcpServers'
-# into settings.json is silently ignored by Claude Code.
-if ! command -v claude &>/dev/null; then
-    echo "  ERROR: 'claude' CLI not found in PATH."
-    echo "         Install Claude Code first: https://claude.com/claude-code"
-    exit 1
-fi
+python3 -c "
+import json, os
 
-MCP_JSON=$(python3 -c "
-import json
-print(json.dumps({
+settings_path = '$CLAUDE_SETTINGS'
+new_server = {
     'command': '$PY_PATH',
     'args': ['$SRV_PATH'],
     'env': {
         'CLAUDE_MEMORY_DIR': '$MEMORY_DIR',
         'EMBEDDING_MODEL': 'all-MiniLM-L6-v2'
     }
-}))
-")
+}
 
-# Remove any previous registration (ignore errors if absent), then add fresh
-claude mcp remove memory -s user >/dev/null 2>&1 || true
-claude mcp add-json memory "$MCP_JSON" -s user
-echo "  OK: MCP server 'memory' registered via 'claude mcp add-json' (user scope)"
+settings = {}
+if os.path.exists(settings_path):
+    try:
+        with open(settings_path) as f:
+            settings = json.load(f)
+    except:
+        pass
+
+if 'mcpServers' not in settings:
+    settings['mcpServers'] = {}
+settings['mcpServers']['memory'] = new_server
+
+with open(settings_path, 'w') as f:
+    json.dump(settings, f, indent=2)
+
+print('  OK: MCP server added to ' + settings_path)
+"
 
 # -- 4b. Register hooks in settings.json --
 echo "-> Step 4b: Registering hooks..."
@@ -141,58 +146,6 @@ with open(settings_path, 'w') as f:
 print('  OK: Hooks registered (SessionStart, SessionEnd, Stop, PostToolUse:Bash/Write|Edit)')
 "
 
-# -- 4b2. Grant permissions for MCP memory tools --
-# Without these, Claude Code prompts for confirmation on every memory tool call,
-# which breaks automatic recall/save/error logging from hooks.
-echo "-> Step 4b2: Granting permissions for memory tools..."
-
-python3 -c "
-import json, os
-
-settings_path = '$CLAUDE_SETTINGS'
-settings = {}
-if os.path.exists(settings_path):
-    with open(settings_path) as f:
-        settings = json.load(f)
-
-settings.setdefault('permissions', {}).setdefault('allow', [])
-allow = settings['permissions']['allow']
-
-memory_tools = [
-    'mcp__memory__memory_recall',
-    'mcp__memory__memory_save',
-    'mcp__memory__memory_update',
-    'mcp__memory__memory_timeline',
-    'mcp__memory__memory_stats',
-    'mcp__memory__memory_consolidate',
-    'mcp__memory__memory_export',
-    'mcp__memory__memory_forget',
-    'mcp__memory__memory_history',
-    'mcp__memory__memory_delete',
-    'mcp__memory__memory_relate',
-    'mcp__memory__memory_search_by_tag',
-    'mcp__memory__memory_extract_session',
-    'mcp__memory__memory_observe',
-    'mcp__memory__self_error_log',
-    'mcp__memory__self_insight',
-    'mcp__memory__self_rules',
-    'mcp__memory__self_patterns',
-    'mcp__memory__self_reflect',
-    'mcp__memory__self_rules_context',
-]
-
-added = 0
-for tool in memory_tools:
-    if tool not in allow:
-        allow.append(tool)
-        added += 1
-
-with open(settings_path, 'w') as f:
-    json.dump(settings, f, indent=2)
-
-print(f'  OK: {len(memory_tools)} memory tools in permissions.allow (+{added} new)')
-"
-
 # -- 4c. Ollama check + optional install prompt --
 echo ""
 echo "-> Step 4c: Checking Ollama (optional but strongly recommended)..."
@@ -237,40 +190,6 @@ fi
 echo "-> Step 5: Setting up dashboard service..."
 "$DASHBOARD_SERVICE" install "$PY_PATH" "$INSTALL_DIR" "$MEMORY_DIR"
 
-<<<<<<< Updated upstream
-# -- 5b. Linux: systemd auto-drain (equivalent of macOS LaunchAgent WatchPaths) --
-# On macOS, the reflection LaunchAgent in launchagents/ picks up
-# `touch ~/.claude-memory/.reflect-pending` and runs run_reflection.py.
-# On Linux there's no LaunchAgent — this block installs a systemd.path +
-# oneshot service pair that gives the same behavior via inotify.
-if [ "$(uname)" = "Linux" ] && [ -d "$INSTALL_DIR/systemd" ]; then
-    echo "-> Step 5b: Installing Linux systemd auto-drain unit..."
-    SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
-    mkdir -p "$SYSTEMD_USER_DIR"
-
-    for unit in claude-memory-reflection.service claude-memory-reflection.path; do
-        sed \
-            -e "s|@INSTALL_DIR@|$INSTALL_DIR|g" \
-            -e "s|@MEMORY_DIR@|$MEMORY_DIR|g" \
-            "$INSTALL_DIR/systemd/$unit" > "$SYSTEMD_USER_DIR/$unit"
-    done
-
-    # Ensure the trigger file exists so systemd.path can watch it from the start
-    touch "$MEMORY_DIR/.reflect-pending"
-
-    if command -v systemctl &>/dev/null; then
-        systemctl --user daemon-reload
-        systemctl --user enable --now claude-memory-reflection.path >/dev/null 2>&1 || {
-            echo "  WARN: could not enable the .path unit via systemctl --user."
-            echo "        Run manually: systemctl --user enable --now claude-memory-reflection.path"
-        }
-        if systemctl --user is-active claude-memory-reflection.path >/dev/null 2>&1; then
-            echo "  OK: Reflection auto-drain active (watch: $MEMORY_DIR/.reflect-pending)"
-        fi
-    else
-        echo "  WARN: systemctl not found — units copied to $SYSTEMD_USER_DIR but not activated"
-    fi
-=======
 # -- 5b. Optional background agents (macOS only) --
 if [ "$(uname)" = "Darwin" ] && [ -d "$INSTALL_DIR/launchagents" ]; then
     echo "-> Step 5b: Installing background LaunchAgents (reflection, orphan-backfill, check-updates)..."
@@ -287,7 +206,6 @@ if [ "$(uname)" = "Darwin" ] && [ -d "$INSTALL_DIR/launchagents" ]; then
         launchctl load "$DEST" 2>/dev/null || true
     done
     echo "  OK: Background agents installed"
->>>>>>> Stashed changes
 fi
 
 # -- 6. Verify --
@@ -301,12 +219,14 @@ else
     echo "  FAIL: Server not found at $SRV_PATH"
 fi
 
-# Check MCP registration (lives in ~/.claude.json, not settings.json)
-if claude mcp get memory >/dev/null 2>&1; then
-    echo "  OK: MCP server 'memory' registered"
-else
-    echo "  FAIL: MCP config issue — run 'claude mcp list' to debug"
-fi
+# Check settings.json
+python3 -c "
+import json
+with open('$CLAUDE_SETTINGS') as f:
+    s = json.load(f)
+assert 'memory' in s.get('mcpServers', {})
+print('  OK: MCP server configured')
+" 2>/dev/null || echo "  FAIL: MCP config issue"
 
 # Check memory dir
 if [ -d "$MEMORY_DIR" ]; then

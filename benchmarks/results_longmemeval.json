@@ -2,107 +2,11 @@
   "k": 5,
   "total_questions": 470,
   "modes": {
-    "raw": {
-      "total_r_any": 0.9659574468085106,
-      "total_ndcg": 0.8675153521647835,
-      "total_r_all": 0.8574468085106383,
-      "avg_latency_ms": 0.07998486782642121,
-      "per_type": {
-        "single-session-user": {
-          "r_any": 0.921875,
-          "count": 64
-        },
-        "single-session-assistant": {
-          "r_any": 0.9642857142857143,
-          "count": 56
-        },
-        "single-session-preference": {
-          "r_any": 0.9666666666666667,
-          "count": 30
-        },
-        "multi-session": {
-          "r_any": 0.9917355371900827,
-          "count": 121
-        },
-        "knowledge-update": {
-          "r_any": 1.0,
-          "count": 72
-        },
-        "temporal-reasoning": {
-          "r_any": 0.9448818897637795,
-          "count": 127
-        }
-      }
-    },
-    "bm25": {
-      "total_r_any": 0.951063829787234,
-      "total_ndcg": 0.858168568622907,
-      "total_r_all": 0.8170212765957446,
-      "avg_latency_ms": 0.11480869130885347,
-      "per_type": {
-        "single-session-user": {
-          "r_any": 1.0,
-          "count": 64
-        },
-        "single-session-assistant": {
-          "r_any": 0.9107142857142857,
-          "count": 56
-        },
-        "single-session-preference": {
-          "r_any": 0.7333333333333333,
-          "count": 30
-        },
-        "multi-session": {
-          "r_any": 0.9669421487603306,
-          "count": 121
-        },
-        "knowledge-update": {
-          "r_any": 1.0,
-          "count": 72
-        },
-        "temporal-reasoning": {
-          "r_any": 0.952755905511811,
-          "count": 127
-        }
-      }
-    },
-    "hybrid": {
-      "total_r_any": 0.9744680851063829,
-      "total_ndcg": 0.9006741952543288,
-      "total_r_all": 0.8659574468085106,
-      "avg_latency_ms": 0.1602056178640812,
-      "per_type": {
-        "single-session-user": {
-          "r_any": 1.0,
-          "count": 64
-        },
-        "single-session-assistant": {
-          "r_any": 0.9464285714285714,
-          "count": 56
-        },
-        "single-session-preference": {
-          "r_any": 0.8333333333333334,
-          "count": 30
-        },
-        "multi-session": {
-          "r_any": 0.9834710743801653,
-          "count": 121
-        },
-        "knowledge-update": {
-          "r_any": 1.0,
-          "count": 72
-        },
-        "temporal-reasoning": {
-          "r_any": 0.984251968503937,
-          "count": 127
-        }
-      }
-    },
     "full": {
       "total_r_any": 0.9617021276595744,
       "total_ndcg": 0.824371388108816,
       "total_r_all": 0.8446808510638298,
-      "avg_latency_ms": 28.727195618000437,
+      "avg_latency_ms": 38.770282522160954,
       "per_type": {
         "single-session-user": {
           "r_any": 1.0,
