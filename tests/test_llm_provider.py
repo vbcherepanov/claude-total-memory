@@ -38,11 +38,12 @@ class _FakeResp:
 
 def _capture_urlopen(payload: dict, sink: dict):
     """Return a fake urlopen that records the request it received."""
-    def fake(req, timeout=None):
+    def fake(req, timeout=None, context=None, **_kwargs):
         sink["url"] = req.full_url
         sink["headers"] = dict(req.headers)
         sink["body"] = json.loads(req.data.decode("utf-8")) if req.data else None
         sink["timeout"] = timeout
+        sink["ssl_context"] = context
         return _FakeResp(payload)
     return fake
 

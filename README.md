@@ -4,9 +4,10 @@
 > Persistent, local memory for AI coding agents: Claude Code, Codex CLI, Cursor, any MCP client.
 > Temporal knowledge graph · procedural memory · AST codebase ingest · cross-project analogy · 3D WebGL visualization.
 
-[![Version](https://img.shields.io/badge/version-8.0.0-8ad.svg)]()
-[![Tests](https://img.shields.io/badge/tests-749%20passing-4a9.svg)]()
+[![Version](https://img.shields.io/badge/version-9.0.0-8ad.svg)]()
+[![Tests](https://img.shields.io/badge/tests-830%2B%20passing-4a9.svg)]()
 [![LongMemEval R@5](https://img.shields.io/badge/LongMemEval%20R@5-96.2%25-4a9.svg)](evals/longmemeval-2026-04-17.json)
+[![LoCoMo Acc](https://img.shields.io/badge/LoCoMo%20Acc-0.596-4a9.svg)](benchmarks/results/)
 [![vs Supermemory](https://img.shields.io/badge/vs%20Supermemory-%2B10.8pp-4a9.svg)](docs/vs-competitors.md)
 [![p50 latency](https://img.shields.io/badge/p50%20warm-0.065ms-4a9.svg)](evals/results-2026-04-17.json)
 [![Local-First](https://img.shields.io/badge/100%25-local-4a9.svg)]()
@@ -29,10 +30,12 @@
 - [Architecture](#architecture)
 - [Install](#install)
 - [Quick start](#quick-start)
+- [CLI: `lookup-memory` for sub-agents](#cli-lookup-memory-for-sub-agents)
 - [MCP tools reference](#mcp-tools-reference-60-tools)
 - [TypeScript SDK](#typescript-sdk)
 - [Dashboard](#dashboard-localhost37737)
 - [Update](#update)
+- [Upgrading from v8.x to v9.0](#upgrading-from-v8x-to-v90)
 - [Upgrading from v7.x to v8.0](#upgrading-from-v7x-to-v80)
 - [Ollama setup](#ollama-setup-optional-but-recommended)
 - [Configuration](#configuration)
@@ -411,6 +414,35 @@ memory_stats()
 
 ---
 
+## CLI: `lookup-memory` for sub-agents
+
+**New in v9.** Bash-friendly memory search for sub-agent workflows where launching the full MCP server would be overkill (e.g. `Bash(lookup-memory "fix slow Wave query")` from inside a Claude Code agent prompt).
+
+Two equivalent commands ship with the package (registered as `[project.scripts]` entries — installed automatically by `./install.sh` or `./update.sh`):
+
+```bash
+lookup-memory "Caroline researched"          # human-readable bullets
+ctm-lookup "Caroline researched"             # alias
+
+lookup-memory --project myproj --limit 5 "auth flow"
+lookup-memory --type solution --tag reusable "fix bug"
+lookup-memory --json "claude code hooks"     # structured stdout for piping
+```
+
+**How it works:** opens the same `$CLAUDE_MEMORY_DIR/memory.db` the running MCP server uses → BM25 ranking via FTS5 → falls back to LIKE on older DBs. **Zero deps beyond the package.** No Ollama, no rag_chat.py, no ChromaDB required for the CLI path. Works on macOS, Linux, Windows.
+
+```text
+$ lookup-memory --project locomo_0 --limit 2 "adoption"
+1. [synthesized_fact|locomo_0] Caroline is researching adoption agencies.
+2. [synthesized_fact|locomo_0] Melanie congratulates Caroline on her adoption.
+```
+
+**Why two names?** `lookup-memory` matches the legacy bash script that older docs and sub-agent prompts reference (`~/claude-memory-server/ollama/lookup_memory.sh`). `ctm-lookup` is the project-prefixed canonical form. Both call into `claude_total_memory.lookup:main`.
+
+**Migration note:** v7/v8 docs that pointed at `~/claude-memory-server/ollama/lookup_memory.sh` should be updated — the bash version still works for users with a manual install, but `./install.sh` / `./update.sh` clients on v9+ now get `lookup-memory` on PATH directly via the package's `[project.scripts]` entry.
+
+---
+
 ## MCP tools reference (60+ tools)
 
 ### Tool categories
@@ -581,6 +613,46 @@ git pull
 .venv/bin/python -m pytest tests/
 # in Claude Code: /mcp → memory → Reconnect
 ```
+
+---
+
+## Upgrading from v8.x to v9.0
+
+v9 is **backward compatible**. Existing v8 calls and DB schema work unchanged — v9 is an infra release that adds pluggable backends, a public CLI for sub-agents, and LoCoMo benchmark wiring. Nothing is forcibly enabled.
+
+### One-command upgrade
+
+```bash
+cd ~/claude-memory-server && ./update.sh
+# pulls v9 src, installs new entry-points (ctm-lookup / lookup-memory),
+# keeps existing memory.db untouched.
+```
+
+After upgrade, verify the new CLI is on PATH:
+
+```bash
+lookup-memory --limit 1 "any-query-from-your-history"
+```
+
+### What's new (no action required)
+
+- **`lookup-memory` / `ctm-lookup`** CLI now installed alongside `claude-total-memory` MCP server (registered as `[project.scripts]` so `./install.sh` and `./update.sh` put them on PATH automatically). Sub-agent prompts that reference the legacy `~/claude-memory-server/ollama/lookup_memory.sh` script keep working; new prompts should prefer the package-installed name.
+- **Embedding backends** stay on `fastembed` by default. Switch via `V9_EMBED_BACKEND=openai-3-large` (set `MEMORY_EMBED_API_KEY`) — costs ~$0.10/5k rows for re-embed, expected R@5 lift on conversational data.
+- **Reranker backend** stays on `ce-marco` by default. `V9_RERANKER_BACKEND=bge-v2-m3` (or `off`) switches at runtime.
+- **Subject-aware retrieval** is opt-in via `--subject-aware` in `benchmarks/locomo_bench_llm.py`. Future: surface as MCP tool flag.
+- **No migrations.** Schema unchanged from v8.
+
+### What requires manual action
+
+- **Re-embed** (only if switching embedding model, otherwise skip):
+  ```bash
+  python -m scripts.reembed --backend openai-3-large --confirm
+  ```
+- **Old bash sub-agent prompts** that hardcode `~/claude-memory-server/ollama/lookup_memory.sh "query"` will keep working. To ride the new package install, replace with `lookup-memory "query"`.
+
+### Breaking changes
+
+None. All v8 MCP tools, env vars, hooks, and DB tables behave identically.
 
 ---
 
@@ -773,6 +845,19 @@ Full config: see `claude_total_memory/config.py`.
 ---
 
 ## Roadmap
+
+### Shipped in v9.0 (2026-04-25)
+- ✅ **`lookup-memory` / `ctm-lookup` CLI** — bash entry-point for sub-agents, registered as `[project.scripts]` and installed by `./install.sh` / `./update.sh` (replaces manual `~/claude-memory-server/ollama/lookup_memory.sh`)
+- ✅ **Pluggable embedding backends**: `openai-3-small`, `openai-3-large` (3072d), `bge-m3`, `e5-large`, `locomo-tuned-minilm` (fine-tuned on user data)
+- ✅ **Pluggable reranker backends**: `ce-marco`, `bge-v2-m3`, `bge-large`, `off` (env `V9_RERANKER_BACKEND`, hot-swap)
+- ✅ **Subject-aware retrieval** — LLM extracts (subject, action) from question → SQL graph lookup → DIRECT FACTS prepended to context (LoCoMo cat 1/2 lift)
+- ✅ **Judge-weighted ensemble** — category-aware scoring rubric + abstain logic for LoCoMo-style adversarial gold
+- ✅ **Fine-tune embedding pipeline** (`scripts/finetune_embedding.py`) — mine triplets from your data, train on top of MiniLM via `sentence-transformers`
+- ✅ **Few-shot pair mining** (`scripts/mine_locomo_fewshot.py`) — augment per-category prompts with held-in (Q,A) pairs
+- ✅ **Schema-specific graph extractor** (closed canonical predicate vocabulary, optional)
+- ✅ **SSL fix for macOS Python.org installs** — `urllib` requests now use certifi by default
+- ✅ **HTTP retry with exponential backoff** for embedding providers (5xx/timeout)
+- ✅ LoCoMo benchmark integration (`benchmarks/locomo_bench_llm.py` with 14 ablation flags)
 
 ### Shipped in v8.0 (2026-04-19)
 - ✅ Task workflow phases (L1-L4 classifier + 6-phase state machine)

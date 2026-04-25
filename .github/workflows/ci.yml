@@ -1,0 +1,128 @@
+name: CI
+
+# Main pytest matrix across 3 OS and 3 Python versions.
+# Runs on pushes to main, all PRs, and manual dispatch.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Skip network-heavy / IDE-integration side effects inside pytest where
+  # code paths read this flag (parity with install.sh INSTALL_TEST_MODE).
+  CI: "1"
+  INSTALL_TEST_MODE: "1"
+  PYTHONUNBUFFERED: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  # --------------------------------------------------------------
+  # Lint: cheap sanity check before the fan-out matrix runs.
+  # ruff / mypy are not configured in pyproject yet, so fall back
+  # to compileall which catches syntax errors across src/ + package.
+  # --------------------------------------------------------------
+  lint:
+    name: Lint (compileall)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Compile src/ and claude_total_memory/
+        run: |
+          python -m compileall -q src claude_total_memory
+
+  # --------------------------------------------------------------
+  # Tests: 3 OS * 3 Python = 9 combinations, fail-fast disabled so
+  # we see the full picture on red.
+  # --------------------------------------------------------------
+  tests:
+    name: Tests (${{ matrix.os }} / py${{ matrix.python-version }})
+    needs: lint
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      # fastembed / sentence-transformers download ~100MB of model weights
+      # on first import. Cache the HuggingFace + fastembed caches so we
+      # don't hit the network on every matrix leg.
+      - name: Cache model weights
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+            ~/.cache/fastembed
+            ~/AppData/Local/fastembed
+            ~/Library/Caches/fastembed
+          key: models-${{ runner.os }}-${{ matrix.python-version }}-v1
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . -r requirements-dev.txt
+          pip install pytest-timeout pytest-xdist
+
+      - name: Run pytest
+        shell: bash
+        run: |
+          pytest tests/ \
+            --timeout=60 \
+            -v \
+            --junitxml=test-results-${{ runner.os }}-py${{ matrix.python-version }}.xml \
+            --maxfail=25
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ runner.os }}-py${{ matrix.python-version }}
+          path: test-results-*.xml
+          retention-days: 14
+
+  # --------------------------------------------------------------
+  # Aggregated gate — the single required status for branch
+  # protection. Keeps the rule stable when we add/remove matrix
+  # legs.
+  # --------------------------------------------------------------
+  all-green:
+    name: All tests passed
+    needs: tests
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Verify all matrix legs succeeded
+        run: |
+          if [ "${{ needs.tests.result }}" != "success" ]; then
+            echo "tests job result = ${{ needs.tests.result }}"
+            exit 1
+          fi
+          echo "all tests passed"

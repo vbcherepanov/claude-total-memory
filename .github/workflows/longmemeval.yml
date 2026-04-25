@@ -1,0 +1,106 @@
+name: LongMemEval Nightly Gate
+
+# Nightly LongMemEval benchmark with R@5 regression gate.
+# Fails if R@5 drops more than 1pp below the committed v8 baseline.
+
+on:
+  schedule:
+    # 03:00 UTC every day.
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'benchmarks/**'
+      - 'src/**'
+      - 'claude_total_memory/**'
+      - 'evals/**'
+      - 'scripts/compare_eval.py'
+      - 'scripts/fetch_longmemeval_data.py'
+      - '.github/workflows/longmemeval.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: longmemeval-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  longmemeval:
+    name: Run LongMemEval + regression check
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      BASELINE: evals/longmemeval-v8-baseline-2026-04-24.json
+      RESULTS: benchmarks/results_longmemeval.json
+      MAX_REGRESSION: '0.01'   # 1 percentage point
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      TRANSFORMERS_OFFLINE: '0'
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+            pyproject.toml
+
+      - name: Cache HuggingFace model artefacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/fastembed
+            ~/.cache/huggingface
+            ~/.cache/torch/sentence_transformers
+          key: hf-models-${{ runner.os }}-py3.13-${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
+          restore-keys: |
+            hf-models-${{ runner.os }}-py3.13-
+
+      - name: Cache LongMemEval dataset
+        uses: actions/cache@v4
+        with:
+          path: benchmarks/data
+          key: longmemeval-dataset-v1
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . -r requirements-dev.txt
+          # huggingface_hub is required only by the dataset fetcher.
+          pip install huggingface_hub
+
+      - name: Download LongMemEval dataset
+        run: python scripts/fetch_longmemeval_data.py
+
+      - name: Run LongMemEval benchmark (full mode, k=5)
+        run: |
+          python benchmarks/longmemeval_bench.py \
+            --modes full \
+            --k 5 \
+            --data benchmarks/data/longmemeval_s_cleaned.json
+
+      - name: Compare against baseline (1pp regression gate)
+        run: |
+          python scripts/compare_eval.py \
+            "$BASELINE" \
+            "$RESULTS" \
+            --max-regression "$MAX_REGRESSION"
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: longmemeval-results-${{ github.run_id }}
+          path: benchmarks/results_longmemeval.json
+          retention-days: 30
+          if-no-files-found: warn

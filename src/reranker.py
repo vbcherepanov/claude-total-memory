@@ -1,9 +1,19 @@
 """
-Advanced RAG: HyDE + CrossEncoder Reranker + MMR Diversity.
+Advanced RAG: HyDE + Pluggable Reranker + MMR Diversity.
 
 - HyDE: generates hypothetical answer, embeds it for semantic search.
-- CrossEncoder: true cross-encoder re-ranking (ms-marco-MiniLM-L-6-v2).
-  Falls back to LLM-based reranking via Ollama if CrossEncoder unavailable.
+- Reranker (v9 D4): pluggable backend selected via V9_RERANKER_BACKEND.
+    * ce-marco   (default, legacy) cross-encoder/ms-marco-MiniLM-L-6-v2 via
+                 sentence-transformers.CrossEncoder. Web-search trained —
+                 known to regress on LoCoMo conversational data (-1.2pp).
+    * bge-v2-m3  BAAI/bge-reranker-v2-m3 via FlagEmbedding.FlagReranker.
+                 Multilingual, conversation-friendly. Recommended for v9.
+    * bge-large  BAAI/bge-reranker-large via FlagReranker. English-only,
+                 higher accuracy on long context, slower.
+    * off        skip reranking entirely.
+  All backends return scores normalized to [0,1] via sigmoid; downstream
+  blending logic is identical (CE-boost-only: never demote originals).
+  Falls back to Ollama LLM reranker if the configured backend fails to load.
 - MMR: Maximal Marginal Relevance for result diversity (λ=0.7).
 """
 
@@ -144,47 +154,150 @@ Answer:"""
 
 
 # =============================================================================
-# CrossEncoder Reranker — true cross-encoder with LLM fallback
+# Reranker — pluggable backend (CE / BGE-v2-m3 / BGE-large) with LLM fallback
 # =============================================================================
 
-_cross_encoder = None
-_cross_encoder_failed = False
+# Default kept on the legacy ce-marco for backward compatibility with v8 callers
+# that import this constant directly. Active backend is resolved per-call from
+# config.get_v9_reranker_backend() so tests can flip env vars.
 CROSS_ENCODER_MODEL = os.environ.get("CROSS_ENCODER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+_BACKEND_TO_MODEL = {
+    "ce-marco": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+    "bge-v2-m3": "BAAI/bge-reranker-v2-m3",
+    "bge-large": "BAAI/bge-reranker-large",
+}
+
+# {backend_key: (model_obj_or_False, kind)}; kind ∈ {"ce", "flag"}
+_reranker_cache: dict = {}
+
+
+def _resolve_reranker_backend() -> str:
+    """Read V9_RERANKER_BACKEND each call so tests can monkeypatch env."""
+    try:
+        import config as _cfg  # local import: avoids hard dep at module load
+        return _cfg.get_v9_reranker_backend()
+    except Exception:
+        return "ce-marco"
+
+
+def _resolve_reranker_model(backend: str) -> str:
+    """Honor V9_RERANKER_MODEL override; else fall back to backend table."""
+    try:
+        import config as _cfg
+        override = _cfg.get_v9_reranker_model_override()
+        if override:
+            return override
+    except Exception:
+        pass
+    return _BACKEND_TO_MODEL.get(backend, CROSS_ENCODER_MODEL)
+
+
+def _reset_reranker_cache() -> None:
+    """Clear loaded reranker models — used by tests after env changes."""
+    global _reranker_cache
+    _reranker_cache = {}
+
+
+def _load_ce_reranker(model_name: str):
+    """sentence-transformers CrossEncoder — works for ms-marco-* family."""
+    try:
+        from sentence_transformers import CrossEncoder
+        ce = CrossEncoder(model_name)
+        LOG(f"CrossEncoder loaded: {model_name}")
+        return ce
+    except Exception as e:  # noqa: BLE001
+        LOG(f"CrossEncoder load failed ({model_name}): {e}")
+        return None
+
+
+def _load_flag_reranker(model_name: str):
+    """Load a BAAI/bge-reranker-* model.
+
+    Strategy: prefer sentence-transformers CrossEncoder first — it works
+    with bge-reranker-v2-m3 and bge-reranker-large under any modern
+    transformers version. FlagEmbedding's custom tokenizer wrapper is
+    fragile across transformers releases (e.g. transformers>=4.40 removes
+    XLMRobertaTokenizer.prepare_for_model that FlagEmbedding 1.2.x relies on).
+
+    Fall back to FlagReranker only if CrossEncoder cannot load the model
+    (rare — usually means HF download failed).
+    """
+    ce = _load_ce_reranker(model_name)
+    if ce is not None:
+        LOG(f"Reranker loaded via CrossEncoder API: {model_name}")
+        return ce
+
+    use_fp16 = True
+    try:
+        import config as _cfg
+        use_fp16 = _cfg.get_v9_reranker_use_fp16()
+    except Exception:
+        pass
+
+    try:
+        from FlagEmbedding import FlagReranker  # type: ignore[import-not-found]
+        rr = FlagReranker(model_name, use_fp16=use_fp16)
+        LOG(f"FlagReranker loaded: {model_name} (fp16={use_fp16})")
+        return rr
+    except Exception as e:  # noqa: BLE001
+        LOG(f"FlagReranker load failed ({model_name}): {e}")
+        return None
+
+
+def _get_reranker(backend: str | None = None):
+    """Lazy-load the configured reranker. Returns (model, kind) or (None, None)."""
+    backend = backend or _resolve_reranker_backend()
+    if backend == "off":
+        return None, None
+    cached = _reranker_cache.get(backend)
+    if cached is not None:
+        return cached if cached[0] is not False else (None, None)
+
+    model_name = _resolve_reranker_model(backend)
+    if backend == "ce-marco":
+        obj = _load_ce_reranker(model_name)
+        kind = "ce"
+    else:  # bge-v2-m3, bge-large
+        obj = _load_flag_reranker(model_name)
+        # FlagReranker exposes .compute_score; CrossEncoder exposes .predict —
+        # we sniff at score-time, so kind tracks the *requested* backend for
+        # logging only.
+        kind = "flag" if obj is not None and hasattr(obj, "compute_score") else "ce"
+
+    _reranker_cache[backend] = (obj if obj is not None else False, kind)
+    return (obj, kind) if obj is not None else (None, None)
 
 
 def _get_cross_encoder():
-    """Lazy-load CrossEncoder model (singleton)."""
-    global _cross_encoder, _cross_encoder_failed
-    if _cross_encoder_failed:
-        return None
-    if _cross_encoder is not None:
-        return _cross_encoder
-    try:
-        from sentence_transformers import CrossEncoder
-        _cross_encoder = CrossEncoder(CROSS_ENCODER_MODEL)
-        LOG(f"CrossEncoder loaded: {CROSS_ENCODER_MODEL}")
-        return _cross_encoder
-    except Exception as e:
-        LOG(f"CrossEncoder unavailable ({e}), will use LLM fallback")
-        _cross_encoder_failed = True
-        return None
+    """Backward-compat shim — returns the legacy ce-marco CrossEncoder."""
+    obj, _ = _get_reranker("ce-marco")
+    return obj
 
 
 def rerank_results(query: str, results: list, top_k: int = 10) -> list:
     """
-    Rerank search results using CrossEncoder (preferred) or LLM fallback.
+    Rerank search results using the configured backend (V9_RERANKER_BACKEND).
 
-    CrossEncoder (ms-marco-MiniLM-L-6-v2): ~5ms for 20 pairs, accurate relevance.
-    LLM fallback: ~2-5s via Ollama, less accurate but always available.
+    Backends:
+      ce-marco   ms-marco-MiniLM-L-6-v2  ~5ms /20 pairs, MS-MARCO web search.
+      bge-v2-m3  BAAI/bge-reranker-v2-m3 multilingual, conversation-friendly.
+      bge-large  BAAI/bge-reranker-large higher acc, English-only, slower.
+      off        no-op, returns top_k as-is.
+    LLM fallback (Ollama) used only if the configured backend fails to load.
     """
     if not results:
         return results
 
     candidates = results[:min(len(results), top_k * 2)]
 
-    ce = _get_cross_encoder()
-    if ce is not None:
-        ranked = _rerank_cross_encoder(ce, query, candidates, top_k)
+    backend = _resolve_reranker_backend()
+    if backend == "off":
+        return results[:top_k]
+
+    model, kind = _get_reranker(backend)
+    if model is not None:
+        ranked = _rerank_with_model(model, kind, query, candidates, top_k)
     else:
         ranked = _rerank_llm(query, candidates, top_k)
 
@@ -194,8 +307,8 @@ def rerank_results(query: str, results: list, top_k: int = 10) -> list:
     return ranked[:top_k] + remaining[:max(0, top_k - len(ranked))]
 
 
-def _rerank_cross_encoder(ce, query: str, candidates: list, top_k: int) -> list:
-    """Rerank using sentence-transformers CrossEncoder."""
+def _rerank_with_model(model, kind: str, query: str, candidates: list, top_k: int) -> list:
+    """Score candidates with the loaded model; CE-boost-only blend with original."""
     pairs = []
     for item in candidates:
         content = item["r"].get("content", "")[:300]
@@ -206,17 +319,17 @@ def _rerank_cross_encoder(ce, query: str, candidates: list, top_k: int) -> list:
             doc += f" tags:{tags}"
         pairs.append([query, doc])
 
-    try:
-        scores = ce.predict(pairs)
-        # Normalize: sigmoid to [0, 1]
-        scores_norm = 1.0 / (1.0 + np.exp(-np.array(scores)))
-    except Exception as e:
-        LOG(f"CrossEncoder scoring failed: {e}")
+    raw_scores = _score_pairs(model, kind, pairs)
+    if raw_scores is None:
         return candidates[:top_k]
 
-    # CE boost-only: CE can promote results, never demote them.
-    # CE is trained on MS-MARCO (web search) — may misjudge conversational data.
-    # If CE agrees with original ranking — boost. If disagrees — keep original.
+    # All paths return logits/raw; sigmoid → [0,1] for stable blending.
+    scores_norm = 1.0 / (1.0 + np.exp(-np.array(raw_scores, dtype=np.float32)))
+
+    # CE boost-only: reranker can promote results, never demote them.
+    # Conservative because rerankers (esp. ce-marco trained on web search)
+    # may misjudge conversational LoCoMo data. Keep original ordering as
+    # a soft prior; reranker contributes 40% weight.
     max_orig = max(item["score"] for item in candidates) or 1.0
     for i, item in enumerate(candidates):
         if i < len(scores_norm):
@@ -229,6 +342,27 @@ def _rerank_cross_encoder(ce, query: str, candidates: list, top_k: int) -> list:
 
     candidates.sort(key=lambda x: x["score"], reverse=True)
     return candidates
+
+
+def _score_pairs(model, kind: str, pairs: list[list[str]]):
+    """Backend-specific scoring. Returns list[float] of raw scores or None."""
+    try:
+        if kind == "flag" and hasattr(model, "compute_score"):
+            # FlagReranker accepts list[[q,p]]; returns list[float] of logits.
+            scores = model.compute_score(pairs)
+            if isinstance(scores, (int, float)):
+                return [float(scores)]
+            return [float(s) for s in scores]
+        # sentence-transformers CrossEncoder.predict
+        return model.predict(pairs)
+    except Exception as e:  # noqa: BLE001
+        LOG(f"reranker scoring failed ({kind}): {e}")
+        return None
+
+
+def _rerank_cross_encoder(ce, query: str, candidates: list, top_k: int) -> list:
+    """Legacy entrypoint kept for tests that imported it by name."""
+    return _rerank_with_model(ce, "ce", query, candidates, top_k)
 
 
 def _rerank_llm(query: str, candidates: list, top_k: int) -> list:

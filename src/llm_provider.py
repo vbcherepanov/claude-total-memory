@@ -114,11 +114,23 @@ def _http_post_json(
     headers: dict[str, str],
     timeout: float,
 ) -> dict:
-    """POST JSON, return parsed JSON. Raises urllib/JSON errors to caller."""
+    """POST JSON, return parsed JSON. Raises urllib/JSON errors to caller.
+
+    Uses certifi CA bundle when available (fixes SSL on Python 3.13 / macOS
+    python.org builds that don't trust the system keychain).
+    """
     data = json.dumps(body).encode("utf-8")
     hdrs = {"Content-Type": "application/json", **headers}
     req = urllib.request.Request(url, data=data, headers=hdrs, method="POST")
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    ctx = None
+    if url.startswith("https://"):
+        import ssl
+        try:
+            import certifi  # type: ignore
+            ctx = ssl.create_default_context(cafile=certifi.where())
+        except ImportError:
+            ctx = ssl.create_default_context()
+    with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
         raw = resp.read()
     return json.loads(raw)
 

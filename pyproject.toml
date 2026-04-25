@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "claude-total-memory"
-version = "8.0.0"
+version = "9.0.0a0"
 description = "total-agent-memory — persistent memory MCP server for Claude Code & Codex CLI: 46 tools — knowledge graph, temporal facts, procedural memory, episodic memory, AST ingest, pre-edit guard, auto-consolidating error capture"
 readme = "README.md"
 license = "MIT"
@@ -16,7 +16,6 @@ keywords = ["claude", "mcp", "memory", "ai", "llm", "claude-code"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -38,6 +37,8 @@ Issues = "https://github.com/vitaliimacpro/claude-total-memory/issues"
 
 [project.scripts]
 claude-total-memory = "claude_total_memory.server:main_sync"
+ctm-lookup = "claude_total_memory.lookup:main"
+lookup-memory = "claude_total_memory.lookup:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

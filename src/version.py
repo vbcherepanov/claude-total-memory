@@ -6,5 +6,5 @@ Bumped manually on each release. Used by:
   - memory_stats
 """
 
-VERSION = "8.0.0"
-RELEASE_DATE = "2026-04-19"
+VERSION = "9.0.0-alpha"
+RELEASE_DATE = "2026-04-24"

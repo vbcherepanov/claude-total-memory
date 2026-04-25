@@ -1,0 +1,38 @@
+{
+  "k": 5,
+  "total_questions": 470,
+  "modes": {
+    "full": {
+      "total_r_any": 0.9617021276595744,
+      "total_ndcg": 0.824371388108816,
+      "total_r_all": 0.8446808510638298,
+      "avg_latency_ms": 38.09694533652448,
+      "per_type": {
+        "single-session-user": {
+          "r_any": 1.0,
+          "count": 64
+        },
+        "single-session-assistant": {
+          "r_any": 0.9642857142857143,
+          "count": 56
+        },
+        "single-session-preference": {
+          "r_any": 0.8,
+          "count": 30
+        },
+        "multi-session": {
+          "r_any": 0.9669421487603306,
+          "count": 121
+        },
+        "knowledge-update": {
+          "r_any": 1.0,
+          "count": 72
+        },
+        "temporal-reasoning": {
+          "r_any": 0.952755905511811,
+          "count": 127
+        }
+      }
+    }
+  }
+}

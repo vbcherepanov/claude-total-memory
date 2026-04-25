@@ -499,3 +499,108 @@ def is_active_context_enabled() -> bool:
         "true",
         "yes",
     )
+
+
+# ──────────────────────────────────────────────
+# v9.0 Phase 1 feature flags
+# ──────────────────────────────────────────────
+#
+# All default OFF — zero regression on upgrade. Flip per-lane to opt in.
+#
+#   V9_PARALLEL_RETRIEVAL — A1: run FTS+semantic+fuzzy+graph tiers via
+#                           asyncio.gather instead of sequential await.
+#   V9_CACHE_L1_ENABLED   — A2: in-memory LRU query→top-K (fast path).
+#   V9_CACHE_L2_ENABLED   — A2: SQLite embedding_cache keyed by sha256(text).
+#   V9_CACHE_L1_SIZE      — A2: max LRU entries (default 1000).
+#   V9_CACHE_L1_TTL_SEC   — A2: LRU TTL seconds (default 300).
+#   V9_EMBED_BACKEND      — B1: "fastembed" (default) | "bge-m3" | "e5-large" | "minilm".
+
+
+def _get_bool_env(name: str, default: bool = False) -> bool:
+    raw = os.environ.get(name, "").strip().lower()
+    if raw in ("1", "true", "yes", "on"):
+        return True
+    if raw in ("0", "false", "no", "off"):
+        return False
+    return default
+
+
+def is_v9_parallel_retrieval_enabled() -> bool:
+    return _get_bool_env("V9_PARALLEL_RETRIEVAL", default=False)
+
+
+def is_v9_cache_l1_enabled() -> bool:
+    return _get_bool_env("V9_CACHE_L1_ENABLED", default=False)
+
+
+def is_v9_cache_l2_enabled() -> bool:
+    return _get_bool_env("V9_CACHE_L2_ENABLED", default=False)
+
+
+def get_v9_cache_l1_size() -> int:
+    return _get_int_env("V9_CACHE_L1_SIZE", 1000)
+
+
+def get_v9_cache_l1_ttl_sec() -> float:
+    return _get_float_env("V9_CACHE_L1_TTL_SEC", 300.0)
+
+
+_SUPPORTED_V9_EMBED_BACKENDS = (
+    "fastembed",
+    "bge-m3",
+    "e5-large",
+    "minilm",
+    # v9 D5: locally-fine-tuned embedding (scripts/finetune_embedding.py).
+    # Resolves to a sentence-transformers model dir on disk via choose_embed.
+    "locomo-tuned-minilm",
+    # v9 D1: OpenAI cloud embeddings — re-uses MEMORY_EMBED_API_KEY plumbing
+    # in src/embed_provider.OpenAIEmbedProvider.
+    "openai-3-small",   # 1536d, ~5x cheaper than 3-large, ~+2-3pp R@5 vs MiniLM.
+    "openai-3-large",   # 3072d, top-tier quality, primary target for v9 push.
+)
+
+
+def get_v9_embed_backend() -> str:
+    raw = (os.environ.get("V9_EMBED_BACKEND", "fastembed") or "fastembed").strip().lower()
+    if raw in _SUPPORTED_V9_EMBED_BACKENDS:
+        return raw
+    return "fastembed"
+
+
+def get_v9_locomo_tuned_path() -> str:
+    """Path to the locomo-tuned-minilm sentence-transformers dir.
+
+    Default points at ``./models/locomo-tuned-minilm`` relative to the repo
+    root, which is where ``scripts/finetune_embedding.py all`` writes by
+    convention. Override with ``V9_LOCOMO_TUNED_PATH`` env.
+    """
+    return (os.environ.get("V9_LOCOMO_TUNED_PATH") or "./models/locomo-tuned-minilm").strip()
+
+
+# v9 D4 — Reranker backend selector.
+#
+#   ce-marco   (default) cross-encoder/ms-marco-MiniLM-L-6-v2 — web-search trained,
+#              regresses on conversational data per LoCoMo ablations (-1.2pp).
+#   bge-v2-m3  BAAI/bge-reranker-v2-m3 — multilingual, conversation-friendly.
+#   bge-large  BAAI/bge-reranker-large — English-only, higher accuracy on long ctx.
+#   off        skip reranking entirely.
+_SUPPORTED_RERANKER_BACKENDS = ("ce-marco", "bge-v2-m3", "bge-large", "off")
+
+
+def get_v9_reranker_backend() -> str:
+    raw = (os.environ.get("V9_RERANKER_BACKEND", "ce-marco") or "ce-marco").strip().lower()
+    if raw in _SUPPORTED_RERANKER_BACKENDS:
+        return raw
+    return "ce-marco"
+
+
+def get_v9_reranker_model_override() -> str | None:
+    """Optional explicit HF model id override (skips backend → model table)."""
+    raw = (os.environ.get("V9_RERANKER_MODEL", "") or "").strip()
+    return raw or None
+
+
+def get_v9_reranker_use_fp16() -> bool:
+    """fp16 compute for BGE rerankers — ~2x speed on Apple Silicon/CUDA, no acc loss."""
+    raw = (os.environ.get("V9_RERANKER_FP16", "1") or "1").strip().lower()
+    return raw in ("1", "true", "yes", "on")

@@ -63,6 +63,33 @@ except ImportError:
     HAS_RERANKER = False
 
 try:
+    from temporal_filter import has_temporal_intent, temporal_rerank
+    HAS_TEMPORAL_FILTER = True
+except ImportError:
+    HAS_TEMPORAL_FILTER = False
+
+try:
+    from temporal_index import (
+        ensure_schema as _temporal_index_ensure_schema,
+        filter_by_query_date as _temporal_index_filter,
+    )
+    HAS_TEMPORAL_INDEX = True
+except ImportError:
+    HAS_TEMPORAL_INDEX = False
+
+try:
+    from graph_expander import expand as _graph_expand, fetch_records as _graph_fetch
+    HAS_GRAPH_EXPAND = True
+except ImportError:
+    HAS_GRAPH_EXPAND = False
+
+try:
+    from query_rewriter import is_enabled as _qr_is_enabled, rewrite as _qr_rewrite, has_decomposable_intent as _qr_decomposable
+    HAS_QUERY_REWRITER = True
+except ImportError:
+    HAS_QUERY_REWRITER = False
+
+try:
     # Import cache early so it's available regardless of __file__ path tricks
     _src_dir = str(Path(__file__).resolve().parent)
     if _src_dir not in sys.path:
@@ -199,6 +226,16 @@ class Store:
         else:
             self.cache = None
             LOG("Query cache: disabled (cache module not found)")
+
+        # v9.0 two-level cache (lane A2) — gated by V9_CACHE_L1/L2_ENABLED flags.
+        # Instantiation is cheap + idempotent even when flags are OFF
+        # (public API turns into no-op), so we always construct it.
+        try:
+            from cache_layer import TwoLevelCache as _V9TwoLevelCache
+            self.v9_cache = _V9TwoLevelCache(db_path=str(MEMORY_DIR / "memory.db"))
+        except Exception as _e:  # pragma: no cover — never hit in CI
+            LOG(f"v9 cache init failed: {_e}")
+            self.v9_cache = None
 
         # Eagerly initialize embedding mode (not lazy)
         self._embed_mode = self._init_embed_mode()
@@ -424,32 +461,71 @@ class Store:
         Dispatch order:
           1. Cloud providers (openai / cohere) via EmbeddingProvider when selected.
           2. Legacy FastEmbed → Ollama → SentenceTransformers chain.
-        """
-        # Cloud providers route through EmbeddingProvider.
-        if self._embed_mode in ("openai", "cohere"):
-            result = self._provider_embed(texts)
-            if result:
-                return result
-            # Cloud failed at runtime — fall through to local fallbacks.
 
-        if self._embed_mode == "fastembed":
-            result = self._fastembed_embed(texts)
-            if result:
-                return result
-            # Fallback to Ollama if FastEmbed fails at runtime
-            if self._check_ollama():
-                return self._ollama_embed(texts)
-        if self._embed_mode == "ollama":
-            result = self._ollama_embed(texts)
-            if result:
-                return result
-            # Fallback to ST if Ollama fails at runtime
-        if self._embed_mode in ("st", "ollama", "fastembed", "openai", "cohere") and self.embedder:
-            try:
-                return self.embedder.encode(texts).tolist()
-            except Exception:
-                pass
-        return None
+        v9 A2: when ``V9_CACHE_L2_ENABLED`` is set, individual texts are
+        looked up in the persistent ``embedding_cache`` table first; misses
+        go through the provider and their vectors are stored back. Keyed
+        by sha256(text) so identical inputs short-circuit the embedder.
+        """
+        # ── v9 L2 pre-lookup ───────────────────────────────
+        l2 = getattr(self, "v9_cache", None)
+        model_name = self._active_embed_model_name() if l2 is not None else ""
+        cached: list[list[float] | None] = [None] * len(texts)
+        missing_idx: list[int] = []
+        if l2 is not None and l2.l2.enabled:
+            for i, t in enumerate(texts):
+                hit = l2.embed_get(t, expected_model=model_name or None)
+                if hit is not None:
+                    cached[i] = hit
+                else:
+                    missing_idx.append(i)
+        else:
+            missing_idx = list(range(len(texts)))
+
+        if not missing_idx:
+            return cached  # full L2 hit
+
+        missing_texts = [texts[i] for i in missing_idx]
+
+        # ── upstream embedding ─────────────────────────────
+        def _compute(batch):
+            if self._embed_mode in ("openai", "cohere"):
+                r = self._provider_embed(batch)
+                if r:
+                    return r
+            if self._embed_mode == "fastembed":
+                r = self._fastembed_embed(batch)
+                if r:
+                    return r
+                if self._check_ollama():
+                    return self._ollama_embed(batch)
+            if self._embed_mode == "ollama":
+                r = self._ollama_embed(batch)
+                if r:
+                    return r
+            if self._embed_mode in ("st", "ollama", "fastembed", "openai", "cohere") and self.embedder:
+                try:
+                    return self.embedder.encode(batch).tolist()
+                except Exception:
+                    pass
+            return None
+
+        fresh = _compute(missing_texts)
+        if fresh is None:
+            # Upstream failed — honour legacy contract and return None
+            # only when nothing at all can be produced.
+            return None if all(v is None for v in cached) else cached
+
+        # ── merge + persist back into L2 ───────────────────
+        for local_i, global_i in enumerate(missing_idx):
+            cached[global_i] = fresh[local_i]
+            if l2 is not None and l2.l2.enabled and fresh[local_i] is not None:
+                try:
+                    l2.embed_set(texts[global_i], fresh[local_i], model_name)
+                except Exception:
+                    pass
+
+        return cached
 
     # ── Binary Quantization ──
 
@@ -1880,6 +1956,18 @@ class Recall:
 
     def search(self, query, project=None, ktype="all", limit=10, detail="full", branch=None, fusion="rrf",
                rerank=False, diverse=False):
+        # v9 A2 L1: fast-path query cache. Keyed by full filter set so that
+        # different projects / ktypes / branches don't collide.
+        _v9 = getattr(self.s, "v9_cache", None)
+        _v9_filters = {
+            "project": project, "ktype": ktype, "detail": detail, "branch": branch,
+            "fusion": fusion, "rerank": rerank, "diverse": diverse,
+        }
+        if _v9 is not None and _v9.l1.enabled:
+            hit = _v9.recall_get(query, mode="search", k=limit, filters=_v9_filters)
+            if hit is not None:
+                return hit
+
         # Check cache first (include fusion param in cache key)
         if self.s.cache is not None:
             cache_key = self.s.cache.make_key(query=query, project=project, ktype=ktype,
@@ -1888,6 +1976,23 @@ class Recall:
             cached = self.s.cache.get(cache_key)
             if cached is not None:
                 return cached
+
+        # Stage 0 (optional): Query rewriting via Haiku.
+        # For multi-hop / temporal queries, ask a cheap LLM to produce a
+        # canonical fact-lookup form. Gated on MEMORY_QUERY_REWRITE=1 and
+        # heuristic intent detector to avoid paying LLM for every call.
+        original_query = query
+        if (HAS_QUERY_REWRITER and _qr_is_enabled()
+                and _qr_decomposable(query)):
+            try:
+                import anthropic as _anthropic
+                _client = _anthropic.Anthropic()
+                rw = _qr_rewrite(query, _client)
+                canonical = (rw or {}).get("canonical", "").strip()
+                if canonical and len(canonical) > 3:
+                    query = canonical
+            except Exception as e:
+                LOG(f"query_rewriter failed, using original query: {e}")
 
         use_advanced = self._should_use_advanced_rag()
         query_info = None
@@ -2167,6 +2272,42 @@ class Recall:
                 item["score"] *= item["decay_factor"]
             ranked = sorted(results.values(), key=lambda x: x["score"], reverse=True)[:limit * 2]
 
+        # Stage 4.3 (optional): Temporal-index hard filter.
+        # When query has explicit dates and index is populated, drop candidates
+        # whose timestamps fall outside the query window. Different from 4.5
+        # (proximity re-rank) — this is a binary admit/reject.
+        # Toggle: MEMORY_TEMPORAL_INDEX=1.
+        if (HAS_TEMPORAL_INDEX
+                and os.environ.get("MEMORY_TEMPORAL_INDEX", "0") == "1"
+                and len(ranked) > 1):
+            try:
+                allowed_ids = _temporal_index_filter(self.s.db, original_query)
+                if allowed_ids:
+                    filtered = [it for it in ranked if it["r"]["id"] in allowed_ids]
+                    if filtered:
+                        ranked = filtered
+            except Exception as e:
+                LOG(f"temporal_index filter failed, keeping full ranked list: {e}")
+
+        # Stage 4.5 (optional): Temporal-aware re-rank.
+        # Detects date entities in the query, re-orders over-fetched candidates
+        # by timestamp proximity. No LLM calls. +11pp Acc on LoCoMo temporal,
+        # +5pp on multi-hop. Neutral on non-temporal queries (skip-path).
+        # Toggle: MEMORY_TEMPORAL_FILTER (default "1", set "0" to disable).
+        if (HAS_TEMPORAL_FILTER
+                and os.environ.get("MEMORY_TEMPORAL_FILTER", "1") != "0"
+                and len(ranked) > 1):
+            try:
+                if has_temporal_intent(query):
+                    adapted = [{"content": item["r"].get("content", ""),
+                                "score": item.get("rrf_score", item.get("score", 0)),
+                                "_orig": item}
+                               for item in ranked]
+                    reordered = temporal_rerank(query, adapted)
+                    ranked = [e["_orig"] for e in reordered]
+            except Exception as e:
+                LOG(f"Temporal filter failed, keeping RRF order: {e}")
+
         # Stage 5 (optional): CrossEncoder re-ranking
         # CE is trained on MS-MARCO (web search) — helps for precision in large bases,
         # but can hurt recall on conversational data. Off by default.
@@ -2190,6 +2331,32 @@ class Recall:
                     ranked = mmr_diversify(ranked, embs, top_k=limit)
             except Exception as e:
                 LOG(f"MMR diversify failed, using original order: {e}")
+
+        # Stage 6.5 (optional): Graph expansion — add 1-hop neighbours
+        # of the top-K to help multi-hop questions. Neighbours get a
+        # penalised score (0.5× min of the top score) so they never
+        # outrank primary hits.
+        if (HAS_GRAPH_EXPAND
+                and os.environ.get("MEMORY_GRAPH_EXPAND", "0") == "1"
+                and len(ranked) > 0):
+            try:
+                seed_ids = [item["r"]["id"] for item in ranked[:3]]
+                existing_ids = {item["r"]["id"] for item in ranked}
+                neighbours = _graph_expand(self.s.db, seed_ids, budget=10)
+                new_kids = [kid for kid, _ in neighbours if kid not in existing_ids][:5]
+                if new_kids:
+                    rows = _graph_fetch(self.s.db, new_kids)
+                    if rows and ranked:
+                        base_score = min(it["score"] for it in ranked) * 0.5
+                        for row in rows:
+                            ranked.append({
+                                "r": row,
+                                "score": base_score,
+                                "via": ["graph_expand"],
+                                "rrf_score": 0.0,
+                            })
+            except Exception as e:
+                LOG(f"graph_expand failed, keeping original ranked: {e}")
 
         returned_ids = [item["r"]["id"] for item in ranked]
         if returned_ids:
@@ -2274,6 +2441,20 @@ class Recall:
                                                limit=limit, detail=detail, branch=branch,
                                                fusion=fusion, rerank=rerank, diverse=diverse)
             self.s.cache.put(cache_key, result, project=project)
+
+        # v9 A2 L1: mirror into fast LRU tagged with the ids this result touched.
+        if _v9 is not None and _v9.l1.enabled:
+            try:
+                _ids: list[int] = []
+                for _tier in result.get("results", {}).values():
+                    for _item in _tier:
+                        _id = _item.get("id")
+                        if isinstance(_id, int):
+                            _ids.append(_id)
+                _v9.recall_set(query, result, mode="search", k=limit,
+                               filters=_v9_filters, memory_ids=_ids)
+            except Exception:
+                pass
 
         return result
 
@@ -3657,6 +3838,9 @@ async def _do(name, a):
         # Invalidate cache on write
         if store.cache is not None:
             store.cache.invalidate(project=a.get("project"))
+        # v9 A2: drop L1 query cache wholesale on write — cheap + correct.
+        if getattr(store, "v9_cache", None) is not None:
+            store.v9_cache.invalidate_all()
         result = {"saved": True, "id": rid, "deduplicated": was_dedup}
         if was_redacted:
             result["privacy_redacted"] = True
@@ -3713,6 +3897,8 @@ async def _do(name, a):
         # Invalidate cache on update
         if store.cache is not None:
             store.cache.invalidate(project=old_rec.get("project"))
+        if getattr(store, "v9_cache", None) is not None:
+            store.v9_cache.invalidate_by_id(old["id"])
         return J({"updated": True, "old_id": old["id"], "new_id": new_id})
 
     elif name == "memory_stats":
@@ -3864,6 +4050,8 @@ async def _do(name, a):
         # Invalidate cache on delete
         if store.cache is not None:
             store.cache.invalidate(project=rec.get("project"))
+        if getattr(store, "v9_cache", None) is not None:
+            store.v9_cache.invalidate_by_id(a["id"])
         return J({"deleted": True, "id": a["id"], "content_preview": rec["content"][:100]})
 
     elif name == "memory_relate":

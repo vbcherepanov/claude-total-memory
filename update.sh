@@ -186,6 +186,16 @@ if [[ -f "${req_files[0]}" ]]; then
   else
     say "  no dependency changes"
   fi
+
+  # v9 — always re-run editable install so [project.scripts] entry-points
+  # (ctm-lookup, lookup-memory, claude-total-memory) stay on PATH after src
+  # changes. `pip install -e .` is idempotent and fast (just rewrites the
+  # console_scripts shims when pyproject.toml is unchanged).
+  if $DRY_RUN; then
+    say "  would refresh editable install (ctm-lookup / lookup-memory entry-points)"
+  else
+    "$PIP" install -q -e "$ROOT" 2>&1 | tail -1 || say "  WARN: editable install failed; CLI entry-points may be stale"
+  fi
 fi
 
 # ────────────────────────────────────────────────

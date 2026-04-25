@@ -78,18 +78,60 @@ _FASTEMBED_DIM = {
 # ──────────────────────────────────────────────
 
 
+def _ssl_context():
+    """Return an SSL context that works on Python.org macOS installs.
+
+    Those installs ship without system CAs, so urllib's default verify
+    always fails on TLS endpoints. Prefer certifi when available; fall
+    back to the platform default (e.g. Linux distros where CAs exist).
+    """
+    import ssl
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return ssl.create_default_context()
+
+
 def _http_post_json(
     url: str,
     body: dict,
     headers: dict[str, str],
     timeout: float,
+    retries: int = 4,
 ) -> dict:
+    """POST JSON with exponential backoff retry on timeout / 5xx / network errors."""
+    import time
     data = json.dumps(body).encode("utf-8")
     hdrs = {"Content-Type": "application/json", **headers}
-    req = urllib.request.Request(url, data=data, headers=hdrs, method="POST")
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        raw = resp.read()
-    return json.loads(raw)
+    last_exc: Exception | None = None
+    ctx = _ssl_context()
+    for attempt in range(retries + 1):
+        req = urllib.request.Request(url, data=data, headers=hdrs, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+                raw = resp.read()
+            return json.loads(raw)
+        except urllib.error.HTTPError as e:
+            # Retry only on rate limit / server errors; raise on 4xx auth/quota.
+            if e.code in (408, 429, 500, 502, 503, 504) and attempt < retries:
+                wait = 2 ** attempt
+                LOG(f"HTTP {e.code} on {url} — retry in {wait}s (attempt {attempt + 1})")
+                time.sleep(wait)
+                last_exc = e
+                continue
+            raise
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            if attempt < retries:
+                wait = 2 ** attempt
+                LOG(f"Network error on {url}: {e} — retry in {wait}s (attempt {attempt + 1})")
+                time.sleep(wait)
+                last_exc = e
+                continue
+            raise
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("unreachable")
 
 
 # ──────────────────────────────────────────────
@@ -191,7 +233,7 @@ class OpenAIEmbedProvider:
     def dim(self) -> int:
         return _OPENAI_DIM.get(self._model, 0)
 
-    def embed(self, texts: Sequence[str], *, timeout: float = 30.0) -> list[list[float]]:
+    def embed(self, texts: Sequence[str], *, timeout: float = 60.0) -> list[list[float]]:
         if not self.api_key:
             raise RuntimeError("OpenAIEmbedProvider: missing api_key")
         if not texts:

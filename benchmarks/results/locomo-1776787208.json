@@ -1,0 +1,79 @@
+{
+  "ingest": {
+    "saved": 419,
+    "skipped": 0,
+    "elapsed_sec": 4.73,
+    "rate_turn_per_sec": 88.6
+  },
+  "eval": {
+    "per_category": {
+      "category_2": {
+        "n": 37,
+        "R@1": 0.3243,
+        "R@5": 0.7568,
+        "R@10": 0.8649,
+        "MRR": 0.5149,
+        "mean_first_rank": 2.56,
+        "found_in_top10": 0.8649
+      },
+      "category_3": {
+        "n": 11,
+        "R@1": 0.0909,
+        "R@5": 0.1818,
+        "R@10": 0.4545,
+        "MRR": 0.1616,
+        "mean_first_rank": 5.0,
+        "found_in_top10": 0.4545
+      },
+      "category_1": {
+        "n": 32,
+        "R@1": 0.0938,
+        "R@5": 0.3438,
+        "R@10": 0.4688,
+        "MRR": 0.1925,
+        "mean_first_rank": 4.07,
+        "found_in_top10": 0.4688
+      },
+      "category_4": {
+        "n": 70,
+        "R@1": 0.1286,
+        "R@5": 0.4286,
+        "R@10": 0.5571,
+        "MRR": 0.2602,
+        "mean_first_rank": 3.59,
+        "found_in_top10": 0.5571
+      },
+      "category_5": {
+        "n": 47,
+        "R@1": 0.0,
+        "R@5": 0.0,
+        "R@10": 0.0,
+        "MRR": 0.0,
+        "found_in_top10": 0.0
+      },
+      "overall": {
+        "n": 150,
+        "R@1": 0.1667,
+        "R@5": 0.4733,
+        "R@10": 0.6067
+      }
+    },
+    "latency": {
+      "p50_ms": 5.53,
+      "p95_ms": 7.71,
+      "mean_ms": 5.77,
+      "queries": 199
+    },
+    "adversarial": {
+      "n": 47,
+      "mean_top_score": 2.6455,
+      "note": "Lower is better \u2014 adversarial has no gold evidence"
+    }
+  },
+  "config": {
+    "db_path": "/tmp/locomo_bench_db",
+    "top_k": 10,
+    "samples": 1,
+    "llm_enabled": false
+  }
+}

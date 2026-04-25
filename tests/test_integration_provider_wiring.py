@@ -40,11 +40,12 @@ class _FakeResp:
 def _capture_urlopen(payload: dict, sink: dict):
     """Return a fake urlopen that records the outgoing request."""
 
-    def fake(req, timeout=None):
+    def fake(req, timeout=None, context=None, **_kwargs):
         sink["url"] = req.full_url
         sink["headers"] = dict(req.headers)
         sink["body"] = json.loads(req.data.decode("utf-8")) if req.data else None
         sink["timeout"] = timeout
+        sink["ssl_context"] = context
         return _FakeResp(payload)
 
     return fake
@@ -127,7 +128,7 @@ def test_extractor_defaults_to_ollama(monkeypatch):
 
     sink: dict = {}
 
-    def fake(req, timeout=None):
+    def fake(req, timeout=None, context=None, **_kwargs):
         sink["url"] = req.full_url
         sink["timeout"] = timeout
         sink["body"] = json.loads(req.data.decode("utf-8"))
@@ -238,7 +239,7 @@ def test_reflection_merge_fallback_to_ollama_on_openai_error(monkeypatch, tmp_pa
         llm_provider.OpenAIProvider, "available", lambda self: True
     )
 
-    def explode(req, timeout=None):
+    def explode(req, timeout=None, context=None, **_kwargs):
         raise urllib.error.URLError("connection refused")
 
     monkeypatch.setattr(llm_provider.urllib.request, "urlopen", explode)

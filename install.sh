@@ -281,6 +281,10 @@ else
         echo "  Installing dependencies (this may take 2-3 minutes on first run)..."
         pip install -q -r "$INSTALL_DIR/requirements.txt" -r "$INSTALL_DIR/requirements-dev.txt" 2>&1 | tail -1
     fi
+    # v9 — editable install registers `[project.scripts]` entry-points
+    # (claude-total-memory, ctm-lookup, lookup-memory) on PATH inside the venv.
+    echo "  Installing claude-total-memory package (registers ctm-lookup / lookup-memory)..."
+    pip install -q -e "$INSTALL_DIR" 2>&1 | tail -1 || echo "  WARN: editable install failed; CLI entry-points may be missing."
     echo "  OK: Dependencies installed"
     PY_PATH="$VENV_DIR/bin/python"
 fi
