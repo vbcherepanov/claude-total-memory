@@ -125,6 +125,56 @@ Reproducible: [`evals/longmemeval-2026-04-17.json`](evals/longmemeval-2026-04-17
 | single-session-preference | 30 | 80.0% ← weakest spot |
 | **TOTAL** | **470** | **96.2%** |
 
+### LoCoMo benchmark (new in v9)
+
+**Public LoCoMo benchmark** ([snap-research/locomo](https://github.com/snap-research/locomo), 1986 QA across 10 long-running conversations, the dataset Mem0 / Memobase / Zep / MemMachine publish against):
+
+```
+              LoCoMo Acc (overall, no adversarial)
+              ─────────────────────────────────────
+  85% ─┤  ████  ← MemMachine        (commercial)
+       │  ████
+  80%  ┤  ████
+       │  ████
+  75%  ┤  ████  ← Memobase
+       │  ████  ← Zep / Graphiti
+       │  ████
+  70%  ┤  ████
+       │  ████
+  67%  ┤  ████  ← Mem0
+       │  ████
+       │  ████  ← total-agent-memory v9.0  (LOCAL, MIT, gpt-4o-mini)
+  60%  ┤  ████
+  59%  ┤  ████  ← total-agent-memory (0.596)
+       │  ████  ← LangMem (0.581)
+  55%  ┤  ████
+       └──────────────────────────────────────────
+```
+
+| Rank | System | Overall (no adv) | License |
+|---:|---|---:|---|
+| 1 | MemMachine | 0.849 | Commercial |
+| 2 | Memobase | 0.758 | Apache-2.0 |
+| 3 | Zep / Graphiti | 0.751 | Apache-2.0 |
+| 4 | Mem0 | 0.669 | Apache-2.0 |
+| **5** | **total-agent-memory v9.0** | **0.596** | **MIT** |
+| 6 | LangMem | 0.581 | MIT |
+
+**Per-category breakdown (v9.0, gpt-4o-mini gen + judge):**
+
+| Category | N | Acc | R@5 |
+|---|---:|---:|---:|
+| 1 — single-hop | 282 | 0.443 | 0.514 |
+| 2 — temporal | 321 | 0.564 | 0.717 |
+| 3 — multi-hop | 96 | 0.490 | 0.385 |
+| 4 — open-domain | 841 | 0.661 | 0.601 |
+| 5 — adversarial | 446 | **0.998** ← we lead | 0.421 |
+| **Overall (no adv)** | 1540 | **0.596** | 0.622 |
+
+**We lead on adversarial (0.998 vs Memobase 0.90)** thanks to judge-weighted ensemble + abstain logic. Top-3 leaders win on cat 1/2 via subject-aware profile retrieval — that's our v10 target.
+
+Reproducible: [`benchmarks/results/v9_diag_v1_*.json`](benchmarks/results/) · Runner: [`benchmarks/locomo_bench_llm.py`](benchmarks/locomo_bench_llm.py) (15 ablation flags). Cost on gpt-4o-mini: ~$5 for full 1986 QA run with ensemble=3.
+
 ### Latency profile
 
 ```
