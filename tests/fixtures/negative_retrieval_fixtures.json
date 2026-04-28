@@ -1,0 +1,213 @@
+{
+  "hard_contradict": [
+    {
+      "id": "hard-01",
+      "q": "What is Alice's favorite color?",
+      "positive": [
+        {"text": "Alice told Bob her favorite color is teal."}
+      ],
+      "negative_canned": [
+        {"text": "Alice does not like teal at all; she prefers warm tones."}
+      ],
+      "inverted_query": "Alice color teal not favorite"
+    },
+    {
+      "id": "hard-02",
+      "q": "Where did Maria stay during her July 2024 trip?",
+      "positive": [
+        {"text": "Maria stayed in Lisbon for two weeks in July 2024."}
+      ],
+      "negative_canned": [
+        {"text": "Maria did not travel to Portugal in 2024; she stayed in Madrid."}
+      ],
+      "inverted_query": "Maria 2024 trip not Lisbon"
+    },
+    {
+      "id": "hard-03",
+      "q": "Which programming language did the team pick for the payments service?",
+      "positive": [
+        {"text": "After a two-day debate the team chose Go for the new payments service."}
+      ],
+      "negative_canned": [
+        {"text": "The team did not pick Go; they actually went with Rust for payments."}
+      ],
+      "inverted_query": "payments service language not Go"
+    },
+    {
+      "id": "hard-04",
+      "q": "How many siblings does Daniel have?",
+      "positive": [
+        {"text": "Daniel has two siblings: an older sister Lena and a younger brother Mark."}
+      ],
+      "negative_canned": [
+        {"text": "Daniel does not have any siblings; he is an only child."}
+      ],
+      "inverted_query": "Daniel siblings not two"
+    },
+    {
+      "id": "hard-05",
+      "q": "When was the production database migrated to Postgres 18?",
+      "positive": [
+        {"text": "Migration log: production database upgraded to Postgres 18 on 2026-03-12."}
+      ],
+      "negative_canned": [
+        {"text": "Production was not migrated to Postgres 18 in March; the rollout was cancelled."}
+      ],
+      "inverted_query": "Postgres 18 migration not March 2026"
+    }
+  ],
+  "no_contradiction": [
+    {
+      "id": "none-01",
+      "q": "What is Alice's favorite color?",
+      "positive": [
+        {"text": "Alice told Bob her favorite color is teal."}
+      ],
+      "negative_canned": [
+        {"text": "The weather forecast for Tuesday calls for thunderstorms."}
+      ],
+      "inverted_query": "Alice color preference"
+    },
+    {
+      "id": "none-02",
+      "q": "Where did Maria stay during her July 2024 trip?",
+      "positive": [
+        {"text": "Maria stayed in Lisbon for two weeks in July 2024."}
+      ],
+      "negative_canned": [
+        {"text": "The conference budget for Q3 was approved without changes."}
+      ],
+      "inverted_query": "Maria Lisbon July not"
+    },
+    {
+      "id": "none-03",
+      "q": "Which programming language did the team pick?",
+      "positive": [
+        {"text": "After a two-day debate the team chose Go for the payments service."}
+      ],
+      "negative_canned": [
+        {"text": "The office cafeteria menu rotates every Wednesday."}
+      ],
+      "inverted_query": "team language not Go"
+    },
+    {
+      "id": "none-04",
+      "q": "How many siblings does Daniel have?",
+      "positive": [
+        {"text": "Daniel has two siblings: Lena and Mark."}
+      ],
+      "negative_canned": [
+        {"text": "The 2025 fiscal year ends on June 30."}
+      ],
+      "inverted_query": "Daniel only child"
+    },
+    {
+      "id": "none-05",
+      "q": "When was the production database migrated?",
+      "positive": [
+        {"text": "Production database migrated on 2026-03-12 at 02:14 UTC."}
+      ],
+      "negative_canned": [
+        {"text": "The new conference room booking system launches next quarter."}
+      ],
+      "inverted_query": "production migration not"
+    }
+  ],
+  "soft_contradict": [
+    {
+      "id": "soft-01",
+      "q": "What is Alice's favorite color?",
+      "positive": [
+        {"text": "Alice told Bob her favorite color is teal."}
+      ],
+      "negative_canned": [
+        {"text": "Alice mentioned that teal feels overrated lately."}
+      ],
+      "inverted_query": "Alice teal opinion changed"
+    },
+    {
+      "id": "soft-02",
+      "q": "Where did Maria stay during her July 2024 trip?",
+      "positive": [
+        {"text": "Maria stayed in Lisbon for two weeks in July 2024."}
+      ],
+      "negative_canned": [
+        {"text": "Maria spent only a few days in Lisbon during her July visit."}
+      ],
+      "inverted_query": "Maria Lisbon duration"
+    },
+    {
+      "id": "soft-03",
+      "q": "Which language did the team pick for payments?",
+      "positive": [
+        {"text": "After a two-day debate the team chose Go for the new payments service."}
+      ],
+      "negative_canned": [
+        {"text": "The decision was provisional and a Rust prototype is still being evaluated."}
+      ],
+      "inverted_query": "payments language Rust alternative"
+    },
+    {
+      "id": "soft-04",
+      "q": "How many siblings does Daniel have?",
+      "positive": [
+        {"text": "Daniel has two siblings."}
+      ],
+      "negative_canned": [
+        {"text": "Daniel has at least one half-sibling rarely counted in family records."}
+      ],
+      "inverted_query": "Daniel half siblings"
+    },
+    {
+      "id": "soft-05",
+      "q": "When was the production database migrated to Postgres 18?",
+      "positive": [
+        {"text": "Migration log: production database upgraded to Postgres 18 on 2026-03-12."}
+      ],
+      "negative_canned": [
+        {"text": "Some replicas were still running Postgres 17 the day after the cutover."}
+      ],
+      "inverted_query": "Postgres 17 still running"
+    }
+  ],
+  "adversarial": [
+    {
+      "id": "adv-01",
+      "q": "What is the name of Alice's dog?",
+      "positive": [
+        {"text": "Alice often talks about her dog walks in the park."},
+        {"text": "Alice mentioned a golden retriever named Rex during a meeting."}
+      ],
+      "negative_canned": [
+        {"text": "Alice does not own a dog; the golden retriever Rex belongs to her neighbour."}
+      ],
+      "inverted_query": "Alice no dog ownership",
+      "expected_decision": "hard_contradict"
+    },
+    {
+      "id": "adv-02",
+      "q": "Which company sponsored the 2025 hackathon?",
+      "positive": [
+        {"text": "Acme Corp t-shirts were spotted at the 2025 hackathon."},
+        {"text": "An Acme Corp banner was visible at the 2025 hackathon entrance."}
+      ],
+      "negative_canned": [
+        {"text": "Acme Corp did not sponsor the 2025 hackathon; their logo appeared by mistake."}
+      ],
+      "inverted_query": "Acme Corp not sponsor hackathon",
+      "expected_decision": "hard_contradict"
+    },
+    {
+      "id": "adv-03",
+      "q": "What city is the new HQ located in?",
+      "positive": [
+        {"text": "The CEO mentioned visiting the new HQ in Berlin last week."}
+      ],
+      "negative_canned": [
+        {"text": "The Berlin trip was for a partner meeting; the new HQ is not located there."}
+      ],
+      "inverted_query": "new HQ not Berlin",
+      "expected_decision": "hard_contradict"
+    }
+  ]
+}

@@ -119,6 +119,14 @@ def _http_post_json(
     Uses certifi CA bundle when available (fixes SSL on Python 3.13 / macOS
     python.org builds that don't trust the system keychain).
     """
+    # v11 Phase 5 — every LLM HTTP call routes through here. Bumping at this
+    # choke point covers Ollama / OpenAI-compatible / Anthropic in one shot.
+    try:
+        from memory_core.telemetry import counters as _v11_counters
+        _v11_counters.bump("llm_calls", 1.0)
+        _v11_counters.bump("network_calls", 1.0)
+    except Exception:
+        pass
     data = json.dumps(body).encode("utf-8")
     hdrs = {"Content-Type": "application/json", **headers}
     req = urllib.request.Request(url, data=data, headers=hdrs, method="POST")

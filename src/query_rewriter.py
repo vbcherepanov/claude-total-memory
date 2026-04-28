@@ -167,6 +167,14 @@ def _get_client(client: Any = None) -> Any:
 
 def _call_haiku(query: str, client: Any, model: str) -> dict[str, Any]:
     """Call Haiku with retries. Returns parsed dict or fallback on failure."""
+    # v11 Phase 5 — defensive telemetry on the Anthropic SDK code path
+    # (which doesn't go through llm_provider._http_post_json).
+    try:
+        from memory_core.telemetry import counters as _v11_counters
+        _v11_counters.bump("llm_calls", 1.0)
+        _v11_counters.bump("network_calls", 1.0)
+    except Exception:
+        pass
     last_err: Exception | None = None
     for attempt in range(MAX_ATTEMPTS):
         try:

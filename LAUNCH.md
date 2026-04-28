@@ -1,6 +1,117 @@
-# Launch assets — total-agent-memory v7.0.0
+# Launch assets — total-agent-memory
 
-> Все тексты готовы к публикации. Скопируй нужный блок и пости.
+> v11.0 operational notes are at the top. Below them are the historical
+> v7.0 launch texts, kept for reference.
+
+---
+
+## v11.0 — operational notes
+
+### Default install
+
+`./install.sh --ide claude-code` (or any other IDE flag) installs in
+**`MEMORY_MODE=fast`** by default. Hot path runs zero LLM, zero Ollama,
+zero network. If you depended on v10.5 synchronous quality_gate /
+contradiction_detector / coref behaviour, set:
+
+```bash
+export MEMORY_MODE=deep
+```
+
+This restores the v10.5.0 inline-LLM hot path verbatim. Nothing was
+removed — only the *default* changed.
+
+### Tuning (v11.0)
+
+#### Switch modes
+
+```bash
+# Production agent loop — default
+export MEMORY_MODE=fast
+
+# v10.5 behaviour, sync LLM, sync reranker
+export MEMORY_MODE=deep
+
+# Same ergonomics as deep, but LLM moves to async worker
+export MEMORY_MODE=balanced
+
+# CI / throughput stress: FTS-only, vector index disabled
+export MEMORY_MODE=ultrafast
+```
+
+Each preset toggles a known set of flags (see `docs/v11/audit.md` §G).
+Individual flags can still be overridden after `MEMORY_MODE` resolution
+— the preset is the floor, not a lock.
+
+#### Enable async enrichment
+
+```bash
+export MEMORY_ENRICHMENT_ENABLED=true
+```
+
+Default-OFF in `fast`, default-ON in `balanced` and `deep`. The worker
+drains `enrichment_queue` and replays the former sync LLM stages
+(quality_gate / contradiction / coref / wiki) without blocking the
+caller. Saves never wait on LLM in any mode where the worker is on.
+
+#### Swap per-space embedding models
+
+The hot path always records the embedding *space* (text / code / log /
+config) on every vector row, even when only the TEXT model is
+configured. To plug a code-specific model later:
+
+```bash
+export MEMORY_TEXT_EMBED_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+export MEMORY_CODE_EMBED_MODEL=jinaai/jina-embeddings-v2-base-code
+export MEMORY_LOG_EMBED_MODEL=                  # empty → falls back to TEXT model
+export MEMORY_CONFIG_EMBED_MODEL=               # empty → falls back to TEXT model
+```
+
+Old code-space chunks remain searchable in their original embedding
+space; new code chunks pick up the swapped model. To re-encode a single
+space:
+
+```text
+memory_rebuild_embeddings(space="code")
+```
+
+### Verifying performance (v11.0)
+
+Run the full bench:
+
+```bash
+./bin/memory-bench --warmup --rounds 200
+```
+
+Output goes to `docs/v11/benchmark.md`. Expected fast-mode shape:
+
+| metric              |   p50 |   p95 |   p99 |
+|---------------------|------:|------:|------:|
+| `save_fast`         |  6.2  |  8.9  | 11.4  |
+| `save_fast` cached  |  0.3  |  0.4  |  1.4  |
+| `search_fast`       |  3.4  |  4.7  |  6.0  |
+| `cached_search`     |  3.1  |  3.4  |  3.6  |
+
+`llm_calls=0`, `network_calls=0`. CI gate (fails the build if any p95
+regresses by more than 25 %):
+
+```bash
+./bin/memory-perf-gate
+```
+
+The gate reads the previous artifact in `docs/v11/benchmark.md` and the
+current `bin/memory-bench` run, then compares per-metric p95.
+
+To inspect a single search verdict:
+
+```text
+memory_explain_search(query="...", limit=5)
+```
+
+returns the per-stage timing, candidate counts, and the embedding space
+filter applied.
+
+---
 
 ## 1. Hacker News — Show HN
 

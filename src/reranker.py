@@ -245,6 +245,77 @@ def _load_flag_reranker(model_name: str):
         return None
 
 
+# =============================================================================
+# v11 D4 — BGE-v2-m3 named-function entrypoints
+# =============================================================================
+# These named helpers are part of the public API contract for v11 LoCoMo D4.
+# The dispatch layer (`rerank_results` → `_get_reranker`) already routes via
+# `V9_RERANKER_BACKEND`; the helpers below give explicit, test-friendly
+# handles for the multilingual BGE-v2-m3 path so callers (notebooks, ad-hoc
+# scripts, benchmark code) can pin to it without touching env vars.
+
+_bge_v2_m3_singleton = None
+
+
+def _get_bge_v2_m3():
+    """Lazy singleton for BAAI/bge-reranker-v2-m3.
+
+    Tries sentence-transformers CrossEncoder first (works with any modern
+    transformers release), then FlagEmbedding.FlagReranker. fp16 honored
+    via V9_RERANKER_FP16 (default on — ~2x speed on Apple Silicon/CUDA).
+
+    Returns the loaded model object, or None if neither backend is
+    importable. Cached for the process lifetime.
+    """
+    global _bge_v2_m3_singleton
+    if _bge_v2_m3_singleton is not None:
+        # `False` sentinel marks a previous failed load — don't retry.
+        return _bge_v2_m3_singleton if _bge_v2_m3_singleton is not False else None
+    obj = _load_flag_reranker("BAAI/bge-reranker-v2-m3")
+    _bge_v2_m3_singleton = obj if obj is not None else False
+    return obj
+
+
+def _reset_bge_v2_m3_singleton() -> None:
+    """Test helper — drop cached singleton so monkeypatched loaders re-run."""
+    global _bge_v2_m3_singleton
+    _bge_v2_m3_singleton = None
+
+
+def _bge_rerank_scores(query: str, passages: list[str]) -> list[float]:
+    """Score (query, passage) pairs with BGE-v2-m3, normalised to [0,1].
+
+    Used by tests and external callers that want raw scores without going
+    through the full `rerank_results` dispatch / boost-blend pipeline.
+
+    Returns a list of floats with len == len(passages). If the model fails
+    to load, returns an all-zeros list of the right length so callers can
+    treat the reranker as a no-op without branching on None.
+    """
+    if not passages:
+        return []
+    model = _get_bge_v2_m3()
+    if model is None:
+        return [0.0] * len(passages)
+
+    pairs = [[query, p] for p in passages]
+    try:
+        if hasattr(model, "compute_score"):
+            # FlagReranker path — `normalize=True` applies sigmoid → [0,1].
+            scores = model.compute_score(pairs, normalize=True)
+        else:
+            # CrossEncoder path — predict returns logits, sigmoid manually.
+            raw = model.predict(pairs)
+            scores = (1.0 / (1.0 + np.exp(-np.array(raw, dtype=np.float32)))).tolist()
+    except Exception as e:  # noqa: BLE001
+        LOG(f"BGE-v2-m3 scoring failed: {e}")
+        return [0.0] * len(passages)
+
+    if isinstance(scores, (int, float)):
+        scores = [float(scores)]
+    return [float(s) for s in scores]
+
+
 def _get_reranker(backend: str | None = None):
     """Lazy-load the configured reranker. Returns (model, kind) or (None, None)."""
     backend = backend or _resolve_reranker_backend()

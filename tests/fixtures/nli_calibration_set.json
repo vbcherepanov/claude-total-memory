@@ -1,0 +1,3105 @@
+{
+  "schema_version": 1,
+  "seed": 42,
+  "stats": {
+    "entail": 120,
+    "contradict_numeric": 29,
+    "contradict_entity": 40,
+    "contradict_negate": 40,
+    "neutral_unrelated": 54,
+    "neutral_idk": 26,
+    "total": 309
+  },
+  "triples": [
+    {
+      "premise": "Maria: I have a picture from a vacation in Florida.",
+      "hypothesis": "Maria has a picture from a vacation in Florida.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D19:23"
+    },
+    {
+      "premise": "John: Seeing my skills making a real difference in the world was really rewarding.",
+      "hypothesis": "Seeing John's skills making a real difference in the world was really rewarding.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D11:1"
+    },
+    {
+      "premise": "Evan: By the way, I've started a new diet—limiting myself to just two ginger snaps a day.",
+      "hypothesis": "By the way, Evan has started a new diet—limiting myself to just two ginger snaps a day.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 8,
+      "source_dia_id": "D23:15"
+    },
+    {
+      "premise": "Caroline: I made it to show my own journey as a transgender woman and how we should accept growth and change.",
+      "hypothesis": "Caroline made it to show Caroline's own journey as a transgender woman and how we should accept growth and change.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D14:19"
+    },
+    {
+      "premise": "Gina: I'm pumped to collaborate with you and make some sweet moves.",
+      "hypothesis": "Gina is pumped to collaborate with you and make some sweet moves.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D18:19"
+    },
+    {
+      "premise": "Audrey: Now I'm gonna order some sushi for tonight.",
+      "hypothesis": "Now Audrey is gonna order some sushi for tonight.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D25:14"
+    },
+    {
+      "premise": "Joanna: Having all the hard work and determination I put into writing pay off was definitely rewarding.",
+      "hypothesis": "Having all the hard work and determination Joanna put into writing pay off was definitely rewarding.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D25:4"
+    },
+    {
+      "premise": "Jolene: I'm really finding my zen again!",
+      "hypothesis": "Jolene is really finding Jolene's zen again!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D20:23"
+    },
+    {
+      "premise": "Andrew: I wish I could get one, but like I said, it's tough to find a place and find the right dog.",
+      "hypothesis": "Andrew wish Andrew could get one, but like Andrew said, it's tough to find a place and find the right dog.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D11:3"
+    },
+    {
+      "premise": "John: Family time means a lot to me.",
+      "hypothesis": "Family time means a lot to John.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D2:14"
+    },
+    {
+      "premise": "Tim: Hey John, this week's been really busy for me.",
+      "hypothesis": "John, this week's been really busy for Tim.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D9:1"
+    },
+    {
+      "premise": "John: I like to just take a look at the sunset- it reminds me to enjoy the small things in life.",
+      "hypothesis": "John likes to just take a look at the sunset- it reminds John to enjoy the small things in life.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D4:10"
+    },
+    {
+      "premise": "Jolene: It definitely made me appreciate nature's calming power.",
+      "hypothesis": "It definitely made Jolene appreciate nature's calming power.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D4:33"
+    },
+    {
+      "premise": "James: By the way, I recently started a course that combines my passion for gaming and programming.",
+      "hypothesis": "By the way, James recently started a course that combines James's passion for gaming and programming.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D13:6"
+    },
+    {
+      "premise": "John: I just started playing chess to get better at strategy.",
+      "hypothesis": "John just started playing chess to get better at strategy.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D17:1"
+    },
+    {
+      "premise": "John: By the way, I had a career-high in assists last Friday in our big game against our rival.",
+      "hypothesis": "By the way, John had a career-high in assists last Friday in our big game against our rival.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D23:3"
+    },
+    {
+      "premise": "Audrey: My furry friends always make me happy.",
+      "hypothesis": "My furry friends always make Audrey happy.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D11:2"
+    },
+    {
+      "premise": "Sam: Hey Evan, some big news: I'm on a diet and living healthier!",
+      "hypothesis": "Evan, some big news: Sam is on a diet and living healthier!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 8,
+      "source_dia_id": "D8:1"
+    },
+    {
+      "premise": "Deborah: Yep, it's become part of my routine now.",
+      "hypothesis": "Yep, it's become part of Deborah's routine now.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D25:4"
+    },
+    {
+      "premise": "Maria: It's been great having people behind me while volunteering at the homeless shelter.",
+      "hypothesis": "It's been great having people behind Maria while volunteering at the homeless shelter.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D8:21"
+    },
+    {
+      "premise": "Andrew: I'll definitely keep that in mind.",
+      "hypothesis": "Andrew will definitely keep that in mind.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D14:25"
+    },
+    {
+      "premise": "James: By the way, yesterday I tried Cyberpunk 2077.",
+      "hypothesis": "By the way, yesterday James tried Cyberpunk 2077.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D28:27"
+    },
+    {
+      "premise": "Maria: Yeah, at the event, I had a conversation with someone named David.",
+      "hypothesis": "At the event, Maria had a conversation with someone named David.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D6:5"
+    },
+    {
+      "premise": "Jolene: If I need anything else, I'll let you know.",
+      "hypothesis": "If Jolene needs anything else, Jolene will let you know.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D5:15"
+    },
+    {
+      "premise": "Evan: By the way, I had to apologize to my partner for that drunken night, it was pretty embarrassing.",
+      "hypothesis": "By the way, Evan had to apologize to Evan's partner for that drunken night, it was pretty embarrassing.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 8,
+      "source_dia_id": "D25:2"
+    },
+    {
+      "premise": "Audrey: Dogs and nature bring me so much joy and peace.",
+      "hypothesis": "Dogs and nature bring Audrey so much joy and peace.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D8:20"
+    },
+    {
+      "premise": "Joanna: It's still a part of my writing today.",
+      "hypothesis": "It's still a part of Joanna's writing today.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D26:7"
+    },
+    {
+      "premise": "Joanna: Yesterday, I tried my newest dairy-free recipe and it was a winner with my family!",
+      "hypothesis": "Yesterday, Joanna tried Joanna's newest dairy-free recipe and it was a winner with Joanna's family!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D22:1"
+    },
+    {
+      "premise": "Dave: Now I'm lucky enough to do this as a job, to take something broken and make it into something awesome.",
+      "hypothesis": "Now Dave is lucky enough to do this as a job, to take something broken and make it into something awesome.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D22:5"
+    },
+    {
+      "premise": "Audrey: Your friendship means a lot to me.",
+      "hypothesis": "Your friendship means a lot to Audrey.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D27:18"
+    },
+    {
+      "premise": "Jon: Can't wait 'til my studio starts welcoming dancers of all ages and backgrounds!",
+      "hypothesis": "Can't wait 'til Jon's studio starts welcoming dancers of all ages and backgrounds!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D19:7"
+    },
+    {
+      "premise": "Jon: Don't worry, I won't let anything get me down.",
+      "hypothesis": "Don't worry, Jon won't let anything get Jon down.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D12:18"
+    },
+    {
+      "premise": "Calvin: The energy, the crowd - it made me realize how much music means to me, it's like my passion and my purpose.",
+      "hypothesis": "The energy, the crowd - it made Calvin realize how much music means to Calvin, it's like Calvin's passion and Calvin's purpose.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D26:9"
+    },
+    {
+      "premise": "James: I get them from various sources like books, movies, and even dreams.",
+      "hypothesis": "James get them from various sources like books, movies, and even dreams.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D24:4"
+    },
+    {
+      "premise": "Caroline: The support group has made me feel accepted and given me courage to embrace myself.",
+      "hypothesis": "The support group has made Caroline feel accepted and given Caroline courage to embrace myself.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D1:7"
+    },
+    {
+      "premise": "Caroline: Finding a community where I'm accepted, loved and supported has really meant a lot to me.",
+      "hypothesis": "Finding a community where Caroline is accepted, loved and supported has really meant a lot to Caroline.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D14:13"
+    },
+    {
+      "premise": "Joanna: I'm also grateful for my supportive friends.",
+      "hypothesis": "Joanna is also grateful for Joanna's supportive friends.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D12:10"
+    },
+    {
+      "premise": "Nate: Crossing my fingers for you!",
+      "hypothesis": "Crossing Nate's fingers for you!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D4:19"
+    },
+    {
+      "premise": "Deborah: Every time I go back, I feel so much peace and gratitude for the time I spent with her.",
+      "hypothesis": "Every time Deborah go back, Deborah feel so much peace and gratitude for the time Deborah spent with her.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D19:21"
+    },
+    {
+      "premise": "Joanna: Can't wait to surprise my family with something delicious!",
+      "hypothesis": "Can't wait to surprise Joanna's family with something delicious!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D18:13"
+    },
+    {
+      "premise": "Andrew: It kinda helps me recharge and chill out a little.",
+      "hypothesis": "It kinda helps Andrew recharge and chill out a little.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D18:5"
+    },
+    {
+      "premise": "Maria: If there's anything else I can do, just let me know.",
+      "hypothesis": "If there's anything else Maria can do, just let Maria know.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D28:18"
+    },
+    {
+      "premise": "Audrey: I appreciate your kind words.",
+      "hypothesis": "Audrey appreciate your kind words.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D22:13"
+    },
+    {
+      "premise": "Nate: It always makes me grin when I look at it.",
+      "hypothesis": "It always makes Nate grin when Nate look at it.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D13:13"
+    },
+    {
+      "premise": "Joanna: Rest assured, it will be something I cherish!",
+      "hypothesis": "Rest assured, it will be something Joanna cherish!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D22:19"
+    },
+    {
+      "premise": "Dave: I was pondering our chat the other day about fame and its impact on relationships.",
+      "hypothesis": "Dave was pondering our chat the other day about fame and its impact on relationships.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D25:1"
+    },
+    {
+      "premise": "John: I'll definitely reach out if I need more suggestions.",
+      "hypothesis": "John will definitely reach out if John needs more suggestions.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D11:13"
+    },
+    {
+      "premise": "Maria: Quality connections matter most to me.",
+      "hypothesis": "Quality connections matter most to Maria.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D2:17"
+    },
+    {
+      "premise": "Maria: And, I bought a cross necklace to feel closer to my faith- which has made me happy.",
+      "hypothesis": "And, Maria bought a cross necklace to feel closer to Maria's faith- which has made Maria happy.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D11:10"
+    },
+    {
+      "premise": "Caroline: I even got to let them know they're not alone by sharing my story.",
+      "hypothesis": "Caroline even got to let them know they're not alone by sharing Caroline's story.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D15:5"
+    },
+    {
+      "premise": "Dave: Giving it a new life makes me feel powerful and happy - like I really achieved something.",
+      "hypothesis": "Giving it a new life makes Dave feel powerful and happy - like Dave really achieved something.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D7:8"
+    },
+    {
+      "premise": "Maria: I feel blessed to be able to give her a home.",
+      "hypothesis": "Maria feel blessed to be able to give her a home.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D31:2"
+    },
+    {
+      "premise": "Gina: I used to compete in a few dance competitions and shows - my fav memory was when my team won first place at a regionals at age fifteen.",
+      "hypothesis": "Gina used to compete in a few dance competitions and shows - Gina's fav memory was when Gina's team won first place at a regionals at age fifteen.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D1:17"
+    },
+    {
+      "premise": "Caroline: Next month I'm having an LGBTQ art show with my paintings - can't wait!",
+      "hypothesis": "Next month Caroline is having an LGBTQ art show with Caroline's paintings - can't wait!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D9:12"
+    },
+    {
+      "premise": "Gina: Glad my journey is inspiring others.",
+      "hypothesis": "Glad Gina's journey is inspiring others.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D6:14"
+    },
+    {
+      "premise": "John: It's amazing how finding my passion has made such a big impact.",
+      "hypothesis": "It's amazing how finding John's passion has made such a big impact.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D32:11"
+    },
+    {
+      "premise": "Maria: Seeing the impact and hearing the gratitude fills me with so much joy.",
+      "hypothesis": "Seeing the impact and hearing the gratitude fills Maria with so much joy.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D11:12"
+    },
+    {
+      "premise": "Jolene: I'm interning at a well-known engineering firm.",
+      "hypothesis": "Jolene is interning at a well-known engineering firm.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D13:5"
+    },
+    {
+      "premise": "Audrey: My four fur babies are more important to me than anything!",
+      "hypothesis": "My four fur babies are more important to Audrey than anything!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D13:4"
+    },
+    {
+      "premise": "Calvin: Check out this beautiful picture that I shot in a Japanese garden, that's wild!",
+      "hypothesis": "Check out this beautiful picture that Calvin shot in a Japanese garden, that's wild!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D30:16"
+    },
+    {
+      "premise": "Jon: Seeing my students succeed motivates me.",
+      "hypothesis": "Seeing Jon's students succeed motivates Jon.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D7:7"
+    },
+    {
+      "premise": "Audrey: Maybe I'll get another tattoo when that happens.",
+      "hypothesis": "Maybe Audrey will get another tattoo when that happens.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D23:20"
+    },
+    {
+      "premise": "Caroline: I had a wicked day out with the gang last weekend - we went biking and saw some pretty cool stuff.",
+      "hypothesis": "Caroline had a wicked day out with the gang last weekend - we went biking and saw some pretty cool stuff.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D16:1"
+    },
+    {
+      "premise": "John: It reminds me of the film camera I had as a kid, I took plenty of beach pics.",
+      "hypothesis": "It reminds John of the film camera John had as a kid, John took plenty of beach pics.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D3:15"
+    },
+    {
+      "premise": "Jolene: I've been wanting to try it.",
+      "hypothesis": "Jolene has been wanting to try it.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D6:11"
+    },
+    {
+      "premise": "John: That picture was from a trip we took last year for my daughter Sara's birthday - so much fun and good memories!",
+      "hypothesis": "That picture was from a trip we took last year for John's daughter Sara's birthday - so much fun and good memories!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D22:7"
+    },
+    {
+      "premise": "Maria: You're a great friend to me.",
+      "hypothesis": "You're a great friend to Maria.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D6:21"
+    },
+    {
+      "premise": "Sam: Last night I made this yummy grilled dish, so good!",
+      "hypothesis": "Last night Sam made this yummy grilled dish, so good!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 8,
+      "source_dia_id": "D7:4"
+    },
+    {
+      "premise": "Tim: This is a book I found with tons of them!",
+      "hypothesis": "This is a book Tim found with tons of them!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D26:6"
+    },
+    {
+      "premise": "John: They've been supportive and understand why I want to volunteer.",
+      "hypothesis": "They've been supportive and understand why John wants to volunteer.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D8:20"
+    },
+    {
+      "premise": "Gina: Let me know if you need anything.",
+      "hypothesis": "Let Gina know if you need anything.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D16:9"
+    },
+    {
+      "premise": "Deborah: It filled me with awe and made me appreciate the beauty of life.",
+      "hypothesis": "It filled Deborah with awe and made Deborah appreciate the beauty of life.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D30:13"
+    },
+    {
+      "premise": "Maria: Yeah, I remember you mentioning the roads.",
+      "hypothesis": "Maria remember you mentioning the roads.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D14:16"
+    },
+    {
+      "premise": "Tim: I appreciate your encouragement.",
+      "hypothesis": "Tim appreciate your encouragement.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D20:3"
+    },
+    {
+      "premise": "Calvin: Look at this photo I took from my backyard of the mansion.",
+      "hypothesis": "Look at this photo Calvin took from Calvin's backyard of the mansion.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D10:6"
+    },
+    {
+      "premise": "Caroline: Wow, Mel, I'm so stoked for you that art is helping you express yourself and bring you joy!",
+      "hypothesis": "Mel, Caroline is so stoked for you that art is helping you express yourself and bring you joy!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D5:11"
+    },
+    {
+      "premise": "Joanna: I'll share more recipes with you soon.",
+      "hypothesis": "Joanna will share more recipes with you soon.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D20:12"
+    },
+    {
+      "premise": "Maria: Hey John, great news - I'm now friends with one of my fellow volunteers!",
+      "hypothesis": "John, great news - Maria is now friends with one of Maria's fellow volunteers!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D4:1"
+    },
+    {
+      "premise": "Audrey: Just by thinking of it gives me pain.",
+      "hypothesis": "Just by thinking of it gives Audrey pain.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D6:14"
+    },
+    {
+      "premise": "John: It was an amazing rush and just the one I showed you.",
+      "hypothesis": "It was an amazing rush and just the one John showed you.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D5:4"
+    },
+    {
+      "premise": "Calvin: I can't wait for your visit either.",
+      "hypothesis": "Calvin can't wait for your visit either.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D18:13"
+    },
+    {
+      "premise": "John: I wish you all the best on your exams!",
+      "hypothesis": "John wish you all the best on your exams!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D18:8"
+    },
+    {
+      "premise": "Sam: This is actually a pic from my cousin's wedding.",
+      "hypothesis": "This is actually a pic from Sam's cousin's wedding.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 8,
+      "source_dia_id": "D23:20"
+    },
+    {
+      "premise": "Caroline: I'm super excited to give back.",
+      "hypothesis": "Caroline is super excited to give back.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D5:3"
+    },
+    {
+      "premise": "Dave: It's my way to share my passion with others.",
+      "hypothesis": "It's Dave's way to share Dave's passion with others.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D28:8"
+    },
+    {
+      "premise": "John: I'm good, thanks for asking.",
+      "hypothesis": "John is good, thanks for asking.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D10:2"
+    },
+    {
+      "premise": "John: I got to volunteer at a career fair at a local school, and it was incredible to see how lack of resources affects these kids' dreams.",
+      "hypothesis": "John got to volunteer at a career fair at a local school, and it was incredible to see how lack of resources affects these kids' dreams.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D10:13"
+    },
+    {
+      "premise": "John: I love talking to people about my sneaker collection.",
+      "hypothesis": "John loves talking to people about John's sneaker collection.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D1:15"
+    },
+    {
+      "premise": "Tim: I'd love to explore them someday!",
+      "hypothesis": "Tim would love to explore them someday!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D1:18"
+    },
+    {
+      "premise": "Calvin: I followed your advice and went there, it was so peaceful.",
+      "hypothesis": "Calvin followed your advice and went there, it was so peaceful.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D26:3"
+    },
+    {
+      "premise": "Maria: Whenever you need help, just let me know.",
+      "hypothesis": "Whenever you need help, just let Maria know.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D6:19"
+    },
+    {
+      "premise": "John: Haven't played it yet, but I hear it's awesome.",
+      "hypothesis": "Haven't played it yet, but John hear it's awesome.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D1:5"
+    },
+    {
+      "premise": "Dave: I've seen some amazing places and taken some great shots.",
+      "hypothesis": "Dave has seen some amazing places and taken some great shots.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D27:2"
+    },
+    {
+      "premise": "Caroline: Their love and encouragement has really helped me accept and grow into my true self.",
+      "hypothesis": "Their love and encouragement has really helped Caroline accept and grow into Caroline's true self.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D6:15"
+    },
+    {
+      "premise": "Calvin: We've been speaking and sharing ideas we arranged a meeting and recorded a song in the studio at my mansion - it's been great!",
+      "hypothesis": "We've been speaking and sharing ideas we arranged a meeting and recorded a song in the studio at Calvin's mansion - it's been great!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D15:4"
+    },
+    {
+      "premise": "Joanna: I'll have to look into that, it could be fun!",
+      "hypothesis": "Joanna will have to look into that, it could be fun!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D23:14"
+    },
+    {
+      "premise": "Caroline: It means a lot having you in my corner.",
+      "hypothesis": "It means a lot having you in Caroline's corner.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D12:13"
+    },
+    {
+      "premise": "John: I'm really lucky to have my family on this journey with me.",
+      "hypothesis": "John is really lucky to have John's family on this journey with John.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D19:16"
+    },
+    {
+      "premise": "Jon: I'm currently reading \"The Lean Startup\" and hoping it'll give me tips for my biz.",
+      "hypothesis": "Jon is currently reading \"The Lean Startup\" and hoping it'll give Jon tips for Jon's biz.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D12:6"
+    },
+    {
+      "premise": "Nate: I've also been playing a game nonstop with a great futuristic setting and gameplay called \"Cyberpunk 2077\".",
+      "hypothesis": "Nate has also been playing a game nonstop with a great futuristic setting and gameplay called \"Cyberpunk 2077\".",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D23:17"
+    },
+    {
+      "premise": "Tim: Congrats - I'm so proud of you.",
+      "hypothesis": "Congrats - Tim is so proud of you.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D13:9"
+    },
+    {
+      "premise": "Jolene: I usually get too consumed with hitting my goals that I forget to appreciate the ride.",
+      "hypothesis": "Jolene usually get too consumed with hitting Jolene's goals that Jolene forget to appreciate the ride.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D27:5"
+    },
+    {
+      "premise": "Deborah: It's where I got married and discovered my love for surfing.",
+      "hypothesis": "It's where Deborah got married and discovered Deborah's love for surfing.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D28:11"
+    },
+    {
+      "premise": "Caroline: I started playing acoustic guitar about five years ago; it's been a great way to express myself and escape into my emotions.",
+      "hypothesis": "Caroline started playing acoustic guitar about five years ago; it's been a great way to express myself and escape into Caroline's emotions.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D15:21"
+    },
+    {
+      "premise": "Melanie: They're my biggest motivation and support.",
+      "hypothesis": "They're Melanie's biggest motivation and support.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D18:11"
+    },
+    {
+      "premise": "Audrey: So I got these new collars and tags for my dogs - so cute!",
+      "hypothesis": "Audrey got these new collars and tags for Audrey's dogs - so cute!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D1:3"
+    },
+    {
+      "premise": "Dave: I restored and modified it myself and added a custom exhaust and some performance upgrades.",
+      "hypothesis": "Dave restored and modified it myself and added a custom exhaust and some performance upgrades.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D22:3"
+    },
+    {
+      "premise": "Andrew: I have plans for a hike next month and thought it'd be cool if you and the pups could come along.",
+      "hypothesis": "Andrew has plans for a hike next month and thought it'd be cool if you and the pups could come along.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D12:5"
+    },
+    {
+      "premise": "John: I totally agree that we should fight for more money and resources for our schools.",
+      "hypothesis": "John totally agree that we should fight for more money and resources for our schools.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D5:3"
+    },
+    {
+      "premise": "John: I was inspired by their passion for helping kids, so I wanted to contribute in any way I could.",
+      "hypothesis": "John was inspired by their passion for helping kids, so John wanted to contribute in any way John could.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D11:7"
+    },
+    {
+      "premise": "Tim: I still think about this pic you sent me a while back.",
+      "hypothesis": "Tim still think about this pic you sent Tim a while back.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D23:8"
+    },
+    {
+      "premise": "Deborah: Yes, I really love cats, and they also need a home, love, and care!",
+      "hypothesis": "Deborah really love cats, and they also need a home, love, and care!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D22:27"
+    },
+    {
+      "premise": "Gina: I'll be right by your side, Jon.",
+      "hypothesis": "Gina will be right by your side, Jon.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D15:12"
+    },
+    {
+      "premise": "Joanna: I watched it too and it really spoke to me.",
+      "hypothesis": "Joanna watched it too and it really spoke to Joanna.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D22:9"
+    },
+    {
+      "premise": "Sam: It's tough staying positive, but knowing I have people like you in my corner makes it easier.",
+      "hypothesis": "It's tough staying positive, but knowing Sam has people like you in Sam's corner makes it easier.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 8,
+      "source_dia_id": "D6:4"
+    },
+    {
+      "premise": "Audrey: I can't imagine life without them, they bring so much joy.",
+      "hypothesis": "Audrey can't imagine life without them, they bring so much joy.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D3:24"
+    },
+    {
+      "premise": "Gina: Hey Jon, my online clothing store has been a roller coaster but rewarding.",
+      "hypothesis": "Jon, Gina's online clothing store has been a roller coaster but rewarding.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D7:2"
+    },
+    {
+      "premise": "John: I got a surge of energy and purpose, and we were able to save a family from a burning building.",
+      "hypothesis": "John got a surge of energy and purpose, and we were able to save a family from a burning building.",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D26:6"
+    },
+    {
+      "premise": "Nate: On another note, my little dudes got a new tank!",
+      "hypothesis": "On another note, Nate's little dudes got a new tank!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D19:3"
+    },
+    {
+      "premise": "John: It's Seattle, I'm stoked for my game there next month!",
+      "hypothesis": "It's Seattle, John is stoked for John's game there next month!",
+      "gold_label": "entail",
+      "kind": "entail",
+      "rule": "paraphrase-1st-to-3rd-person",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D3:19"
+    },
+    {
+      "premise": "James: By the way, yesterday I went bowling and got 2 strikes.",
+      "hypothesis": "By the way, yesterday James went bowling and got 7 strikes.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 2->7",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D1:26"
+    },
+    {
+      "premise": "Jolene: Oh, I forgot to mention Overcooked 2 - this is a good co-op game if you're into hilarious and chaotic cooking.",
+      "hypothesis": "Jolene forgot to mention Overcooked 5 - this is a good co-op game if you're into hilarious and chaotic cooking.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 2->5",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D19:10"
+    },
+    {
+      "premise": "Audrey: It was a 3 hour drive from me and the sunset was amazing!",
+      "hypothesis": "It was a 6 hour drive from Audrey and the sunset was amazing!",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 3->6",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D11:32"
+    },
+    {
+      "premise": "Jon: It's made me grow, and even got me out of my secure 9-5 as a banker.",
+      "hypothesis": "It's made Jon grow, and even got Jon out of Jon's secure 11-5 as a banker.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 9->11",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D5:10"
+    },
+    {
+      "premise": "James: Witcher 3 gave me a ton of inspiration, with its amazing world and story.",
+      "hypothesis": "Witcher 10 gave James a ton of inspiration, with its amazing world and story.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 3->10",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D27:6"
+    },
+    {
+      "premise": "James: The highest height I jumped from was 150 meters!",
+      "hypothesis": "The highest height James jumped from was 157 meters!",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 150->157",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D16:5"
+    },
+    {
+      "premise": "John: My favorite was when we were down 10 in the 4th and I hit the buzzer-beater shot to win.",
+      "hypothesis": "My favorite was when we were down 12 in the 4th and John hit the buzzer-beater shot to win.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 10->12",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D23:7"
+    },
+    {
+      "premise": "Jolene: This pendant reminds me of my mother, she gave it to me in 2010  in Paris.",
+      "hypothesis": "This pendant reminds Jolene of Jolene's mother, she gave it to Jolene in 2015  in Paris.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "year-flip 2010->2015",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D1:8"
+    },
+    {
+      "premise": "Dave: My dad took me to my first car show when I was 10, and I was wow-ed!",
+      "hypothesis": "My dad took Dave to Dave's first car show when Dave was 17, and Dave was wow-ed!",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 10->17",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D26:6"
+    },
+    {
+      "premise": "James: I plan to return on July 20, I’ll definitely bring you some kind of souvenir!",
+      "hypothesis": "James plan to return on July 27, I’ll definitely bring you some kind of souvenir!",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 20->27",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D16:13"
+    },
+    {
+      "premise": "John: I typically hold it for 30-60 seconds.",
+      "hypothesis": "John typically hold it for 34-60 seconds.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 30->34",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D20:10"
+    },
+    {
+      "premise": "Jolene: I'm using the Pomodoro Technique - 25 minutes work, 5-minute break - to avoid burnout but I'm still struggling to prioritize.",
+      "hypothesis": "Jolene is using the Pomodoro Technique - 30 minutes work, 5-minute break - to avoid burnout but Jolene is still struggling to prioritize.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 25->30",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D10:4"
+    },
+    {
+      "premise": "John: I'm hooked on this great game called FIFA 23.",
+      "hypothesis": "John is hooked on this great game called FIFA 25.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 23->25",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D30:14"
+    },
+    {
+      "premise": "Nate: I've had them for 3 years now and they bring me tons of joy!",
+      "hypothesis": "Nate has had them for 6 years now and they bring Nate tons of joy!",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 3->6",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D2:12"
+    },
+    {
+      "premise": "Caroline: They've been there through everything, I've known these friends for 4 years, since I moved from my home country.",
+      "hypothesis": "They've been there through everything, Caroline has known these friends for 11 years, since Caroline moved from Caroline's home country.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 4->11",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D3:13"
+    },
+    {
+      "premise": "Jolene: I've been doing them sporadically for about 3 years now and they've had a real positive effect on me.",
+      "hypothesis": "Jolene has been doing them sporadically for about 5 years now and they've had a real positive effect on Jolene.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 3->5",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D13:17"
+    },
+    {
+      "premise": "Nate: I've also been playing a game nonstop with a great futuristic setting and gameplay called \"Cyberpunk 2077\".",
+      "hypothesis": "Nate has also been playing a game nonstop with a great futuristic setting and gameplay called \"Cyberpunk 2074\".",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "year-flip 2077->2074",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D23:17"
+    },
+    {
+      "premise": "John: I made a huge call - recently left my IT job after 3 years.",
+      "hypothesis": "John made a huge call - recently left John's IT job after 7 years.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 3->7",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D18:1"
+    },
+    {
+      "premise": "Joanna: I first watched it around 3 years ago.",
+      "hypothesis": "Joanna first watched it around 10 years ago.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 3->10",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D1:18"
+    },
+    {
+      "premise": "Maria: Don't be afraid to take risks-- I'm 100% behind you!",
+      "hypothesis": "Don't be afraid to take risks-- Maria is 105% behind you!",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 100->105",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D14:2"
+    },
+    {
+      "premise": "Evan: It's a 1968 Kustom K-200A vintage guitar and I got it as a gift from a close friend.",
+      "hypothesis": "It's a 1975 Kustom K-200A vintage guitar and Evan got it as a gift from a close friend.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "year-flip 1968->1975",
+      "source_qa_idx": -1,
+      "source_conv_idx": 8,
+      "source_dia_id": "D16:10"
+    },
+    {
+      "premise": "James: By the way, yesterday I tried Cyberpunk 2077.",
+      "hypothesis": "By the way, yesterday James tried Cyberpunk 2084.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "year-flip 2077->2084",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D28:27"
+    },
+    {
+      "premise": "Maria: For me, it was when I noticed a little girl around 8 sitting all alone.",
+      "hypothesis": "For Maria, it was when Maria noticed a little girl around 11 sitting all alone.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 8->11",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D5:10"
+    },
+    {
+      "premise": "Deborah: This is my parents' wedding in 1993.",
+      "hypothesis": "This is Deborah's parents' wedding in 1996.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "year-flip 1993->1996",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D2:3"
+    },
+    {
+      "premise": "Audrey: I'm 100% sure that it's gonna be a great day!",
+      "hypothesis": "Audrey is 103% sure that it's gonna be a great day!",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 100->103",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D11:28"
+    },
+    {
+      "premise": "John: Last week I scored 40 points, my highest ever, and it feels like all my hard work's paying off.",
+      "hypothesis": "Last week John scored 43 points, John's highest ever, and it feels like all John's hard work's paying off.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 40->43",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D3:1"
+    },
+    {
+      "premise": "James: I'm totally into The Witcher 3 right now.",
+      "hypothesis": "James is totally into The Witcher 5 right now.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 3->5",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D1:4"
+    },
+    {
+      "premise": "Joanna: Yup, I still remember this story from when I was 10.",
+      "hypothesis": "Yup, Joanna still remember this story from when Joanna was 13.",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 10->13",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D26:7"
+    },
+    {
+      "premise": "John: I'm playing \"The Witcher 3\"!",
+      "hypothesis": "John is playing \"The Witcher 6\"!",
+      "gold_label": "contradict",
+      "kind": "contradict_numeric",
+      "rule": "num-flip 3->6",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D19:7"
+    },
+    {
+      "premise": "Caroline: I was out walking in my neighborhood when I came across this cool rainbow sidewalk for Pride Month.",
+      "hypothesis": "Caroline was out walking in Caroline's neighborhood when Caroline came across this cool rainbow sidewalk for Pride Ellis.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Month->Ellis",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D14:23"
+    },
+    {
+      "premise": "Calvin: Can't wait to see more when I'm in Boston!",
+      "hypothesis": "Can't wait to see more when Calvin is in Ford!",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Boston->Ford",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D3:13"
+    },
+    {
+      "premise": "Calvin: I'll let you know when I'm in Boston.",
+      "hypothesis": "Calvin will let you know when Calvin is in Times.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Boston->Times",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D17:8"
+    },
+    {
+      "premise": "Calvin: Super excited for my upcoming performance in Tokyo this month.",
+      "hypothesis": "Super excited for Calvin's upcoming performance in Square this month.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Tokyo->Square",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D6:11"
+    },
+    {
+      "premise": "Nate: Last Monday I got to teach people vegan ice cream recipes on my own cooking show!",
+      "hypothesis": "Last Midwestern Nate got to teach people vegan ice cream recipes on Nate's own cooking show!",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Monday->Midwestern",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D21:4"
+    },
+    {
+      "premise": "Evan: The novel I'm reading is \"The Great Gatsby\".",
+      "hypothesis": "The novel Evan is reading is \"The Great Tuesday\".",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Gatsby->Tuesday",
+      "source_qa_idx": -1,
+      "source_conv_idx": 8,
+      "source_dia_id": "D4:10"
+    },
+    {
+      "premise": "Tim: I'm learning German now - tough but fun.",
+      "hypothesis": "Tim is learning Herbert now - tough but fun.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap German->Herbert",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D27:5"
+    },
+    {
+      "premise": "James: I also plan to visit Vancouver.",
+      "hypothesis": "James also plan to visit His.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Vancouver->His",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D16:11"
+    },
+    {
+      "premise": "Dave: Last Friday I went to the car show.",
+      "hypothesis": "Last Love Dave went to the car show.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Friday->Love",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D22:1"
+    },
+    {
+      "premise": "Andrew: I want to make sure I'm not limiting Toby's growth but not taking him out not enough.",
+      "hypothesis": "Andrew wants to make sure Andrew is not limiting Bye's growth but not taking him out not enough.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Toby->Bye",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D14:25"
+    },
+    {
+      "premise": "Caroline: Last weekend I joined a mentorship program for LGBTQ youth - it's really rewarding to help the community.",
+      "hypothesis": "Last weekend Caroline joined a mentorship program for Here youth - it's really rewarding to help the community.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap LGBTQ->Here",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D9:2"
+    },
+    {
+      "premise": "Jolene: Here's a picture I took on vacation last summer in Bogota.",
+      "hypothesis": "Here's a picture Jolene took on vacation last summer in Dead.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Bogota->Dead",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D4:33"
+    },
+    {
+      "premise": "Tim: I want to visit The Cliffs of Moher.",
+      "hypothesis": "Tim wants to visit The MinaLima of Moher.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Cliffs->MinaLima",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D28:7"
+    },
+    {
+      "premise": "Joanna: I took that pic on a hike last summer near Fort Wayne.",
+      "hypothesis": "Joanna took that pic on a hike last summer near Street Wayne.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Fort->Street",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D28:22"
+    },
+    {
+      "premise": "Tim: Harry Potter is my favorite book.",
+      "hypothesis": "Harry Finals is Tim's favorite book.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Potter->Finals",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D27:19"
+    },
+    {
+      "premise": "Tim: Been discussing collaborations for a Harry Potter fan project I am working on - super excited!",
+      "hypothesis": "Been discussing collaborations for a Alone Potter fan project Tim is working on - super excited!",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Harry->Alone",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D1:2"
+    },
+    {
+      "premise": "Joanna: I'm working on one with my group called \"Finding Home.\" It's a script about a girl on a journey to find her true home.",
+      "hypothesis": "Joanna is working on one with Joanna's group called \"Finding Sunday.\" It's a script about a girl on a journey to find her true home.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Home->Sunday",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D9:3"
+    },
+    {
+      "premise": "Andrew: I'll remember them if I ever get to groom Toby.",
+      "hypothesis": "Andrew will remember them if Andrew ever get to groom Precious.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Toby->Precious",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D16:9"
+    },
+    {
+      "premise": "Calvin: Reminds me of living in my Japanese mansion with the epic cityscape.",
+      "hypothesis": "Reminds Calvin of living in Calvin's Ocean mansion with the epic cityscape.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Japanese->Ocean",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D10:6"
+    },
+    {
+      "premise": "Tim: That skyline looks amazing - I've been wanting to visit NYC.",
+      "hypothesis": "That skyline looks amazing - Tim has been wanting to visit Aragorn.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap NYC->Aragorn",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D9:7"
+    },
+    {
+      "premise": "Calvin: I scored a deal to continue collaboration with Frank Ocean!",
+      "hypothesis": "Calvin scored a deal to continue collaboration with Fireworks Ocean!",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Frank->Fireworks",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D15:2"
+    },
+    {
+      "premise": "Calvin: Last week I threw a small party at my Japanese house for my new album.",
+      "hypothesis": "Last week Calvin threw a small party at Calvin's Friday house for Calvin's new album.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Japanese->Friday",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D28:1"
+    },
+    {
+      "premise": "Calvin: I've accepted an invitation to perform at an upcoming show in Boston!",
+      "hypothesis": "Calvin has accepted an invitation to perform at an upcoming show in DIY!",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Boston->DIY",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D30:20"
+    },
+    {
+      "premise": "Calvin: I'll let you know when I'm in Boston.",
+      "hypothesis": "Calvin will let you know when Calvin is in Fireworks.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Boston->Fireworks",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D18:11"
+    },
+    {
+      "premise": "James: I'm into 2D adventures with puzzles - like The Legend of Zelda.",
+      "hypothesis": "James is into 2D adventures with puzzles - like The Appetit of Zelda.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Legend->Appetit",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D25:10"
+    },
+    {
+      "premise": "John: Hooked a new RPG that I've been playing lately!",
+      "hypothesis": "Hooked a new Overwatch that John has been playing lately!",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap RPG->Overwatch",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D19:5"
+    },
+    {
+      "premise": "Calvin: I'm actually going to Tokyo next month after the tour ends.",
+      "hypothesis": "Calvin is actually going to Square next month after the tour ends.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Tokyo->Square",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D24:17"
+    },
+    {
+      "premise": "Jon: Oh, I've been to Paris yesterday!",
+      "hypothesis": "Jon has been to BTW yesterday!",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Paris->BTW",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D2:4"
+    },
+    {
+      "premise": "John: I've always wanted to learn Spanish.",
+      "hypothesis": "John has always wanted to learn Star.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Spanish->Star",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D27:8"
+    },
+    {
+      "premise": "Dave: Something cool happened since last we talked - I got to go to a car workshop in San Francisco!",
+      "hypothesis": "Something cool happened since last we talked - Dave got to go to a car workshop in San Frank!",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Francisco->Frank",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D14:1"
+    },
+    {
+      "premise": "Melanie: I'll always remember our camping trip last year when we saw the Perseid meteor shower.",
+      "hypothesis": "Melanie will always remember our camping trip last year when we saw the Sweden meteor shower.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Perseid->Sweden",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D10:14"
+    },
+    {
+      "premise": "Calvin: That pic you shared takes me back to my trip to the Ferrari dealership.",
+      "hypothesis": "That pic you shared takes Calvin back to Calvin's trip to the Detroit dealership.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Ferrari->Detroit",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D12:7"
+    },
+    {
+      "premise": "Calvin: I'll catch you when I'm in Boston.",
+      "hypothesis": "Calvin will catch you when Calvin is in Blues.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Boston->Blues",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D30:22"
+    },
+    {
+      "premise": "Jolene: I'm having a hard time dealing with my Engineering assignments.",
+      "hypothesis": "Jolene is having a hard time dealing with Jolene's Appreciate assignments.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Engineering->Appreciate",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D9:14"
+    },
+    {
+      "premise": "John: I can tell Max brings you a lot of happiness.",
+      "hypothesis": "John can tell Mark brings you a lot of happiness.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Max->Mark",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D14:14"
+    },
+    {
+      "premise": "James: I'll show you what Samantha looks like.",
+      "hypothesis": "James will show you what Legend looks like.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Samantha->Legend",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D23:5"
+    },
+    {
+      "premise": "Jolene: I did take Seraphim to the park last Sunday.",
+      "hypothesis": "Jolene did take Looking to the park last Sunday.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Seraphim->Looking",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D8:8"
+    },
+    {
+      "premise": "James: I think storytelling is what makes RPGs so fun.",
+      "hypothesis": "James thinks storytelling is what makes Vancouver so fun.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap RPGs->Vancouver",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D19:6"
+    },
+    {
+      "premise": "Nate: I won my fourth video game tournament on Friday!",
+      "hypothesis": "Nate won Nate's fourth video game tournament on Home!",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Friday->Home",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D17:1"
+    },
+    {
+      "premise": "Calvin: Yeah, I'm working on this project to transform a Japanese mansion into a recording studio.",
+      "hypothesis": "Calvin is working on this project to transform a Fenway mansion into a recording studio.",
+      "gold_label": "contradict",
+      "kind": "contradict_entity",
+      "rule": "entity-swap Japanese->Fenway",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D11:4"
+    },
+    {
+      "premise": "John: I'm hoping to make a positive impact there.",
+      "hypothesis": "John is not hoping to make a positive impact there.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `John is`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D11:15"
+    },
+    {
+      "premise": "Sam: I used to love hiking, but it's been a while since I had the chance to do it.",
+      "hypothesis": "Sam used to love hiking, but it's been a while since Sam had not the chance to do it.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `Sam had`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 8,
+      "source_dia_id": "D20:6"
+    },
+    {
+      "premise": "Jon: It's been a wild ride, but I'm feeling good and ready to give it my best.",
+      "hypothesis": "It's been a wild ride, but Jon is not feeling good and ready to give it Jon's best.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `Jon is`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D15:7"
+    },
+    {
+      "premise": "Calvin: I love the Miami vibe, it's perfect for the vid.",
+      "hypothesis": "Calvin does not love the Miami vibe, it's perfect for the vid.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `Calvin loves`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D16:10"
+    },
+    {
+      "premise": "James: But with some trial and error, I managed to get it to where I wanted it.",
+      "hypothesis": "It is not true that but with some trial and error, James managed to get it to where James wanted it.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "it-is-not-true-prefix",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D22:7"
+    },
+    {
+      "premise": "Caroline: It really bugged me, so I tried to apologize to them.",
+      "hypothesis": "It is not true that it really bugged Caroline, so Caroline tried to apologize to them.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "it-is-not-true-prefix",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D14:1"
+    },
+    {
+      "premise": "Nate: The tank is big enough now for three, so I figured why not!",
+      "hypothesis": "The tank is not big enough now for three, so Nate figured why not!",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `tank is`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D28:25"
+    },
+    {
+      "premise": "Jon: I'm determined to make this studio work.",
+      "hypothesis": "Jon is not determined to make this studio work.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `Jon is`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D9:3"
+    },
+    {
+      "premise": "Melanie: BTW, recently I had a setback.",
+      "hypothesis": "BTW, recently Melanie had not a setback.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `Melanie had`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D17:8"
+    },
+    {
+      "premise": "Jolene: Here's a pic of my newest spread with one of my favorite quotes.",
+      "hypothesis": "It is not true that here's a pic of Jolene's newest spread with one of Jolene's favorite quotes.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "it-is-not-true-prefix",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D18:5"
+    },
+    {
+      "premise": "Joanna: Hey Nate, I love making this dairy-free chocolate cake with raspberries.",
+      "hypothesis": "Nate, Joanna does not love making this dairy-free chocolate cake with raspberries.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `Joanna loves`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D21:13"
+    },
+    {
+      "premise": "Maria: Seeing the smiles on their faces when they got food or a bed really made me feel good.",
+      "hypothesis": "Seeing the smiles on their faces when they did not get food or a bed really made Maria feel good.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `they got`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D32:14"
+    },
+    {
+      "premise": "Sam: Between a healthier diet and yoga, I’m hoping for some positive changes.",
+      "hypothesis": "It is not true that between a healthier diet and yoga, I’m hoping for some positive changes.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "it-is-not-true-prefix",
+      "source_qa_idx": -1,
+      "source_conv_idx": 8,
+      "source_dia_id": "D24:20"
+    },
+    {
+      "premise": "John: The atmosphere was electric, and my teammates and I were thrilled.",
+      "hypothesis": "The atmosphere was not electric, and John's teammates and John were thrilled.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `atmosphere was`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D3:3"
+    },
+    {
+      "premise": "Tim: I'm more into reading and fantasy novels.",
+      "hypothesis": "Tim is not more into reading and fantasy novels.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `Tim is`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D9:5"
+    },
+    {
+      "premise": "John: I believe that providing the right assistance and resources can make a lasting impact.",
+      "hypothesis": "John believe that providing the right assistance and resources cannot make a lasting impact.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `resources can`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D3:9"
+    },
+    {
+      "premise": "Nate: I'm always here for you, Joanna!",
+      "hypothesis": "Nate is not always here for you, Joanna!",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `Nate is`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D22:12"
+    },
+    {
+      "premise": "James: I'm always excited to combine my favorite passions: gaming and storytelling.",
+      "hypothesis": "James is not always excited to combine James's favorite passions: gaming and storytelling.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `James is`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D1:22"
+    },
+    {
+      "premise": "John: It's always fun coming up with activities for my family to enjoy.",
+      "hypothesis": "It is not true that it's always fun coming up with activities for John's family to enjoy.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "it-is-not-true-prefix",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D8:10"
+    },
+    {
+      "premise": "John: I had a blast there last month.",
+      "hypothesis": "John had not a blast there last month.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `John had`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D27:2"
+    },
+    {
+      "premise": "Caroline: Lately, I've been looking into counseling and mental health as a career.",
+      "hypothesis": "Lately, Caroline has not been looking into counseling and mental health as a career.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `Caroline has`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D4:11"
+    },
+    {
+      "premise": "Maria: Keep doing what you're doing; I'm here to back you up!",
+      "hypothesis": "Keep doing what you're doing; Maria is not here to back you up!",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `Maria is`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D15:16"
+    },
+    {
+      "premise": "Audrey: I did something fun with my pups over the weekend, took them to the beach and it was so fun to see them playing in the ocean.",
+      "hypothesis": "Audrey did something fun with Audrey's pups over the weekend, took them to the beach and it was not so fun to see them playing in the ocean.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `it was`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D21:2"
+    },
+    {
+      "premise": "John: Had a wild week, my car broke down last Fri on my way to work.",
+      "hypothesis": "It is not true that had a wild week, John's car broke down last Fri on John's way to work.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "it-is-not-true-prefix",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D11:1"
+    },
+    {
+      "premise": "Calvin: Collaborating with others and learning from them keeps me motivated.",
+      "hypothesis": "It is not true that collaborating with others and learning from them keeps Calvin motivated.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "it-is-not-true-prefix",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D11:10"
+    },
+    {
+      "premise": "Sam: Like you said, I've been looking for a hobby to stay motivated.",
+      "hypothesis": "Like you said, Sam has not been looking for a hobby to stay motivated.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `Sam has`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 8,
+      "source_dia_id": "D2:10"
+    },
+    {
+      "premise": "John: Last Friday I entered a local tournament and took second place!",
+      "hypothesis": "It is not true that last Friday John entered a local tournament and took second place!",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "it-is-not-true-prefix",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D12:4"
+    },
+    {
+      "premise": "John: I made this apple pie for the kids yesterday too!",
+      "hypothesis": "It is not true that john made this apple pie for the kids yesterday too!",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "it-is-not-true-prefix",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D13:17"
+    },
+    {
+      "premise": "Dave: It's really motivating and keeps me pushing for more.",
+      "hypothesis": "It is not true that it's really motivating and keeps Dave pushing for more.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "it-is-not-true-prefix",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D21:14"
+    },
+    {
+      "premise": "Jon: The energy was really motivating, it gave me a boost to go after my goals.",
+      "hypothesis": "The energy was not really motivating, it gave Jon a boost to go after Jon's goals.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `energy was`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D18:8"
+    },
+    {
+      "premise": "Jolene: Similarly, playing video games with my partner after a long day is a great way for me to relax.",
+      "hypothesis": "Similarly, playing video games with Jolene's partner after a long day is not a great way for Jolene to relax.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `day is`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D12:6"
+    },
+    {
+      "premise": "Evan: It tracks my progress really well and serves as a constant reminder to keep going.",
+      "hypothesis": "It is not true that it tracks Evan's progress really well and serves as a constant reminder to keep going.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "it-is-not-true-prefix",
+      "source_qa_idx": -1,
+      "source_conv_idx": 8,
+      "source_dia_id": "D5:9"
+    },
+    {
+      "premise": "Andrew: Eagles have always mesmerized me; they're so strong and graceful!",
+      "hypothesis": "Eagles have not always mesmerized Andrew; they're so strong and graceful!",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `Eagles have`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D1:16"
+    },
+    {
+      "premise": "Jolene: I'm really finding my zen again!",
+      "hypothesis": "Jolene is not really finding Jolene's zen again!",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `Jolene is`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D20:23"
+    },
+    {
+      "premise": "Nate: That's really cool, I like it!",
+      "hypothesis": "That's really cool, Nate does not like it!",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `Nate likes`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D18:4"
+    },
+    {
+      "premise": "Jon: It sets goals, tracks my achievements and helps me find areas to improve.",
+      "hypothesis": "It is not true that it sets goals, tracks Jon's achievements and helps Jon find areas to improve.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "it-is-not-true-prefix",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D13:11"
+    },
+    {
+      "premise": "Deborah: They remind me of how strong love is and how amazing human relationships can be.",
+      "hypothesis": "They remind Deborah of how strong love is not and how amazing human relationships can be.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `love is`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D28:9"
+    },
+    {
+      "premise": "Gina: I'm sure you feel great knowing your students are doing so well with dance.",
+      "hypothesis": "Gina is not sure you feel great knowing your students are doing so well with dance.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `Gina is`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D5:5"
+    },
+    {
+      "premise": "Deborah: Hey Jolene, I'm so excited to tell you!",
+      "hypothesis": "Jolene, Deborah is not so excited to tell you!",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `Deborah is`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D29:1"
+    },
+    {
+      "premise": "Audrey: If you want, I can share the recipe with you.",
+      "hypothesis": "If you want, Audrey cannot share the recipe with you.",
+      "gold_label": "contradict",
+      "kind": "contradict_negate",
+      "rule": "insert-not-after `Audrey can`",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D10:13"
+    },
+    {
+      "premise": "Sam: I can imagine how hard it must have been for you.",
+      "hypothesis": "Sure thing, Andrew will get some awesome pics to show you when Andrew return.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv5",
+      "source_qa_idx": -1,
+      "source_conv_idx": 8,
+      "source_dia_id": "D7:2"
+    },
+    {
+      "premise": "Dave: It was great to get away and reconnect with my passion.",
+      "hypothesis": "Yep, last month Evan drove somewhere fun.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv8",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D11:3"
+    },
+    {
+      "premise": "John: My teammates believing in me and my love for improving my skills keep me going, even when things get tough.",
+      "hypothesis": "But, Evan guess it's just one of those things - even new cars can have problems.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv8",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D15:18"
+    },
+    {
+      "premise": "Joanna: I'm all about dramas and romcoms.",
+      "hypothesis": "John will definitely take your advice.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv6",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D1:14"
+    },
+    {
+      "premise": "John: I've still got a lot to learn, but I'm determined to make a difference.",
+      "hypothesis": "Creating art was really important to Caroline during Caroline's transition - it helped Caroline understand and accept myself.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv0",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D14:3"
+    },
+    {
+      "premise": "Melanie: Wow, that sounds great - I agree, they're awesome.",
+      "hypothesis": "Joanna can't stop thinking about the screenplay, so Joanna just started writing another one while Joanna wait to hear back about how the first one did.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv3",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D13:8"
+    },
+    {
+      "premise": "Jon: That being said, I definitely don't underestimate the difficulties - it ain't been a walk in the park, that's for sure.",
+      "hypothesis": "Caroline felt so proud and grateful - the vibes were amazing and it was comforting to know Caroline is not alone and have a great community around Caroline.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv0",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D5:10"
+    },
+    {
+      "premise": "Calvin: It got me thinking about how far I've come and reminded me how important relationships are in this biz.",
+      "hypothesis": "Sam won't stress - just gonna enjoy it.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv8",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D29:1"
+    },
+    {
+      "premise": "Nate: But that's okay, I'll get 'em next time!",
+      "hypothesis": "Exercise and nature are really important to Deborah, so Deborah make sure to take them out for a run in the park every morning and evening.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv7",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D28:3"
+    },
+    {
+      "premise": "Jolene: It helps me stay balanced during my studies.",
+      "hypothesis": "They really mean a lot to Audrey so Audrey thought it'd be nice to have them with Audrey wherever Audrey go.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv5",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D25:5"
+    },
+    {
+      "premise": "John: I just talked to someone who shared some amazing stories.",
+      "hypothesis": "But your success really inspires Jon to keep pushing forward.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv1",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D2:4"
+    },
+    {
+      "premise": "James: I also love to read, especially while snuggled under the covers on a cold winter day.",
+      "hypothesis": "Joanna named her Tilly, and she's always with Joanna while Joanna write.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv3",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D16:9"
+    },
+    {
+      "premise": "Deborah: I loved it when she would bake pineapple birthday cakes for me when I was a kid.",
+      "hypothesis": "Yesterday, Jon went to a fair to show off Jon's studio, it was both stressful and great!",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv1",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D29:9"
+    },
+    {
+      "premise": "John: I'm so excited to explore the world and experience these gorgeous places.",
+      "hypothesis": "Jolene is determined to keep going and make a difference.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv7",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D15:2"
+    },
+    {
+      "premise": "Maria: Being able to make a difference brings me joy.",
+      "hypothesis": "My dance moves get Jon pumped to tackle Jon's business goals, and successes there boost Jon's drive to keep dreaming on the dance floor.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv1",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D20:11"
+    },
+    {
+      "premise": "Nate: Looky here, I got this new pup for you!",
+      "hypothesis": "Take a look at Dave's new vintage camera that Dave bought this month, which takes awesome photos!",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv9",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D13:9"
+    },
+    {
+      "premise": "Jolene: Recently, I had the opportunity to present at a virtual conference and received positive feedback.",
+      "hypothesis": "Between a healthier diet and yoga, I’m hoping for some positive changes.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv8",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D21:6"
+    },
+    {
+      "premise": "Evan: By the way, I also started taking a painting classes few days ago and I'm really enjoying it.",
+      "hypothesis": "Moments like these make John so grateful for John's basketball career.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv4",
+      "source_qa_idx": -1,
+      "source_conv_idx": 8,
+      "source_dia_id": "D8:12"
+    },
+    {
+      "premise": "Jolene: I use essential oils and put on some soft, soothing music in the background to create a peaceful atmosphere.",
+      "hypothesis": "Lately, John has been busy with something.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv6",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D28:18"
+    },
+    {
+      "premise": "John: I've been playing one more game with friends these days.",
+      "hypothesis": "John will ask around to see if anyone John know wants to help.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv2",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D8:36"
+    },
+    {
+      "premise": "John: Plus, playing with my teammates and having the fans cheer is awesome.",
+      "hypothesis": "Jolene bought a console for Jolene's partner as a gift on the 17th and it's so much fun, he even managed to play it.!",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv7",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D11:15"
+    },
+    {
+      "premise": "Nate: I'm going to keep working hard on it and see what happens.",
+      "hypothesis": "Sam is gonna ask the doc about a balanced diet plan and getting advice on low-impact exercises, given Sam's current situation.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv8",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D6:11"
+    },
+    {
+      "premise": "John: That's why I love traveling - it's a way to learn about different cultures and places.",
+      "hypothesis": "Been a long road, but Caroline is proud of how far Caroline has come.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv0",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D27:36"
+    },
+    {
+      "premise": "Tim: Always been interested in different cultures and countries and I'm excited to check it out.",
+      "hypothesis": "It's kinda freeing, just putting Caroline's feelings on the canvas without too much of a plan.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv0",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D21:1"
+    },
+    {
+      "premise": "Dave: Look at the cars I'm working with right now.",
+      "hypothesis": "Andrew is sure they're having a blast running around.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv5",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D13:1"
+    },
+    {
+      "premise": "Deborah: Last week I visited a place that holds a lot of memories for me.",
+      "hypothesis": "Gina is gonna keep pursuing Gina's goals and Gina hope you do too!",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv1",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D1:3"
+    },
+    {
+      "premise": "John: Maybe this is the change I need, you gave me the push!",
+      "hypothesis": "Can't wait 'til Jon's studio starts welcoming dancers of all ages and backgrounds!",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv1",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D28:3"
+    },
+    {
+      "premise": "Tim: Yeah, nature has that effect on me too.",
+      "hypothesis": "My friend gave Deborah this bouquet when Deborah was struggling, and it gives Deborah hope and courage.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv7",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D20:39"
+    },
+    {
+      "premise": "Calvin: Reminds me of living in my Japanese mansion with the epic cityscape.",
+      "hypothesis": "Audrey is sure the pet shelter really appreciated your help too!",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv5",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D10:6"
+    },
+    {
+      "premise": "Sam: Connecting with nature is exactly what I need.",
+      "hypothesis": "Caroline wanna keep making a difference.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv0",
+      "source_qa_idx": -1,
+      "source_conv_idx": 8,
+      "source_dia_id": "D14:11"
+    },
+    {
+      "premise": "John: I'm sure you'll love this trilogy!",
+      "hypothesis": "Dave loves the feeling of taking something broken and making it whole again.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv9",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D8:16"
+    },
+    {
+      "premise": "Calvin: The producer gave me some advice to stay true to myself and sound unique.",
+      "hypothesis": "Joanna can see why you're thrilled!",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv3",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D3:7"
+    },
+    {
+      "premise": "John: I've been keeping busy since we last talked!",
+      "hypothesis": "Sam is trying to make healthier choices, but there are still the occasional cravings for sugary drinks and snacks...",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv8",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D4:12"
+    },
+    {
+      "premise": "Maria: Hey John, I'm doing ok - hope you are too.",
+      "hypothesis": "There's this one song that always makes Calvin smile.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv9",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D26:1"
+    },
+    {
+      "premise": "Maria: It was truly rewarding and reminded me why I'm passionate about charity work.",
+      "hypothesis": "Tim loves getting lost in fantasy stories, but also discovering new ways to better myself through books on growth, psychology, and improving myself.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv4",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D10:10"
+    },
+    {
+      "premise": "John: I can tell Max brings you a lot of happiness.",
+      "hypothesis": "Long time no talk - Jolene had lots of stuff going on.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv7",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D14:14"
+    },
+    {
+      "premise": "James: I was working on collecting player databases.",
+      "hypothesis": "Jon is working hard to make everything just right.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv1",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D13:8"
+    },
+    {
+      "premise": "Tim: It's kind of overwhelming but I'm excited!",
+      "hypothesis": "Jolene has been wanting to try it.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv7",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D29:3"
+    },
+    {
+      "premise": "Tim: I'm grateful I have friends and family who support me - it's huge.",
+      "hypothesis": "Now Audrey is going with this book that writes about bird watching guides.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv5",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D15:23"
+    },
+    {
+      "premise": "Tim: It's based on a book series that I love.",
+      "hypothesis": "It's like a nudge to always stay true to myself and embrace Caroline's womanhood.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv0",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D26:36"
+    },
+    {
+      "premise": "James: Oh, and I got this cool video card last week - I'm so excited to jump into it again!",
+      "hypothesis": "It's about connecting Jolene's passion for engineering with Jolene's commitment to making a positive impact.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv7",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D26:8"
+    },
+    {
+      "premise": "Jolene: Self-care activities like yoga and meditation help me stay balanced and relax.",
+      "hypothesis": "Joined a travel club and, like Tim said, working on studies.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv4",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D26:6"
+    },
+    {
+      "premise": "Audrey: It's tough, but I'm devoted to keeping them healthy and happy - they mean everything to me.",
+      "hypothesis": "Some days it feels like Jolene is trying to juggle Jolene's engineering, relationship, and growing as a person, and Jolene just don't know how to handle it all.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv7",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D26:9"
+    },
+    {
+      "premise": "Audrey: They bring me so much happiness.",
+      "hypothesis": "It's been the best thing ever - a mix of highs and lows - and Joanna's journal's pretty much Joanna's rock.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv3",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D23:16"
+    },
+    {
+      "premise": "John: Trying to get it fixed but it's tough & putting a strain on my wallet.",
+      "hypothesis": "Deborah is trying to channel Deborah's grief by spending more time with family and cherishing the memories.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv7",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D11:1"
+    },
+    {
+      "premise": "John: Yeah, I'm getting somewhere with endorsements.",
+      "hypothesis": "My pets have been Audrey's good ol' buddies during all the tough times!",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv5",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D3:9"
+    },
+    {
+      "premise": "Caroline: So much has happened since we last spoke - I went to an LGBTQ conference two days ago and it was really special.",
+      "hypothesis": "It feels great having Calvin's own space to work in.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv9",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D7:1"
+    },
+    {
+      "premise": "Maria: Hey John, I understand how you feel.",
+      "hypothesis": "Nate loves stories that tackle important issues.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv3",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D30:15"
+    },
+    {
+      "premise": "Dave: I've found the picture with really thrilling part of the workshop, take a look.",
+      "hypothesis": "This pendant reminds Jolene of Jolene's mother, she gave it to Jolene in 2010  in Paris.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv7",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D13:5"
+    },
+    {
+      "premise": "Jolene: I've been into yoga and meditation lately.",
+      "hypothesis": "The colors were amazing, and Maria had a feeling of gratitude just sitting there with Maria's family.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv2",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D22:16"
+    },
+    {
+      "premise": "Audrey: I hope you enjoy making and eating it.",
+      "hypothesis": "Her eyes and appearance amazed James so much, it seemed to James that James fell in love at first sight.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv6",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D10:27"
+    },
+    {
+      "premise": "James: I'm excited to give it a try.",
+      "hypothesis": "It was a dope experience that totally gave Jolene a new outlook.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv7",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D5:11"
+    },
+    {
+      "premise": "Dave: I'll show you a pic I took when they were playing.",
+      "hypothesis": "Appreciate you being there for John.",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv2",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D2:10"
+    },
+    {
+      "premise": "John: I love how these poses challenge my body and mind!",
+      "hypothesis": "You'll have to keep Joanna posted on them!",
+      "gold_label": "neutral",
+      "kind": "neutral_unrelated",
+      "rule": "unrelated-paraphrase-from-conv3",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D20:6"
+    },
+    {
+      "premise": "Joanna: I've been decompressing, but it's hard to switch off.",
+      "hypothesis": "Not specified in the conversation.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D5:3"
+    },
+    {
+      "premise": "James: Just three days ago, I was surfing.",
+      "hypothesis": "I don't know.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D16:7"
+    },
+    {
+      "premise": "Nate: Anyway, I took my turtles to the beach in Tampa yesterday!",
+      "hypothesis": "This is not mentioned in the conversation.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D29:6"
+    },
+    {
+      "premise": "John: Your support means a lot to me.",
+      "hypothesis": "No information is provided.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D28:19"
+    },
+    {
+      "premise": "Jolene: Had a great night out last night - dinner, and drinks with my friends.",
+      "hypothesis": "The conversation does not say.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D6:1"
+    },
+    {
+      "premise": "Jon: Opening the dance studio's been a great experience - I want it to be a place of support and encouragement for all our dancers.",
+      "hypothesis": "It is not stated.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D13:5"
+    },
+    {
+      "premise": "Joanna: It gives me the motivation to keep pushing forward.",
+      "hypothesis": "Not enough information.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D5:19"
+    },
+    {
+      "premise": "Nate: I've also been playing a game nonstop with a great futuristic setting and gameplay called \"Cyberpunk 2077\".",
+      "hypothesis": "I am not sure.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D23:17"
+    },
+    {
+      "premise": "Andrew: I can tell they're a real source of love for you.",
+      "hypothesis": "Not specified in the conversation.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D23:21"
+    },
+    {
+      "premise": "Tim: I'm reading this book and I'm totally hooked!",
+      "hypothesis": "I don't know.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D14:22"
+    },
+    {
+      "premise": "John: Last week I had a crazy game - crazy intense!",
+      "hypothesis": "This is not mentioned in the conversation.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D5:2"
+    },
+    {
+      "premise": "James: I think there are still some of the previous staff there and I can even introduce you to them.",
+      "hypothesis": "No information is provided.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D15:13"
+    },
+    {
+      "premise": "Jon: I want to create a place for people to dance and express themselves - it's been a dream of mine.",
+      "hypothesis": "The conversation does not say.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D11:11"
+    },
+    {
+      "premise": "Deborah: Maybe just grab me some interesting books!",
+      "hypothesis": "It is not stated.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D26:21"
+    },
+    {
+      "premise": "Audrey: I donate a portion of my profits to a cause that's close to my heart.",
+      "hypothesis": "Not enough information.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D22:7"
+    },
+    {
+      "premise": "Jolene: This photo I took is a great visual representation of that idea.",
+      "hypothesis": "I am not sure.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D30:14"
+    },
+    {
+      "premise": "John: I think not, this is just a one-time experience to learn something new and work as a team.",
+      "hypothesis": "Not specified in the conversation.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 6,
+      "source_dia_id": "D20:7"
+    },
+    {
+      "premise": "Maria: I'm doing my part too, volunteering at a homeless shelter.",
+      "hypothesis": "I don't know.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 2,
+      "source_dia_id": "D27:2"
+    },
+    {
+      "premise": "Gina: Check out this pic of my fave dance session!",
+      "hypothesis": "This is not mentioned in the conversation.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 1,
+      "source_dia_id": "D8:6"
+    },
+    {
+      "premise": "Audrey: Had some bumps though - last Friday at the park one of my pups saw something and pulled so hard the leash busted.",
+      "hypothesis": "No information is provided.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 5,
+      "source_dia_id": "D19:2"
+    },
+    {
+      "premise": "Tim: I bet that moment was unreal!",
+      "hypothesis": "The conversation does not say.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D12:9"
+    },
+    {
+      "premise": "Calvin: I take it one day at a time, but it can get overwhelming with so many demands.",
+      "hypothesis": "It is not stated.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 9,
+      "source_dia_id": "D25:4"
+    },
+    {
+      "premise": "Jolene: Be safe and I'm excited for our coffee date!",
+      "hypothesis": "Not enough information.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 7,
+      "source_dia_id": "D26:20"
+    },
+    {
+      "premise": "John: I love learning about different cultures.",
+      "hypothesis": "I am not sure.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 4,
+      "source_dia_id": "D21:2"
+    },
+    {
+      "premise": "Caroline: I bet they bring lots of joy.",
+      "hypothesis": "Not specified in the conversation.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 0,
+      "source_dia_id": "D18:6"
+    },
+    {
+      "premise": "Joanna: I chose to write about this because it's really personal.",
+      "hypothesis": "I don't know.",
+      "gold_label": "neutral",
+      "kind": "neutral_idk",
+      "rule": "idk-answer-vs-real-dialogue",
+      "source_qa_idx": -1,
+      "source_conv_idx": 3,
+      "source_dia_id": "D12:14"
+    }
+  ]
+}

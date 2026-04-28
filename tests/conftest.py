@@ -49,6 +49,19 @@ def _disable_contradiction_detector_in_tests(monkeypatch):
     yield
 
 
+@pytest.fixture(autouse=True)
+def _disable_async_enrichment_in_tests(monkeypatch):
+    """v11.0: fast mode default flips MEMORY_ASYNC_ENRICHMENT=true. The
+    background worker thread it spawns races with `db.close()` during
+    pytest teardown and produces 'Cannot operate on a closed database'
+    errors plus occasional 'sqlite3 not an error' on subsequent fixture
+    setups. Tests that need the worker (test_async_enrichment, the v11
+    eval suite) explicitly opt in via monkeypatch.setenv inside the
+    test."""
+    monkeypatch.setenv("MEMORY_ASYNC_ENRICHMENT", "false")
+    yield
+
+
 @pytest.fixture
 def db():
     """In-memory SQLite database with all v5 tables."""

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  com.claude-memory.consolidation.plist — macOS launchd template.
+
+  Replace the {{...}} placeholders with absolute paths before installing.
+  Then:
+
+      mkdir -p ~/Library/Logs/claude-memory
+      cp scripts/com.claude-memory.consolidation.plist \
+         ~/Library/LaunchAgents/com.claude-memory.consolidation.plist
+      launchctl unload ~/Library/LaunchAgents/com.claude-memory.consolidation.plist 2>/dev/null
+      launchctl load   ~/Library/LaunchAgents/com.claude-memory.consolidation.plist
+
+  Inspect:
+      launchctl list | grep com.claude-memory.consolidation
+      tail -f ~/Library/Logs/claude-memory/consolidation.err.log
+
+  Uninstall:
+      launchctl unload ~/Library/LaunchAgents/com.claude-memory.consolidation.plist
+
+  Placeholders:
+      {{HOME}}                — absolute path to user home, e.g. /Users/alice
+      {{REPO}}                — absolute path to claude-memory-server checkout
+      {{PYTHON}}              — absolute path to the venv python, e.g. {{REPO}}/.venv/bin/python
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.claude-memory.consolidation</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>{{PYTHON}}</string>
+      <string>{{REPO}}/bin/consolidation-daemon</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>MEMORY_DB_PATH</key>
+      <string>{{HOME}}/.claude-memory/memory.db</string>
+      <key>LOG_LEVEL</key>
+      <string>INFO</string>
+      <key>PYTHONPATH</key>
+      <string>{{REPO}}/src</string>
+    </dict>
+
+    <key>WorkingDirectory</key>
+    <string>{{REPO}}</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+      <key>SuccessfulExit</key>
+      <false/>
+      <key>Crashed</key>
+      <true/>
+    </dict>
+
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>Nice</key>
+    <integer>5</integer>
+
+    <key>StandardOutPath</key>
+    <string>{{HOME}}/Library/Logs/claude-memory/consolidation.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>{{HOME}}/Library/Logs/claude-memory/consolidation.err.log</string>
+  </dict>
+</plist>

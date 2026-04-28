@@ -4,6 +4,102 @@ All notable changes to total-agent-memory are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and versions use [Semantic Versioning](https://semver.org/).
 
+## [11.0.0] — 2026-04-28 — Production Memory Engine + LoCoMo SOTA
+
+**Headline:** LoCoMo benchmark **0.705 overall** (1986 QA, gpt-4o gen + gpt-4o-mini judge). Position **#5** on the public leaderboard — above Mem0 (0.669) and v9-ensemble3 internal best (0.696). Temporal **0.654** (+39pp vs v9 paper-method baseline). R@5 (no-adv) **0.673**. See `docs/v11/RELEASE-FINAL-2026-04-28.md` for full breakdown.
+
+### Architecture (Wave 1 + Wave 2, ~5k LOC, ~460 new tests)
+
+**Memory Core** (`src/memory_core/*`) — deterministic facades, no LLM in hot path:
+
+- `episodes/{schema,extractor,retriever}.py` — Episode layer (when, who, where, what, why, outcome). Wired as **Tier 6** in `Recall._search_impl()` RRF fusion.
+- `temporal/{allen,normalizer,arithmetic}.py` — Allen's 13 interval relations, 65 composition pairs, en+ru date normalisation, calendar-aware arithmetic.
+- `entity_resolver.py` — Cross-session canonical entity resolution (NFKD unicode, multilingual pronoun guard, embedding fallback).
+- `idk_router.py` — Threshold-based answer routing (Protocol-typed, layer-wall-safe).
+- `negative_retrieval.py` — Active contradiction search for adversarial questions.
+- `calibration.py` + `answer_router.py` — Platt-scaled retrieval scores, per-category routing, ECE 0.046 on validation fixture.
+
+**AI Layer** (`src/ai_layer/*`) — LLM-touching modules, hot-path forbidden:
+
+- `iterative_retriever.py` — IRCoT-style iterative retrieval on top of `query_rewriter`.
+- `answerability.py` — Permissive answerability classifier (Haiku, JSON contract).
+- `verifier.py` — Local NLI verifier (mDeBERTa-v3-base-xnli-multilingual, 270MB, p95 11.9ms on MPS). **Calibrated thresholds** (`p_entail=0.65, p_contradict=0.40`) loaded from `~/.claude-memory/nli_calibration.json`.
+
+**Workers** (`src/workers/*`) — out-of-band consolidation:
+
+- `consolidation_daemon.py` + `bin/consolidation-daemon` + macOS launchd plist — 24/7 idle-project consolidation. Picks oldest idle project, advisory TTL lock, pauses when project becomes active. Per-project budget 600s.
+
+### Bench (`benchmarks/locomo_bench_llm.py`)
+
+- `--v11-pipeline` — Post-processor: NLI veto + answerability + calibrated routing.
+- `--v11-skip-nli` — Skip NLI model load (270MB).
+- `--ce-rerank` now supports `V9_RERANKER_BACKEND=bge-v2-m3` (BAAI/bge-reranker-v2-m3, multilingual).
+- Recall metric fix — case-insensitive dialog-id matching (`canonical_tags` lowercases tags; gold evidence keeps case).
+
+### Existing v11 hot-path features (carried over from earlier 11.0 work)
+
+- 4 modes: `ultrafast` / `fast` / `balanced` / `deep`. Default `fast` — zero LLM/network in save/search/recall hot path.
+- Silent Ollama fallback in `Store.embed` GATED — `MEMORY_ALLOW_OLLAMA_IN_HOT_PATH=true` to re-enable.
+- Multi-embedding-space contract: every vector row records `embedding_provider/model/dimension/space/content_type/language`. Spaces: `text` / `code` / `log` / `config`.
+
+### New MCP tools
+
+- `memory_recall_iterative` — IRCoT search.
+- `memory_temporal_query` — Allen relations + duration arithmetic + date normalisation.
+- `memory_entity_resolve` — Cross-session canonical lookup.
+- `memory_consolidate_status` — Daemon state + recent activity.
+- (carried) `memory_save_fast`, `memory_search_fast`, `memory_explain_search`, `memory_warmup`, `memory_perf_report`, `memory_rebuild_fts`, `memory_rebuild_embeddings`, `memory_eval_*`.
+
+### Embeddings
+
+- OpenAI `text-embedding-3-large` (3072d, l2-normalised) supported via `MEMORY_EMBED_PROVIDER=openai MEMORY_EMBED_MODEL=text-embedding-3-large`. `scripts/reembed.py --provider openai --model text-embedding-3-large` re-encodes with cost preview.
+
+### Few-shot
+
+- `benchmarks/data/locomo_few_shot_v3.json` — 75 LoCoMo-derived pairs (15×5 categories), deterministic seed=42, md5=`29258307fdfb6a33c2668298a515fe65`.
+
+### Migrations
+
+- `023_episodes.sql` — `episodes_v11` + `episode_facts` + FTS mirror.
+- `024_entity_aliases.sql` — `canonical_entities` + `entity_aliases` (UNIQUE on `(project, type, name_norm)`).
+- `025_consolidation_state.sql` — `project_activity` + `consolidation_state`.
+
+All idempotent.
+
+### Layer separation
+
+`tests/test_v11_layer_separation.py` — AST walks `src/memory_core/`; fails on any `import ai_layer`. Communication is via Protocol structural typing and dataclass parameters.
+
+### Configuration knobs
+
+| Env var | Default | Purpose |
+|---|---|---|
+| `MEMORY_MODE` | `fast` | `ultrafast`/`fast`/`balanced`/`deep`. |
+| `MEMORY_EPISODE_TIER` | `true` | Enable episode-tier in Recall RRF. |
+| `MEMORY_EMBED_PROVIDER` | `fastembed` | Set to `openai` for text-embedding-3-large. |
+| `MEMORY_EMBED_MODEL` | depends | OpenAI model name when provider is OpenAI. |
+| `V9_RERANKER_BACKEND` | `ce-marco` | `bge-v2-m3` selects multilingual BGE reranker. |
+| `V11_PIPELINE` | `0` | When `1`, bench applies post-processor (NLI veto + router). |
+| `V11_SKIP_NLI` | `0` | When `1`, skip NLI verifier in v11 pipeline. |
+
+### Known regressions vs v9 paper-method baseline
+
+- **multi-hop −10.4pp** in the unenhanced v11 stack (W4 v2). Disappears with the D146 (text-embedding-3-large + BGE + few-shot v3) stack — multi-hop returns to **+15.7pp** vs v9-ensemble3.
+- **single-hop −5pp** vs v9-ensemble3 with `--query-rewrite` enabled (qrw favours retrieval over precision on single-hop). Trade-off with overall +0.9pp gain.
+
+### Hot-path performance (warm, in-memory SQLite, M-series)
+
+| metric              |   p50 |   p95 |   p99 |
+|---------------------|------:|------:|------:|
+| save_fast           |  6.2  |  8.9  | 11.4  |
+| save_fast (cached)  |  0.3  |  0.4  |  1.4  |
+| search_fast         |  3.4  |  4.7  |  6.0  |
+| cached_search       |  3.1  |  3.4  |  3.6  |
+
+`llm_calls = 0`, `network_calls = 0` in the deterministic hot path.
+
+**Migration**: see [`docs/v11/MIGRATION-FROM-V10.md`](docs/v11/MIGRATION-FROM-V10.md). Architecture audit: [`docs/v11/audit.md`](docs/v11/audit.md). LoCoMo final report: [`docs/v11/RELEASE-FINAL-2026-04-28.md`](docs/v11/RELEASE-FINAL-2026-04-28.md). NLI calibration: [`benchmarks/results/nli-calibration-report.md`](benchmarks/results/nli-calibration-report.md). Failure analysis: [`benchmarks/results/baseline-failure-analysis.md`](benchmarks/results/baseline-failure-analysis.md).
+
 ## [10.5.0] — 2026-04-27
 
 Universal skill, 9-IDE installer, cross-platform hardening, sub-agent protocol, and a fresh latency benchmark proving the v10.1 async worker delivers an **80× p95 reduction** on `memory_save`.

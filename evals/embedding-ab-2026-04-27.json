@@ -1,0 +1,45 @@
+{
+  "date": "2026-04-27",
+  "dataset": "/Users/vitalii-macpro/claude-memory-server/benchmarks/data/longmemeval_s_cleaned.json",
+  "sample": 30,
+  "stratified": false,
+  "k": [
+    1,
+    5,
+    10
+  ],
+  "backends": [
+    {
+      "backend": "fastembed",
+      "model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+      "available": true,
+      "recall": {
+        "r@1": 0.8333333333333334,
+        "r@5": 0.8666666666666667,
+        "r@10": 0.9
+      },
+      "latency_ms": {
+        "mean": 748.1747627258301,
+        "p50": 710.2820873260498,
+        "p95": 1031.3279628753662
+      },
+      "n": 30
+    },
+    {
+      "backend": "e5-large",
+      "model": "intfloat/multilingual-e5-large",
+      "available": true,
+      "recall": {
+        "r@1": 0.9,
+        "r@5": 0.9333333333333333,
+        "r@10": 0.9666666666666667
+      },
+      "latency_ms": {
+        "mean": 34519.43301359812,
+        "p50": 33943.2270526886,
+        "p95": 40406.824350357056
+      },
+      "n": 30
+    }
+  ]
+}

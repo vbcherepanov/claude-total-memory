@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+"""consolidation-daemon — v11 W2-G entrypoint.
+
+Runs the idle-project consolidation worker forever.
+
+Usage:
+    consolidation-daemon [--db PATH] [--poll N] [--idle N] [--cooldown N]
+                         [--budget N]
+
+Environment:
+    MEMORY_DB_PATH      Override DB location (default: ~/.claude-memory/memory.db)
+    LOG_LEVEL           Python logging level (default: INFO)
+
+Logs JSON to stderr. Handles SIGTERM/SIGINT for clean shutdown.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import os
+import signal
+import sys
+import threading
+from pathlib import Path
+
+# Make src/ importable when invoked from a checkout.
+_HERE = Path(__file__).resolve().parent
+_SRC = _HERE.parent / "src"
+if _SRC.is_dir() and str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
+
+from workers.consolidation_daemon import run_daemon  # noqa: E402
+
+
+_DEFAULT_DB = os.environ.get(
+    "MEMORY_DB_PATH",
+    str(Path.home() / ".claude-memory" / "memory.db"),
+)
+
+
+class _JsonFormatter(logging.Formatter):
+    """Minimal JSON-line formatter — one record per line on stderr."""
+
+    def format(self, record: logging.LogRecord) -> str:  # noqa: D401
+        payload = {
+            "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S%z"),
+            "level": record.levelname,
+            "logger": record.name,
+            "msg": record.getMessage(),
+        }
+        for key, val in record.__dict__.items():
+            if key in payload:
+                continue
+            if key in (
+                "name", "msg", "args", "levelname", "levelno", "pathname",
+                "filename", "module", "exc_info", "exc_text", "stack_info",
+                "lineno", "funcName", "created", "msecs", "relativeCreated",
+                "thread", "threadName", "processName", "process", "message",
+                "asctime", "taskName",
+            ):
+                continue
+            try:
+                json.dumps(val)
+                payload[key] = val
+            except (TypeError, ValueError):
+                payload[key] = repr(val)
+        if record.exc_info:
+            payload["exc"] = self.formatException(record.exc_info)
+        return json.dumps(payload, ensure_ascii=False)
+
+
+def _setup_logging() -> None:
+    level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
+    level = getattr(logging, level_name, logging.INFO)
+    root = logging.getLogger()
+    root.setLevel(level)
+    handler = logging.StreamHandler(stream=sys.stderr)
+    handler.setFormatter(_JsonFormatter())
+    # Replace any prior handlers — we want ONE clean JSON stream.
+    root.handlers[:] = [handler]
+
+
+def _parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="consolidation-daemon",
+        description="Idle-project memory consolidation worker (v11 W2-G).",
+    )
+    parser.add_argument("--db", default=_DEFAULT_DB, help="SQLite DB path")
+    parser.add_argument("--poll", type=int, default=60, help="Poll interval seconds")
+    parser.add_argument("--idle", type=int, default=1800, help="Idle threshold seconds")
+    parser.add_argument(
+        "--cooldown", type=int, default=21600,
+        help="Min seconds between consolidations of the same project",
+    )
+    parser.add_argument(
+        "--budget", type=int, default=600,
+        help="Per-run budget seconds (also caps the lock TTL)",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv if argv is not None else sys.argv[1:])
+    _setup_logging()
+
+    db_path = args.db
+    if not Path(db_path).exists():
+        logging.error("db_not_found", extra={"path": db_path})
+        return 2
+
+    stop_event = threading.Event()
+
+    def _shutdown(signum: int, _frame) -> None:
+        logging.info("shutdown_signal", extra={"signal": signum})
+        stop_event.set()
+
+    signal.signal(signal.SIGTERM, _shutdown)
+    signal.signal(signal.SIGINT, _shutdown)
+
+    logging.info(
+        "daemon_start",
+        extra={
+            "db": db_path,
+            "poll": args.poll,
+            "idle": args.idle,
+            "cooldown": args.cooldown,
+            "budget": args.budget,
+        },
+    )
+
+    try:
+        run_daemon(
+            db_path=db_path,
+            poll_interval_seconds=args.poll,
+            idle_seconds=args.idle,
+            consolidate_cooldown_seconds=args.cooldown,
+            budget_seconds=args.budget,
+            stop_event=stop_event,
+        )
+    except Exception:  # noqa: BLE001 — log+exit, no surprises
+        logging.exception("daemon_crashed")
+        return 1
+
+    logging.info("daemon_stopped_clean")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

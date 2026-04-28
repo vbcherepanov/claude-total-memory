@@ -1,0 +1,365 @@
+[
+  {
+    "id": "yes-01",
+    "category": "clear_yes",
+    "q": "What is Alice's favorite color?",
+    "e": ["Alice told Bob her favorite color is teal."],
+    "expect": {"answerable": true, "partial": false, "min_confidence": 0.7}
+  },
+  {
+    "id": "yes-02",
+    "category": "clear_yes",
+    "q": "Where did Maria go on vacation last July?",
+    "e": ["Maria spent two weeks in Lisbon in July 2024.", "She sent postcards from Lisbon to her grandmother."],
+    "expect": {"answerable": true, "partial": false, "min_confidence": 0.7}
+  },
+  {
+    "id": "yes-03",
+    "category": "clear_yes",
+    "q": "Which programming language did the team pick for the new service?",
+    "e": ["After a two-day debate the team chose Go for the new payments service."],
+    "expect": {"answerable": true, "partial": false, "min_confidence": 0.7}
+  },
+  {
+    "id": "yes-04",
+    "category": "clear_yes",
+    "q": "How many siblings does Daniel have?",
+    "e": ["Daniel has two siblings: an older sister Lena and a younger brother Mark."],
+    "expect": {"answerable": true, "partial": false, "min_confidence": 0.7}
+  },
+  {
+    "id": "yes-05",
+    "category": "clear_yes",
+    "q": "What is the capital city mentioned for Estonia in the user's notes?",
+    "e": ["The user noted that Tallinn is the capital city of Estonia and a tech hub."],
+    "expect": {"answerable": true, "partial": false, "min_confidence": 0.7}
+  },
+  {
+    "id": "yes-06",
+    "category": "clear_yes",
+    "q": "What did Sarah have for breakfast on Monday?",
+    "e": ["Sarah's diary entry for Monday: porridge with blueberries and a black coffee."],
+    "expect": {"answerable": true, "partial": false, "min_confidence": 0.7}
+  },
+  {
+    "id": "yes-07",
+    "category": "clear_yes",
+    "q": "When was the production database migration completed?",
+    "e": ["Migration log: production database upgraded from PG14 to PG18 on 2026-03-12 at 02:14 UTC."],
+    "expect": {"answerable": true, "partial": false, "min_confidence": 0.7}
+  },
+  {
+    "id": "yes-08",
+    "category": "clear_yes",
+    "q": "What is the dog's name?",
+    "e": ["My dog Biscuit is a four-year-old beagle."],
+    "expect": {"answerable": true, "partial": false, "min_confidence": 0.7}
+  },
+  {
+    "id": "yes-09",
+    "category": "clear_yes",
+    "q": "Which cloud provider hosts the staging environment?",
+    "e": ["Staging runs on AWS eu-west-1; production runs on GCP europe-west4."],
+    "expect": {"answerable": true, "partial": false, "min_confidence": 0.7}
+  },
+  {
+    "id": "yes-10",
+    "category": "clear_yes",
+    "q": "What grade did Tom get in calculus?",
+    "e": ["Tom finished the semester with an A- in calculus and a B+ in linear algebra."],
+    "expect": {"answerable": true, "partial": false, "min_confidence": 0.7}
+  },
+
+  {
+    "id": "no-01",
+    "category": "clear_no",
+    "q": "What is Alice's favorite color?",
+    "e": [],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "no-02",
+    "category": "clear_no",
+    "q": "When did Maria visit Brazil?",
+    "e": ["Maria spent two weeks in Lisbon in July 2024."],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "no-03",
+    "category": "clear_no",
+    "q": "Where does Carlos work?",
+    "e": ["The weather forecast for tomorrow predicts rain in Madrid."],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "no-04",
+    "category": "clear_no",
+    "q": "What is the SSH port used for the bastion host?",
+    "e": ["The team uses Slack and Notion for daily standups."],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "no-05",
+    "category": "clear_no",
+    "q": "How many children does Olga have?",
+    "e": [""],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "no-06",
+    "category": "clear_no",
+    "q": "What is the user's blood type?",
+    "e": ["The user enjoys cycling on weekends and reads sci-fi."],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "no-07",
+    "category": "clear_no",
+    "q": "Which version of Kubernetes runs in prod?",
+    "e": ["The CI pipeline uses GitHub Actions with three runners."],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "no-08",
+    "category": "clear_no",
+    "q": "What is the user's mother's maiden name?",
+    "e": ["The user has a brother named Ilya living in Berlin."],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "no-09",
+    "category": "clear_no",
+    "q": "Where did the team go for the offsite?",
+    "e": ["The next offsite is being planned for Q3."],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "no-10",
+    "category": "clear_no",
+    "q": "What is Anna's home address?",
+    "e": [],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+
+  {
+    "id": "partial-01",
+    "category": "partial",
+    "q": "What did Maria do in July 2024 and where?",
+    "e": ["Maria spent two weeks somewhere in Portugal in July 2024."],
+    "expect": {"answerable": false, "partial": true, "min_confidence": 0.4}
+  },
+  {
+    "id": "partial-02",
+    "category": "partial",
+    "q": "When and at what time did the migration finish?",
+    "e": ["The PG18 migration completed last Tuesday."],
+    "expect": {"answerable": false, "partial": true, "min_confidence": 0.4}
+  },
+  {
+    "id": "partial-03",
+    "category": "partial",
+    "q": "What language did the team pick and why?",
+    "e": ["After a debate the team picked Go for the new service."],
+    "expect": {"answerable": false, "partial": true, "min_confidence": 0.4}
+  },
+  {
+    "id": "partial-04",
+    "category": "partial",
+    "q": "How many siblings does Daniel have and what are their names?",
+    "e": ["Daniel has siblings; his older sister is Lena."],
+    "expect": {"answerable": false, "partial": true, "min_confidence": 0.4}
+  },
+  {
+    "id": "partial-05",
+    "category": "partial",
+    "q": "Which cloud provider and region hosts production?",
+    "e": ["Production runs on GCP."],
+    "expect": {"answerable": false, "partial": true, "min_confidence": 0.4}
+  },
+  {
+    "id": "partial-06",
+    "category": "partial",
+    "q": "What grade did Tom get in calculus and linear algebra?",
+    "e": ["Tom got an A- in calculus this semester."],
+    "expect": {"answerable": false, "partial": true, "min_confidence": 0.4}
+  },
+  {
+    "id": "partial-07",
+    "category": "partial",
+    "q": "What is the dog's name and breed?",
+    "e": ["The user has a dog named Biscuit."],
+    "expect": {"answerable": false, "partial": true, "min_confidence": 0.4}
+  },
+  {
+    "id": "partial-08",
+    "category": "partial",
+    "q": "When was the contract signed and by whom?",
+    "e": ["The contract was signed on 2025-09-30."],
+    "expect": {"answerable": false, "partial": true, "min_confidence": 0.4}
+  },
+  {
+    "id": "partial-09",
+    "category": "partial",
+    "q": "What is the user's salary and currency?",
+    "e": ["The user reported earning 90 last year."],
+    "expect": {"answerable": false, "partial": true, "min_confidence": 0.4}
+  },
+  {
+    "id": "partial-10",
+    "category": "partial",
+    "q": "Where did Sarah travel and with whom?",
+    "e": ["Sarah travelled to Iceland for a photography trip."],
+    "expect": {"answerable": false, "partial": true, "min_confidence": 0.4}
+  },
+
+  {
+    "id": "adv-01",
+    "category": "adversarial",
+    "q": "What color is Alice's car?",
+    "e": ["Alice told Bob her favorite color is teal."],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "adv-02",
+    "category": "adversarial",
+    "q": "Where does Lisa live?",
+    "e": ["Maria lives in Lisbon and works as a chef."],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "adv-03",
+    "category": "adversarial",
+    "q": "What grade did Tom get in physics?",
+    "e": ["Tom finished the semester with an A- in calculus and a B+ in linear algebra."],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "adv-04",
+    "category": "adversarial",
+    "q": "What is the staging database's password?",
+    "e": ["The staging environment uses Postgres 18 on AWS eu-west-1."],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "adv-05",
+    "category": "adversarial",
+    "q": "When did Daniel get married?",
+    "e": ["Daniel has two siblings: an older sister Lena and a younger brother Mark."],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "adv-06",
+    "category": "adversarial",
+    "q": "What is the capital of Latvia in the notes?",
+    "e": ["The user noted that Tallinn is the capital city of Estonia and a tech hub."],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "adv-07",
+    "category": "adversarial",
+    "q": "What did Sarah have for dinner on Monday?",
+    "e": ["Sarah's diary entry for Monday: porridge with blueberries and a black coffee."],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "adv-08",
+    "category": "adversarial",
+    "q": "When was the staging database migration completed?",
+    "e": ["Migration log: production database upgraded from PG14 to PG18 on 2026-03-12 at 02:14 UTC."],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "adv-09",
+    "category": "adversarial",
+    "q": "What is the cat's name?",
+    "e": ["My dog Biscuit is a four-year-old beagle."],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "adv-10",
+    "category": "adversarial",
+    "q": "Which region hosts the disaster-recovery copy?",
+    "e": ["Staging runs on AWS eu-west-1; production runs on GCP europe-west4."],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+
+  {
+    "id": "edge-01",
+    "category": "edge_short",
+    "q": "Name?",
+    "e": ["Her name is Ada."],
+    "expect": {"answerable": true, "partial": false, "min_confidence": 0.6}
+  },
+  {
+    "id": "edge-02",
+    "category": "edge_short",
+    "q": "Age?",
+    "e": ["She is 7."],
+    "expect": {"answerable": true, "partial": false, "min_confidence": 0.6}
+  },
+  {
+    "id": "edge-03",
+    "category": "edge_long",
+    "q": "What is the user's favorite cuisine?",
+    "e": [
+      "The user filled in a long onboarding form. They selected hobbies including cycling, photography, mountain hiking, board games and amateur astronomy. They mentioned that on weekends they like to cook elaborate dinners for friends and that the cuisine they enjoy preparing the most is Northern Italian, especially risotto and braised meats. They also like Thai and Vietnamese food when eating out, but the cooking part is firmly Northern Italian.",
+      "Travel preferences: the user prefers slow travel by train, has been to 14 European countries, owns three sourdough starters and a pasta machine."
+    ],
+    "expect": {"answerable": true, "partial": false, "min_confidence": 0.6}
+  },
+  {
+    "id": "edge-04",
+    "category": "edge_long",
+    "q": "Which board game did the user buy at the convention?",
+    "e": [
+      "The user filled in a long onboarding form. They selected hobbies including cycling, photography, mountain hiking, board games and amateur astronomy. They mentioned that on weekends they like to cook elaborate dinners for friends and that the cuisine they enjoy preparing the most is Northern Italian, especially risotto and braised meats. They also like Thai and Vietnamese food when eating out, but the cooking part is firmly Northern Italian.",
+      "Travel preferences: the user prefers slow travel by train, has been to 14 European countries, owns three sourdough starters and a pasta machine."
+    ],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "edge-05",
+    "category": "edge_multilingual",
+    "q": "Quelle est la couleur préférée d'Alice ?",
+    "e": ["Alice told Bob her favorite color is teal."],
+    "expect": {"answerable": true, "partial": false, "min_confidence": 0.6}
+  },
+  {
+    "id": "edge-06",
+    "category": "edge_multilingual",
+    "q": "Какой любимый цвет у Алисы?",
+    "e": ["Алиса сказала Бобу, что её любимый цвет — бирюзовый."],
+    "expect": {"answerable": true, "partial": false, "min_confidence": 0.6}
+  },
+  {
+    "id": "edge-07",
+    "category": "edge_multilingual",
+    "q": "Где живёт Мария?",
+    "e": ["Maria lives in Lisbon and works as a chef."],
+    "expect": {"answerable": true, "partial": false, "min_confidence": 0.6}
+  },
+  {
+    "id": "edge-08",
+    "category": "edge_short",
+    "q": "Capital?",
+    "e": ["Tallinn is the capital city of Estonia."],
+    "expect": {"answerable": true, "partial": false, "min_confidence": 0.6}
+  },
+  {
+    "id": "edge-09",
+    "category": "edge_long",
+    "q": "What is the airbnb host's first name?",
+    "e": [
+      "The user wrote a long blog post about their stay in Porto. They described the apartment, the view of the Douro river, the bakery downstairs, and a long anecdote about a tram ride. They mentioned that the host left a handwritten note with restaurant recommendations and that the host had been very helpful, but the post never names the host.",
+      "Other entries from the same trip: photos of pastel de nata, a receipt from a tram ticket, and a postcard sent home."
+    ],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  },
+  {
+    "id": "edge-10",
+    "category": "edge_short",
+    "q": "?",
+    "e": ["Random snippet about coffee preferences."],
+    "expect": {"answerable": false, "partial": false, "min_confidence": 0.5}
+  }
+]

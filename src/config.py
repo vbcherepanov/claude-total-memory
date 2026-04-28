@@ -156,6 +156,14 @@ def detect_ollama() -> bool:
     if cached is not None:
         return bool(cached)
 
+    # v11 Phase 5 — defensive telemetry: any Ollama probe on the hot path is
+    # a fast-mode violation. The bench asserts this stays 0.
+    try:
+        from memory_core.telemetry import counters as _v11_counters
+        _v11_counters.bump("network_calls", 1.0)
+    except Exception:
+        pass
+
     url = f"{get_ollama_url().rstrip('/')}/api/tags"
     req = urllib.request.Request(url, method="GET")
     try:
@@ -604,3 +612,201 @@ def get_v9_reranker_use_fp16() -> bool:
     """fp16 compute for BGE rerankers — ~2x speed on Apple Silicon/CUDA, no acc loss."""
     raw = (os.environ.get("V9_RERANKER_FP16", "1") or "1").strip().lower()
     return raw in ("1", "true", "yes", "on")
+
+
+# ──────────────────────────────────────────────
+# v11.0 — MEMORY_MODE + breaking defaults
+# ──────────────────────────────────────────────
+#
+# v11 splits the system into a deterministic Memory Core (no LLM in the
+# hot path) and an asynchronous AI Layer (worker drains enrichment jobs).
+# `MEMORY_MODE` selects the runtime profile and derives sane defaults for
+# every legacy v10.x knob — so a fresh install is automatically fast.
+#
+#   ultrafast  FTS-only, no embeddings on save unless cached, save < 20 ms
+#   fast       (default) FastEmbed + FTS5 + vector + RRF, zero LLM, no Ollama
+#   balanced   fast hot path + async enrichment worker on
+#   deep       legacy v10.5 behaviour (sync quality_gate / contradiction /
+#              advanced RAG); reranker on
+#
+# Every derived flag uses `setdefault` so an explicit env override always
+# wins (escape hatch for power users).
+
+
+SUPPORTED_MEMORY_MODES = ("ultrafast", "fast", "balanced", "deep")
+
+
+def get_memory_mode() -> str:
+    """Resolved MEMORY_MODE (default fast). Always one of SUPPORTED_MEMORY_MODES."""
+    raw = (os.environ.get("MEMORY_MODE", "fast") or "fast").strip().lower()
+    if raw not in SUPPORTED_MEMORY_MODES:
+        return "fast"
+    return raw
+
+
+def use_llm_in_hot_path() -> bool:
+    raw = (os.environ.get("MEMORY_USE_LLM_IN_HOT_PATH", "false") or "false").strip().lower()
+    return raw in ("1", "true", "yes", "on")
+
+
+def allow_ollama_in_hot_path() -> bool:
+    raw = (os.environ.get("MEMORY_ALLOW_OLLAMA_IN_HOT_PATH", "false") or "false").strip().lower()
+    return raw in ("1", "true", "yes", "on")
+
+
+def is_rerank_enabled() -> bool:
+    raw = (os.environ.get("MEMORY_RERANK_ENABLED", "false") or "false").strip().lower()
+    return raw in ("1", "true", "yes", "on")
+
+
+def is_enrichment_enabled() -> bool:
+    raw = (os.environ.get("MEMORY_ENRICHMENT_ENABLED", "false") or "false").strip().lower()
+    return raw in ("1", "true", "yes", "on")
+
+
+# ──────────────────────────────────────────────
+# Per-space embedding model env vars (v11 §J multi-embedding-space)
+# ──────────────────────────────────────────────
+#
+# When a per-space model env var is empty, the row falls back to the TEXT
+# model but still records `embedding_space=<space>` so a future model swap
+# is a one-line config change, not an architecture migration.
+
+# v11.0 §J defaults: text + code get real per-space models out of the box;
+# log + config inherit the text model (still tagged with their own space).
+# The user can override any of these to a different FastEmbed model, an ST
+# model, or empty (= force fallback to the text model).
+_DEFAULT_TEXT_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"  # 384d, 0.22GB
+_DEFAULT_CODE_MODEL = "jinaai/jina-embeddings-v2-base-code"                          # 768d, 0.64GB
+
+
+def get_text_embed_model() -> str:
+    return (os.environ.get("MEMORY_TEXT_EMBED_MODEL") or _DEFAULT_TEXT_MODEL).strip()
+
+
+def get_code_embed_model() -> str:
+    """Default = jinaai/jina-embeddings-v2-base-code (FastEmbed-supported,
+    code-aware, 768d). Set to empty to force fallback to the text model
+    (the row still records `embedding_space=code`)."""
+    raw = os.environ.get("MEMORY_CODE_EMBED_MODEL")
+    if raw is None:
+        return _DEFAULT_CODE_MODEL
+    return raw.strip()  # empty string → caller falls back to text model
+
+
+def get_log_embed_model() -> str:
+    """Default empty → falls back to the text model (logs/stacktraces are
+    prose-shaped enough that a code embedder is the wrong tool)."""
+    return (os.environ.get("MEMORY_LOG_EMBED_MODEL", "") or "").strip()
+
+
+def get_config_embed_model() -> str:
+    """Default empty → falls back to the text model. Override to a code
+    model if you save large amounts of SQL / YAML / JSON snippets."""
+    return (os.environ.get("MEMORY_CONFIG_EMBED_MODEL", "") or "").strip()
+
+
+def get_default_embedding_space() -> str:
+    raw = (os.environ.get("MEMORY_DEFAULT_EMBEDDING_SPACE", "text") or "text").strip().lower()
+    return raw if raw in ("text", "code", "log", "config") else "text"
+
+
+# ──────────────────────────────────────────────
+# Mode → derived defaults
+# ──────────────────────────────────────────────
+
+
+_MODE_DEFAULTS: dict[str, dict[str, str]] = {
+    # Hot path = 0 LLM. Embeddings on save are cached or skipped.
+    "ultrafast": {
+        "MEMORY_QUALITY_GATE_ENABLED": "false",
+        "MEMORY_CONTRADICTION_DETECT_ENABLED": "false",
+        "MEMORY_ENTITY_DEDUP_ENABLED": "false",
+        "MEMORY_COREF_ENABLED": "false",
+        "USE_ADVANCED_RAG": "false",
+        "MEMORY_QUERY_REWRITE": "0",
+        "MEMORY_RERANK_ENABLED": "false",
+        "MEMORY_CROSS_ENCODER_ENABLED": "false",
+        "MEMORY_USE_LLM_IN_HOT_PATH": "false",
+        "MEMORY_ALLOW_OLLAMA_IN_HOT_PATH": "false",
+        "MEMORY_ENRICHMENT_ENABLED": "false",
+        "MEMORY_ASYNC_ENRICHMENT": "true",
+    },
+    # Hot path = 0 LLM. FastEmbed only. Async enrichment off by default
+    # (user opts in with MEMORY_ENRICHMENT_ENABLED=true to drain queues).
+    "fast": {
+        "MEMORY_QUALITY_GATE_ENABLED": "false",
+        "MEMORY_CONTRADICTION_DETECT_ENABLED": "false",
+        "MEMORY_ENTITY_DEDUP_ENABLED": "false",
+        "MEMORY_COREF_ENABLED": "false",
+        "USE_ADVANCED_RAG": "false",
+        "MEMORY_QUERY_REWRITE": "0",
+        "MEMORY_RERANK_ENABLED": "false",
+        "MEMORY_CROSS_ENCODER_ENABLED": "false",
+        "MEMORY_USE_LLM_IN_HOT_PATH": "false",
+        "MEMORY_ALLOW_OLLAMA_IN_HOT_PATH": "false",
+        "MEMORY_ENRICHMENT_ENABLED": "false",
+        "MEMORY_ASYNC_ENRICHMENT": "true",
+    },
+    # Same fast hot path, but async enrichment worker is on by default.
+    "balanced": {
+        "MEMORY_QUALITY_GATE_ENABLED": "false",
+        "MEMORY_CONTRADICTION_DETECT_ENABLED": "false",
+        "MEMORY_ENTITY_DEDUP_ENABLED": "false",
+        "MEMORY_COREF_ENABLED": "false",
+        "USE_ADVANCED_RAG": "false",
+        "MEMORY_QUERY_REWRITE": "0",
+        "MEMORY_RERANK_ENABLED": "false",
+        "MEMORY_CROSS_ENCODER_ENABLED": "false",
+        "MEMORY_USE_LLM_IN_HOT_PATH": "false",
+        "MEMORY_ALLOW_OLLAMA_IN_HOT_PATH": "true",
+        "MEMORY_ENRICHMENT_ENABLED": "true",
+        "MEMORY_ASYNC_ENRICHMENT": "true",
+    },
+    # Legacy v10.5 behaviour: sync quality gate / contradiction / advanced
+    # RAG / reranker. Slow but deepest semantic enrichment.
+    "deep": {
+        "MEMORY_QUALITY_GATE_ENABLED": "auto",
+        "MEMORY_CONTRADICTION_DETECT_ENABLED": "auto",
+        "MEMORY_ENTITY_DEDUP_ENABLED": "auto",
+        "MEMORY_COREF_ENABLED": "false",  # opt-in even in deep
+        "USE_ADVANCED_RAG": "auto",
+        "MEMORY_QUERY_REWRITE": "0",       # explicit opt-in (Anthropic API cost)
+        "MEMORY_RERANK_ENABLED": "true",
+        "MEMORY_CROSS_ENCODER_ENABLED": "true",
+        "MEMORY_USE_LLM_IN_HOT_PATH": "true",
+        "MEMORY_ALLOW_OLLAMA_IN_HOT_PATH": "true",
+        "MEMORY_ENRICHMENT_ENABLED": "true",
+        "MEMORY_ASYNC_ENRICHMENT": "false",
+    },
+}
+
+
+_mode_resolved = False
+
+
+def resolve_mode_defaults(force: bool = False) -> str:
+    """Apply MEMORY_MODE → derived env-var defaults. Idempotent.
+
+    Each derived value uses `setdefault`, so any flag the user already
+    exported wins. Call once at server startup BEFORE any module reads
+    `USE_ADVANCED_RAG` or similar at import time.
+
+    Returns the resolved mode name.
+    """
+    global _mode_resolved
+    if _mode_resolved and not force:
+        return get_memory_mode()
+    mode = get_memory_mode()
+    for key, value in _MODE_DEFAULTS[mode].items():
+        os.environ.setdefault(key, value)
+    os.environ.setdefault("MEMORY_MODE_RESOLVED", mode)
+    _mode_resolved = True
+    return mode
+
+
+def reset_mode_resolution() -> None:
+    """Test helper — clears the once-only guard so a new env can be applied."""
+    global _mode_resolved
+    _mode_resolved = False
+    os.environ.pop("MEMORY_MODE_RESOLVED", None)

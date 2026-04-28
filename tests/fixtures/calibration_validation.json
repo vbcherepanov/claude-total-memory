@@ -1,0 +1,1007 @@
+{
+  "_doc": "Synthetic calibration fixture for W2-I. Do NOT replace with LoCoMo eval data \u2014 that would leak signal. Distribution: labels ~ Bernoulli(0.5); raw_score ~ Beta(5,2) when label=1 else Beta(2,5); category sampled by LoCoMo proportions. Seed=42 for reproducibility.",
+  "seed": 42,
+  "n_examples": 200,
+  "examples": [
+    {
+      "raw_score": 0.7791811862817989,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.1075501516890335,
+      "label": 0,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.8109621960112938,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.155148468133512,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.7236511597107184,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.27694677133643997,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.11403221616395254,
+      "label": 0,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.14370033167751764,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.715763761688294,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.3953536941474424,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.3850629072082662,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.22819733188848898,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.5568291744371375,
+      "label": 0,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.2746747986035918,
+      "label": 0,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.8092530102567279,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.6911001510642015,
+      "label": 1,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.41305495459492536,
+      "label": 0,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.7621833146833962,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.3810416314921737,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.09624516671128004,
+      "label": 0,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.6650294339219894,
+      "label": 1,
+      "category": "temporal"
+    },
+    {
+      "raw_score": 0.7740108178182303,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.7918934479397194,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.2001837249836543,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.0688624480669468,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.11545706918358632,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.6994079083654556,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.0627588620931929,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.2768931445268666,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.21507759251873176,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.6645540733053519,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.34181741162646295,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.5096621494606223,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.9430904089754532,
+      "label": 1,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.14404881091320915,
+      "label": 0,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.7122402940213571,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.7609346125838885,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.2092531689413234,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.22723219833072195,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.6390705359263111,
+      "label": 1,
+      "category": "temporal"
+    },
+    {
+      "raw_score": 0.4260235778569221,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.7101747214549637,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.8578996664042653,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.801284197448807,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.024211150100058813,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.9457821500626037,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.09519518034429576,
+      "label": 0,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.7608650542535511,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.7544116998089822,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.23638582418496676,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.5912049948167846,
+      "label": 0,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.1029738940131403,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.8351244969286674,
+      "label": 1,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.7489549716721217,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.6675197169306427,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.5061225867589865,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.07379113253989329,
+      "label": 0,
+      "category": "temporal"
+    },
+    {
+      "raw_score": 0.2792455102080018,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.5933044321129625,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.6007117627335413,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.8068156107352968,
+      "label": 1,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.6597049021676493,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.5679260687512376,
+      "label": 1,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.5041279222933961,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.47944545178461967,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.3627638177620226,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.6631487223657221,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.31811832043162686,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.6071492616955931,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.8163422381037169,
+      "label": 0,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.9400697448772719,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.3031595755013486,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.1508663037082684,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.715133524882573,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.33338728049763183,
+      "label": 0,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.4951049575354117,
+      "label": 0,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.1865879150987219,
+      "label": 0,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.9049246608512083,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.8280410369904486,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.43936493523637893,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.5776763971830878,
+      "label": 0,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.7903170826018652,
+      "label": 1,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.8131576591014549,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.6431215661324552,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.850944880385041,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.28413911856577007,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.6677544964493587,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.706960714824372,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.871729242161458,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.2882937963512652,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.8005993115887174,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.7410894976242982,
+      "label": 1,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.44497450894557744,
+      "label": 0,
+      "category": "temporal"
+    },
+    {
+      "raw_score": 0.5568774544154433,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.9205467574254421,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.7223551287347595,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.0920068210431336,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.32544045492075485,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.8086136050725224,
+      "label": 1,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.6845813860195401,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.7959694798529803,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.20993742528359347,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.7274099637146977,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.31930888957767006,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.5838802780579713,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.8243491707436668,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.07220583011738618,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.048753934862178036,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.8041311823999198,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.5625508774715782,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.5816715818434404,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.15039642225472044,
+      "label": 0,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.22996502523130738,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.6019259297649886,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.7283004460881887,
+      "label": 1,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.5460573904366636,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.7636323707705682,
+      "label": 1,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.3684556185919061,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.7375319879147021,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.6824813564075242,
+      "label": 1,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.9393217430613638,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.3666980040518771,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.44536070784265375,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.29308613523618826,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.7390380308380358,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.20058075434801959,
+      "label": 0,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.6331075876549869,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.7657520227179745,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.22060390323195952,
+      "label": 0,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.9665102776321134,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.5616532716538138,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.5338992859997724,
+      "label": 1,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.37179900257339615,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.08214369341772772,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.03785541272663455,
+      "label": 0,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.5203839346604484,
+      "label": 0,
+      "category": "temporal"
+    },
+    {
+      "raw_score": 0.694537164141622,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.043690565650991046,
+      "label": 0,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.48283651890938145,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.6955138242919294,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.714174649219606,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.7376985365695184,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.9064928211868573,
+      "label": 1,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.3328987827723627,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.91967598762652,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.8526044633603925,
+      "label": 1,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.16164436387812336,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.7861800795119955,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.8841467564596913,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.8425591556636023,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.6780510172169881,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.7285095875611655,
+      "label": 1,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.44366987698579063,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.04698196038387543,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.9037871747153211,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.4116392127758513,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.2771415536873117,
+      "label": 0,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.9443757480037503,
+      "label": 1,
+      "category": "temporal"
+    },
+    {
+      "raw_score": 0.7711567559929811,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.26678694807589515,
+      "label": 0,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.209620241510499,
+      "label": 0,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.6311805016031011,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.04586402764220943,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.5890398527058271,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.8197558163942488,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.1735163242259453,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.1395591256070858,
+      "label": 0,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.5114374106754433,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.15643366785695384,
+      "label": 0,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.644532697389038,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.9630155992887808,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.2971845333157523,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.22829932585501775,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.7831361648627273,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.687315186841316,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.2758720885923994,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.4386447037542905,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.558368436377702,
+      "label": 1,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.7642080005277883,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.16319623835505662,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.8835914200801497,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.6240880912861811,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.7106796055841099,
+      "label": 1,
+      "category": "temporal"
+    },
+    {
+      "raw_score": 0.16086339536546637,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.6074115923737329,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.8823071136082133,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.3547341289523868,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.12562663453799972,
+      "label": 0,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.7902831002346344,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.6747113961878183,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.5815940609214156,
+      "label": 1,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.7735004726113678,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.503870244323508,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.3716841258504641,
+      "label": 0,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.3514774083421891,
+      "label": 0,
+      "category": "adversarial"
+    },
+    {
+      "raw_score": 0.5495795922515923,
+      "label": 1,
+      "category": "open-domain"
+    },
+    {
+      "raw_score": 0.28252440790373773,
+      "label": 0,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.6611339451102518,
+      "label": 1,
+      "category": "multi-hop"
+    },
+    {
+      "raw_score": 0.886223442430303,
+      "label": 1,
+      "category": "single-hop"
+    },
+    {
+      "raw_score": 0.888755352962005,
+      "label": 1,
+      "category": "multi-hop"
+    }
+  ]
+}

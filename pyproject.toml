@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "claude-total-memory"
-version = "10.5.0"
+version = "11.0.0"
 description = "total-agent-memory — persistent memory MCP server for Claude Code & Codex CLI: 46 tools — knowledge graph, temporal facts, procedural memory, episodic memory, AST ingest, pre-edit guard, auto-consolidating error capture"
 readme = "README.md"
 license = "MIT"
@@ -28,6 +28,12 @@ dependencies = [
     "mcp[cli]>=1.0.0",
     "chromadb>=0.4.0",
     "sentence-transformers>=2.2.0",
+    "transformers>=4.40",
+    # v11 D4 LoCoMo — BAAI/bge-reranker-v2-m3 multilingual reranker.
+    # Optional at runtime (sentence-transformers CrossEncoder is preferred
+    # loader) but required for the FlagReranker fallback path.
+    "FlagEmbedding>=1.2.10",
+    "peft>=0.7.0",
 ]
 
 [project.urls]
@@ -43,3 +49,8 @@ lookup-memory = "claude_total_memory.lookup:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["claude_total_memory*"]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: heavy tests (network/model download); set RUN_RERANKER_SLOW=1 to enable",
+]

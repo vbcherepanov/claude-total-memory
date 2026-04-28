@@ -269,3 +269,38 @@ For important, long-lived knowledge, use `memory_save` instead.
 ## Web Dashboard
 
 Open http://localhost:37737 to browse knowledge, sessions, the knowledge graph, and live activity feed.
+
+---
+
+## v11.0 — fast hot path & new tools
+
+The default mode in v11.0 is **`MEMORY_MODE=fast`**: zero LLM, zero Ollama, zero network in the save/search/recall hot path. Use it as-is for normal coding-agent loops.
+
+**New tools you should know about:**
+
+- `memory_save_fast(...)` — same surface as `memory_save`, but always uses the fast deterministic path regardless of mode. Use when latency matters more than enrichment.
+- `memory_search_fast(query, ...)` — same as `memory_recall`, fast path only.
+- `memory_explain_search(query, ...)` — returns per-stage timings + candidate counts + which `embedding_space` filter was applied. Use to debug ranking surprises.
+- `memory_warmup()` — pre-loads FastEmbed model and caches into RAM. Call once at session start to remove cold-start variance.
+- `memory_rebuild_fts()` — rebuild SQLite FTS5 index after a bulk import.
+- `memory_rebuild_embeddings(space="code")` — re-encode a single embedding space. Run after swapping `MEMORY_CODE_EMBED_MODEL` / `MEMORY_LOG_EMBED_MODEL` / `MEMORY_CONFIG_EMBED_MODEL`.
+- `memory_perf_report()` — current p50/p95/p99 + `llm_calls` + `network_calls` counters.
+- `memory_eval_locomo`, `memory_eval_recall`, `memory_eval_temporal`, `memory_eval_entity_consistency`, `memory_eval_contradictions`, `memory_eval_long_context` — wired-in evaluator tools, no external scripts needed.
+
+**Multi-embedding-space contract:**
+
+Every vector row records `embedding_space` = `text` | `code` | `log` | `config`. When you save code or logs, the classifier picks the correct space automatically — no extra parameter required. If you want to scope a search to a single space:
+
+```
+memory_recall(query="auth middleware", embedding_space="code", project="my-project")
+```
+
+If `MEMORY_CODE_EMBED_MODEL` / `MEMORY_LOG_EMBED_MODEL` / `MEMORY_CONFIG_EMBED_MODEL` are empty (default), the row still records the space but is encoded with the TEXT model. A future model swap is one env-var change plus a `memory_rebuild_embeddings(space=...)` call — no code changes needed.
+
+If you depended on v10.5 synchronous LLM behaviour (quality gate / contradiction detector / coref) before INSERT, restore it via:
+
+```bash
+export MEMORY_MODE=deep
+```
+
+Migration from v10: see `docs/v11/MIGRATION-FROM-V10.md` in the server repo.

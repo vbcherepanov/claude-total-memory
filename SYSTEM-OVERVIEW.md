@@ -1,5 +1,99 @@
 # Claude Code + Memory System — Полная архитектура
 
+## v11.0 Architecture (current)
+
+```
+                              ┌──────────────────────────────────────────┐
+                              │       MCP client (Claude Code / Codex)   │
+                              └──────────────────┬───────────────────────┘
+                                                 │ stdio / HTTP
+                                                 ▼
+                              ┌──────────────────────────────────────────┐
+                              │              src/server.py                │
+                              │   thin MCP dispatcher: tool name → call  │
+                              └────────┬─────────────────────────┬───────┘
+                                       │ HOT PATH                 │ ON-DEMAND
+                                       │ (fast mode)              │ (deep mode / explicit)
+                                       ▼                          ▼
+        ┌──────────────────────────────────────────────┐   ┌──────────────────────────────┐
+        │            src/memory_core/*                  │   │       src/ai_layer/*          │
+        │  (deterministic, NO LLM imports allowed)      │   │  (every LLM-touching path)    │
+        │                                                │   │                                │
+        │   storage           — SQLite + FTS5            │   │  enrichment_worker — drains   │
+        │   embeddings        — FastEmbed only          │   │     enrichment_queue async    │
+        │   vector_store      — Chroma adapter +        │   │  enrichment_jobs              │
+        │                       binary HNSW             │   │  summarizer                   │
+        │   classifier        — content_type/language   │   │  keyword_extractor            │
+        │   chunker           — splitter, per-space     │   │  question_generator           │
+        │   dedup             — Jaccard / fuzzy / hash  │   │  relation_extractor           │
+        │   cache             — sha256 → embedding      │   │  contradiction_detector †     │
+        │   graph_links       — KG edges, no LLM        │   │  reflection                   │
+        │   telemetry         — counters, llm_calls=0   │   │  self_improve                 │
+        │   health            — readiness probes        │   │  + thin shims:                │
+        │   embedding_spaces  — text/code/log/config    │   │    quality_gate †             │
+        │                                                │   │    coref_resolver †           │
+        └────────────┬───────────────────────┬──────────┘   │    reranker (CrossEncoder)    │
+                     │ INSERT                │ SELECT       │    query_rewriter             │
+                     ▼                       ▼              └───────────────┬───────────────┘
+        ┌─────────────────────────────────────┐                              │ enqueue
+        │  SQLite (FTS5 + vectors)            │◀─────────────────────────────┘
+        │  + Chroma collection                │
+        │  + enrichment_queue (outbox)        │
+        └─────────────────────────────────────┘
+
+  † moved from sync inline (v10) to async worker (v11). In `MEMORY_MODE=deep` they
+    still run inline as in v10.5 — the import path is the same, only the dispatch
+    site changes.
+```
+
+### Memory Core — module map (`src/memory_core/`)
+
+| Module | Role |
+|---|---|
+| `storage` | SQLite connection, schema migrations, FTS5 lexical layer |
+| `embeddings` | FastEmbed-only encoder; no Ollama fallback unless `MEMORY_ALLOW_OLLAMA_IN_HOT_PATH=true` |
+| `vector_store` | `VectorStore` interface + Chroma adapter; carries `embedding_space` filter |
+| `classifier` | content_type + language detection (deterministic, no LLM) |
+| `chunker` | per-space splitter, language-aware boundaries |
+| `dedup` | Jaccard + fuzzy + hash, no LLM |
+| `cache` | `sha256(provider+model+space+content)` → embedding |
+| `graph_links` | KG node/edge writes, deterministic |
+| `telemetry` | counters incl. `llm_calls`, `network_calls`, latency histograms |
+| `health` | readiness probes, mode resolution |
+| `embedding_spaces` | `resolve_space(content_type, language)` — single source of truth |
+
+### AI Layer — module map (`src/ai_layer/`)
+
+| Module | Role |
+|---|---|
+| `enrichment_worker` | Background daemon thread that drains `enrichment_queue` |
+| `enrichment_jobs` | Job definitions (one per former sync stage) |
+| `summarizer` | LLM-derived summaries |
+| `keyword_extractor` | LLM keywords (alternative to FT5 BM25 features) |
+| `question_generator` | Question-form representations for retrieval |
+| `relation_extractor` | Triple extraction → KG |
+| `contradiction_detector` | LLM-scored neighbour contradictions, supersession decisions |
+| `reflection` | Periodic synthesis across recent records |
+| `self_improve` | Pattern → rule consolidation (`learn_error` → `self_rules`) |
+| `quality_gate` (shim) | Beever 6-Month Test scorer |
+| `coref_resolver` (shim) | Pronoun/deictic expansion |
+| `reranker` | CrossEncoder rerank, gated by `MEMORY_RERANK_ENABLED` |
+| `query_rewriter` | HyDE / analyze_query / multi-hop expansion |
+
+### Hot-path contract (regression-tested)
+
+The following tests enforce that no LLM call leaks into the fast hot path:
+
+- `tests/test_no_llm_hot_path.py` — imports `memory_core.*` and asserts none of them transitively import `llm_provider` / `ollama` / Anthropic / OpenAI clients.
+- `tests/test_save_fast_no_llm.py` — runs `memory_save_fast` against a fixture and asserts `telemetry.llm_calls == 0` and `telemetry.network_calls == 0`.
+- `tests/test_search_fast_no_llm.py` — same for `memory_search_fast`.
+- `tests/test_embed_no_ollama_fallback.py` — when FastEmbed is unavailable and `MEMORY_ALLOW_OLLAMA_IN_HOT_PATH=false`, embedding raises `RuntimeError` instead of silently HTTPing Ollama.
+- `tests/test_embedding_spaces.py` — every write records a non-null `embedding_space`; backfill populated old rows; per-space search filters correctly.
+
+Architecture details and per-stage audit: [`docs/v11/audit.md`](docs/v11/audit.md). Bench artifact: [`docs/v11/benchmark.md`](docs/v11/benchmark.md). Migration: [`docs/v11/MIGRATION-FROM-V10.md`](docs/v11/MIGRATION-FROM-V10.md).
+
+---
+
 ## Обзор
 
 Кастомная система, построенная поверх Claude Code (CLI), которая добавляет:

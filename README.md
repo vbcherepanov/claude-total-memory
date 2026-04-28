@@ -4,8 +4,8 @@
 > Persistent, local memory for AI coding agents: Claude Code, Codex CLI, Cursor, any MCP client.
 > Temporal knowledge graph · procedural memory · AST codebase ingest · cross-project analogy · 3D WebGL visualization.
 
-[![Version](https://img.shields.io/badge/version-10.5.0-8ad.svg)]()
-[![Tests](https://img.shields.io/badge/tests-1153%20passing-4a9.svg)]()
+[![Version](https://img.shields.io/badge/version-11.0.0-8ad.svg)]()
+[![Tests](https://img.shields.io/badge/tests-1200%2B%20passing-4a9.svg)]()
 [![IDEs](https://img.shields.io/badge/IDEs-9%20supported-4a9.svg)]()
 [![LongMemEval R@5](https://img.shields.io/badge/LongMemEval%20R@5-96.2%25-4a9.svg)](evals/longmemeval-2026-04-17.json)
 [![LoCoMo Acc](https://img.shields.io/badge/LoCoMo%20Acc-0.596-4a9.svg)](benchmarks/results/)
@@ -21,8 +21,88 @@
 
 ---
 
+## v11.0 — production memory engine
+
+**v11.0 = production memory engine: fast deterministic memory core + async AI enrichment layer. Default mode is `fast`: zero LLM, zero Ollama, zero network in the save/search/recall hot path.**
+
+The codebase is now split into two layers:
+
+- **`src/memory_core/*`** — deterministic facade modules (storage, embeddings, vector_store, classifier, chunker, dedup, cache, graph_links, telemetry, health, embedding_spaces). No LLM imports allowed. Enforced by `tests/test_no_llm_hot_path.py`.
+- **`src/ai_layer/*`** — every LLM-touching path (enrichment_worker, summarizer, keyword_extractor, question_generator, relation_extractor, contradiction_detector, reflection, self_improve, plus thin shims for quality_gate / coref_resolver / reranker / query_rewriter). Off-limits to memory_core.
+
+Architecture details and full hot-path audit: [`docs/v11/audit.md`](docs/v11/audit.md).
+
+### Modes
+
+`MEMORY_MODE` selects the runtime profile. Default is `fast`.
+
+| Mode | Hot-path LLM | Async enrichment | Reranker | Embed fallback | Use when |
+|---|:-:|:-:|:-:|:-:|---|
+| `ultrafast` | off | off | off | FastEmbed only (vector index off, FTS-only) | Throughput stress / CI |
+| **`fast`** (default) | **off** | **off** | **off** | **FastEmbed only, Ollama fallback gated** | **Production coding-agent loop** |
+| `balanced` | off (sync) | **on** | off | FastEmbed only | You want LLM-derived facets, but never on the critical path |
+| `deep` | on (sync) | on | on (when `rerank=true`) | FastEmbed → Ollama ladder | v10.5 behaviour: quality gate / contradiction / coref / HyDE inline |
+
+`deep` mode reproduces v10.5.0 defaults exactly. Set `MEMORY_MODE=deep` if you depended on synchronous quality_gate, contradiction_detector, or coref. `balanced` keeps the same ergonomics but moves enrichment off-thread.
+
+Migration from v10.5: [`docs/v11/MIGRATION-FROM-V10.md`](docs/v11/MIGRATION-FROM-V10.md).
+
+### v11.0 hot-path benchmark
+
+Warm, in-memory SQLite, MacBook M-series, `MEMORY_MODE=fast`, `MEMORY_ALLOW_OLLAMA_IN_HOT_PATH=false`:
+
+| metric              |   p50 |   p95 |   p99 |
+|---------------------|------:|------:|------:|
+| `save_fast`         |  6.5  |  9.0  | 27.8  |
+| `save_fast` cached  |  0.3  |  0.4  |  1.1  |
+| `search_fast`       |  3.7  |  4.0  |  6.2  |
+| `cached_search`     |  0.0  |  0.0  |  0.0  |
+
+**`llm_calls = 0`, `network_calls = 0`** across the entire hot path. Reproduce: `bin/memory-bench`. CI gate: `bin/memory-perf-gate`. Raw artifact: [`docs/v11/benchmark.md`](docs/v11/benchmark.md).
+
+### v10.5 → v11.0 — same workload, same script
+
+The v10.5 native bench (`benchmarks/v10_5_latency.py`) re-run on v11 fast against the recorded v10.5 baseline (`benchmarks/results/v10_5_latency.json`):
+
+| metric                | v10.5 sync (with LLM) | v11.0 fast | speedup |
+|-----------------------|----------------------:|-----------:|--------:|
+| save p95              | 2150.51 ms            | 8.51 ms    | **252×** |
+| save p99              | 2178.98 ms            | 11.09 ms   | **196×** |
+| recall p95            | 1424.26 ms            | 5.81 ms    | **245×** |
+| recall p99            | 1771.70 ms            | 6.75 ms    | **262×** |
+| LLM calls / save      | 2-4                   | 0          | gate    |
+| Network calls / save  | 1-3                   | 0          | gate    |
+
+Even versus v10.5 _without_ LLM (`23.3 ms p95`), v11 fast is `2.7×` faster — the deterministic-only stages (quality_gate probe, contradiction candidate fetch, episodic event creation, project_wiki refresh) are now fully bypassed in fast mode and queued only when `MEMORY_ENRICHMENT_ENABLED=true`.
+
+Recall quality is preserved: LongMemEval R@5 = 100% on a 30-question sample; hybrid retrieval (FTS5 + dense + RRF + base graph) is identical to v10.5 except for HyDE / analyze_query LLM expansion which is opt-in via `MEMORY_MODE=deep`. See [`docs/v11/benchmark.md`](docs/v11/benchmark.md) for the full table including LoCoMo and per-space embedding load characteristics.
+
+### New MCP tools in v11.0
+
+`memory_save_fast` · `memory_search_fast` · `memory_explain_search` · `memory_warmup` · `memory_perf_report` · `memory_rebuild_fts` · `memory_rebuild_embeddings` · `memory_eval_locomo` · `memory_eval_recall` · `memory_eval_temporal` · `memory_eval_entity_consistency` · `memory_eval_contradictions` · `memory_eval_long_context`
+
+All previous tool names (`memory_save`, `memory_recall`, ...) continue to work unchanged.
+
+### Multi-embedding-space contract
+
+Every vector row now records `embedding_provider / embedding_model / embedding_dimension / embedding_space / content_type / language`. Spaces: `text` / `code` / `log` / `config`. Single Chroma backend; per-space model swap is one env flip:
+
+```bash
+MEMORY_TEXT_EMBED_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+MEMORY_CODE_EMBED_MODEL=jinaai/jina-embeddings-v2-base-code   # optional
+MEMORY_LOG_EMBED_MODEL=                                       # falls back to TEXT
+MEMORY_CONFIG_EMBED_MODEL=                                    # falls back to TEXT
+```
+
+Old chunks stay searchable in their space; new chunks pick up the swapped model. Backfill one space at a time via `memory_rebuild_embeddings`.
+
+> v10.x sections below are preserved as **legacy v10.5 behaviour** — still available via `MEMORY_MODE=deep`. The numbers, screenshots, and benchmark blocks dated 2026-04-19 / 2026-04-25 / 2026-04-27 (v10) describe the deep-mode pipeline. v11 replaces *defaults*, not capabilities.
+
+---
+
 ## Table of contents
 
+- [v11.0 — production memory engine](#v110--production-memory-engine)
 - [The problem it solves](#the-problem-it-solves)
 - [60-second demo](#60-second-demo)
 - [Benchmarks — how it compares](#benchmarks--how-it-compares)
@@ -436,6 +516,8 @@ Open <http://127.0.0.1:37737/> — dashboard, knowledge graph, token savings.
 ---
 
 ## Quick start
+
+> **v11 default is `MEMORY_MODE=fast`.** No LLM, no Ollama, no network in the save/search/recall hot path. To restore v10.5 synchronous-LLM behaviour set `export MEMORY_MODE=deep`. Mode switching: [`LAUNCH.md` § Tuning](LAUNCH.md#tuning-v110).
 
 Once installed, in any Claude Code / Codex CLI / Cursor session:
 
@@ -898,6 +980,23 @@ export MEMORY_EMBED_API_KEY=...
 
 Environment variables (all optional):
 
+### v11.0 — Memory mode + multi-embedding-space
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `MEMORY_MODE` | `fast` | `ultrafast\|fast\|balanced\|deep`. Selects hot-path profile. See [Modes](#modes). |
+| `MEMORY_USE_LLM_IN_HOT_PATH` | `false` | Master switch for sync LLM stages in `save_knowledge` / `Recall.search`. `MEMORY_MODE=deep` flips this to `true`. |
+| `MEMORY_ALLOW_OLLAMA_IN_HOT_PATH` | `false` | Re-enables the silent FastEmbed → Ollama fallback ladder when FastEmbed is unavailable. |
+| `MEMORY_RERANK_ENABLED` | `false` | Honour caller's `rerank=true`. When `false`, CrossEncoder rerank is hard-disabled even if a tool call requests it. |
+| `MEMORY_ENRICHMENT_ENABLED` | `false` | Run the async enrichment worker. Default-ON in `balanced` / `deep`. |
+| `MEMORY_TEXT_EMBED_MODEL` | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | Model for `embedding_space=text`. |
+| `MEMORY_CODE_EMBED_MODEL` | _empty → falls back to TEXT model_ | Model for `embedding_space=code`. The row still records `space=code` so a future swap is config-only. |
+| `MEMORY_LOG_EMBED_MODEL` | _empty → TEXT_ | Model for `embedding_space=log`. |
+| `MEMORY_CONFIG_EMBED_MODEL` | _empty → TEXT_ | Model for `embedding_space=config`. |
+| `MEMORY_DEFAULT_EMBEDDING_SPACE` | `text` | Space for unclassified content. |
+
+### v10 + earlier
+
 | Variable | Default | Purpose |
 |---|---|---|
 | `MEMORY_DB` | `~/.claude-memory/memory.db` | SQLite location |
@@ -927,7 +1026,22 @@ Full config: see `claude_total_memory/config.py`.
 
 ## Performance tuning
 
-### `memory_save` latency
+### v11.0 fast-mode hot path (default)
+
+When `MEMORY_MODE=fast` (default):
+
+| metric              |   p50 |   p95 |   p99 |
+|---------------------|------:|------:|------:|
+| `save_fast`         |  6.2  |  8.9  | 11.4  |
+| `save_fast` cached  |  0.3  |  0.4  |  1.4  |
+| `search_fast`       |  3.4  |  4.7  |  6.0  |
+| `cached_search`     |  3.1  |  3.4  |  3.6  |
+
+`llm_calls=0`, `network_calls=0`. Reproduce: `./bin/memory-bench`. Regression gate: `./bin/memory-perf-gate`. Architecture rationale and per-stage audit: [`docs/v11/audit.md`](docs/v11/audit.md). Raw bench artifact: [`docs/v11/benchmark.md`](docs/v11/benchmark.md).
+
+If your numbers do not match the table, run `./bin/memory-bench --warmup` first — cold FastEmbed import dominates the first call.
+
+### Legacy: v10.5 deep-mode `memory_save` latency
 
 The synchronous v10 hot path runs five LLM-bound stages inline so a `drop` verdict can block the INSERT and a contradiction supersede commits in the same transaction. On macOS with a warm Ollama that's ~340 ms median; on a WSL2 box without GPU/CoreML each LLM round-trip can stretch the same call into 30–40 seconds.
 
@@ -983,6 +1097,16 @@ Rows stuck in `processing` longer than `MEMORY_ENRICH_STALE_AFTER_SEC` (default 
 ---
 
 ## Roadmap
+
+### Shipped in v11.0 (2026-04-27) — production memory engine
+- ✅ **Default `MEMORY_MODE=fast`** — zero LLM, zero Ollama, zero network in save/search/recall hot path. Set `MEMORY_MODE=deep` to restore v10.5 behaviour.
+- ✅ **Memory Core / AI Layer split** — `src/memory_core/*` is deterministic; `src/ai_layer/*` owns every LLM-bound code path. Enforced by `tests/test_no_llm_hot_path.py`.
+- ✅ **4 modes**: `ultrafast` / `fast` / `balanced` / `deep`. Single env flag.
+- ✅ **Multi-embedding-space contract** — every vector row records provider / model / dimension / space / content_type / language. Spaces: `text` / `code` / `log` / `config`. Single Chroma backend; per-space model swap is config-only.
+- ✅ **Embed fallback ladder gated** — silent Ollama fallback in `Store.embed` requires `MEMORY_ALLOW_OLLAMA_IN_HOT_PATH=true`.
+- ✅ **New MCP tools**: `memory_save_fast`, `memory_search_fast`, `memory_explain_search`, `memory_warmup`, `memory_perf_report`, `memory_rebuild_fts`, `memory_rebuild_embeddings`, `memory_eval_locomo`, `memory_eval_recall`, `memory_eval_temporal`, `memory_eval_entity_consistency`, `memory_eval_contradictions`, `memory_eval_long_context`.
+- ✅ **Migrations 021 (embedding_spaces) + 022 (embedding_cache_v11)** — idempotent on next start.
+- ✅ **Benchmark suite**: `bin/memory-bench` (artifact `docs/v11/benchmark.md`) + `bin/memory-perf-gate` for CI.
 
 ### Shipped in v10.5 (2026-04-27)
 - ✅ **Universal `memory-protocol` skill** — single canonical SKILL.md + 4 references (tool cheatsheet for all 60+ MCP tools, workflow recipes for 15 common situations, hooks reference, per-IDE setup) + 4 templates (Claude Code settings.json, Codex config.toml, Cursor `.mdc`, Cline `.md`). Same content for every IDE; only the wiring differs.

@@ -34,6 +34,12 @@ transcripts/
 queue/
 backups/
 
+# Large archives — never commit
+*.zip
+*.tar.gz
+*.tar
+*.tgz
+
 # Environment
 .env
 .env.local
@@ -47,3 +53,23 @@ benchmarks/longmemeval_s*.json
 # exported training data with private project info, and .env with real bot tokens.
 ollama/
 telegram/
+
+# Transient benchmark runs (regenerable)
+benchmarks/results/locomo-llm-*.json
+benchmarks/results/v11-smoke-*.json
+benchmarks/results/v11-fullstack-*.json
+benchmarks/results/v11-recall-fix-*.json
+benchmarks/results/v11-subset-*.json
+benchmarks/results/v11-ablation-*.json
+benchmarks/results/v11-D146-200-mini.json
+benchmarks/results/v11_FINAL_gpt4o.json
+benchmarks/results/v11_FINAL_v2_recall_fixed.json
+benchmarks/results/v11_FINAL_v3_D146_full.json
+benchmarks/results/v11_FINAL_v4_D146_gpt4o.json
+benchmarks/results/v11_locomo_4omini_*.json
+benchmarks/results/v11_locomo_fast.json
+benchmarks/results/v11_latency_fast.json
+
+# Live install artefacts
+.claude-memory-buffer/
+src.bak-*/

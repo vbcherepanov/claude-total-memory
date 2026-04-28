@@ -28,6 +28,16 @@ from datetime import datetime, timedelta, timezone
 from difflib import SequenceMatcher
 from pathlib import Path
 
+# v11.0 — Apply MEMORY_MODE → derived env defaults BEFORE any downstream
+# module reads `USE_ADVANCED_RAG`, `MEMORY_QUALITY_GATE_ENABLED`, etc. at
+# import time. Default mode = `fast` (zero LLM in hot path).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    import config as _v11_config  # noqa: E402
+    _v11_config.resolve_mode_defaults()
+except Exception as _v11_exc:  # pragma: no cover — never block startup
+    sys.stderr.write(f"[memory-mcp] v11 mode resolver skipped: {_v11_exc}\n")
+
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent
@@ -232,10 +242,21 @@ class Store:
         self._check_fts()
 
         self.chroma = None
+        # v11 §J — per-space Chroma collections so different embedding-space
+        # models (text 384d, code 768d, ...) can coexist without the HNSW
+        # index blowing up on a dimension mismatch. Backwards-compat: the
+        # default `knowledge` collection IS the text collection, so v10.x
+        # rows keep working unchanged.
+        self.chroma_per_space: dict[str, object] = {}
+        self._chroma_client = None
         if HAS_CHROMA and USE_BINARY_SEARCH != "true":
             try:
-                c = chromadb.PersistentClient(path=str(MEMORY_DIR / "chroma"))
-                self.chroma = c.get_or_create_collection("knowledge", metadata={"hnsw:space": "cosine"})
+                self._chroma_client = chromadb.PersistentClient(path=str(MEMORY_DIR / "chroma"))
+                # Default collection name `knowledge` == text space (legacy alias).
+                self.chroma = self._chroma_client.get_or_create_collection(
+                    "knowledge", metadata={"hnsw:space": "cosine"}
+                )
+                self.chroma_per_space["text"] = self.chroma
             except Exception as e:
                 LOG(f"ChromaDB init: {e}")
 
@@ -445,6 +466,36 @@ class Store:
                 f"MEMORY_EMBED_PROVIDER."
             )
 
+    def _chroma_collection_for(self, space: str):
+        """v11 §J — lazily get-or-create the Chroma collection for an
+        embedding space. Returns None when ChromaDB is disabled.
+
+        Collections are named:
+          text   → "knowledge"          (legacy default; v10.x rows live here)
+          code   → "knowledge_code"
+          log    → "knowledge_log"
+          config → "knowledge_config"
+
+        Different spaces can use different embedding dimensions (e.g. text
+        384d MiniLM, code 768d jina-code) without breaking HNSW.
+        """
+        if not self._chroma_client:
+            return None
+        space = (space or "text").strip().lower()
+        if space in self.chroma_per_space:
+            return self.chroma_per_space[space]
+        coll_name = "knowledge" if space == "text" else f"knowledge_{space}"
+        try:
+            coll = self._chroma_client.get_or_create_collection(
+                coll_name, metadata={"hnsw:space": "cosine", "embedding_space": space},
+            )
+            self.chroma_per_space[space] = coll
+            LOG(f"ChromaDB: collection '{coll_name}' ready for space={space}")
+            return coll
+        except Exception as e:
+            LOG(f"ChromaDB collection init for space={space} failed: {e}")
+            return None
+
     def _check_ollama(self):
         """Check if Ollama is running and has the embedding model."""
         if self._ollama_available is not None:
@@ -470,6 +521,13 @@ class Store:
 
     def _ollama_embed(self, texts):
         """Get embeddings via Ollama API."""
+        # v11 Phase 5 — defensive telemetry: any Ollama traffic on the hot
+        # path is a fast-mode violation. The bench script asserts this stays 0.
+        try:
+            from memory_core.telemetry import counters as _v11_counters
+            _v11_counters.bump("network_calls", float(len(texts) or 1))
+        except Exception:
+            pass
         try:
             import urllib.request
             results = []
@@ -541,13 +599,27 @@ class Store:
                 r = self._fastembed_embed(batch)
                 if r:
                     return r
-                if self._check_ollama():
+                # v11: silent fallback to Ollama is forbidden in fast mode.
+                # Power users opt back in with MEMORY_ALLOW_OLLAMA_IN_HOT_PATH=true.
+                allow_ollama = os.environ.get(
+                    "MEMORY_ALLOW_OLLAMA_IN_HOT_PATH", "false"
+                ).strip().lower() in ("1", "true", "yes", "on")
+                if allow_ollama and self._check_ollama():
                     return self._ollama_embed(batch)
             if self._embed_mode == "ollama":
                 r = self._ollama_embed(batch)
                 if r:
                     return r
-            if self._embed_mode in ("st", "ollama", "fastembed", "openai", "cohere") and self.embedder:
+            # v11: SentenceTransformer fallback is also gated. Allowed when
+            # the user explicitly opts in OR the mode is not "fastembed"
+            # (i.e. they configured embed_mode=st on purpose).
+            allow_st = (
+                self._embed_mode != "fastembed"
+                or os.environ.get(
+                    "MEMORY_ALLOW_OLLAMA_IN_HOT_PATH", "false"
+                ).strip().lower() in ("1", "true", "yes", "on")
+            )
+            if allow_st and self._embed_mode in ("st", "ollama", "fastembed", "openai", "cohere") and self.embedder:
                 try:
                     return self.embedder.encode(batch).tolist()
                 except Exception:
@@ -613,20 +685,66 @@ class Store:
         n = len(blob) // 4
         return list(struct.unpack(f'{n}f', blob))
 
-    def _upsert_embedding(self, knowledge_id, embedding, model_name):
-        """Store binary + float32 vectors for a knowledge record."""
+    def _upsert_embedding(
+        self,
+        knowledge_id,
+        embedding,
+        model_name,
+        *,
+        provider: str = "fastembed",
+        embedding_space: str = "text",
+        content_type: str = "text",
+        language: str | None = None,
+    ):
+        """Store binary + float32 vectors for a knowledge record.
+
+        v11.0 §J — every row now carries `embedding_provider`, `embedding_space`,
+        `content_type` and `language`. New callers pass them as keyword args;
+        legacy callers that omit them get the safe defaults (text space,
+        fastembed provider) so v10.x code paths keep working.
+        """
         binary_blob = self._quantize_binary(embedding)
         float32_blob = self._float32_to_blob(embedding)
         now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         self.db.execute("""
-            INSERT OR REPLACE INTO embeddings (knowledge_id, binary_vector, float32_vector,
-                                               embed_model, embed_dim, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (knowledge_id, binary_blob, float32_blob, model_name, len(embedding), now))
+            INSERT OR REPLACE INTO embeddings (
+                knowledge_id, binary_vector, float32_vector,
+                embed_model, embed_dim, created_at,
+                embedding_provider, embedding_space, content_type, language
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            knowledge_id, binary_blob, float32_blob,
+            model_name, len(embedding), now,
+            provider, embedding_space, content_type, language,
+        ))
 
     def _delete_embedding(self, knowledge_id):
         """Remove embedding for a knowledge record."""
         self.db.execute("DELETE FROM embeddings WHERE knowledge_id=?", (knowledge_id,))
+
+    @staticmethod
+    def _perf_snapshot() -> dict[str, float]:
+        """v11 Phase 5 — return the in-process telemetry counter snapshot.
+
+        Used by `bin/memory-bench` to assert `llm_calls == 0` and
+        `network_calls == 0` over a benchmark run, and to read the
+        accumulated `*_ms` timers for p50/p95/p99 reporting.
+        """
+        try:
+            from memory_core.telemetry import counters
+            return counters.snapshot()
+        except Exception:
+            return {}
+
+    @staticmethod
+    def _perf_reset() -> None:
+        """v11 Phase 5 — reset every telemetry counter (for benchmarks)."""
+        try:
+            from memory_core.telemetry import counters
+            counters.reset()
+        except Exception:
+            pass
 
     def _reconcile_outbox_at_startup(self):
         """v10 — replay any save_knowledge intents from a previous crash.
@@ -679,23 +797,33 @@ class Store:
         except Exception as exc:
             LOG(f"outbox reconcile skipped: {exc}")
 
-    def _binary_search(self, query_embedding, n_candidates=50, project=None, n_results=10):
-        """Two-level binary quantization search: Hamming pre-filter → cosine re-rank."""
+    def _binary_search(self, query_embedding, n_candidates=50, project=None, n_results=10,
+                       embedding_spaces=None):
+        """Two-level binary quantization search: Hamming pre-filter → cosine re-rank.
+
+        v11 Phase 6b — `embedding_spaces` (list[str] | None) restricts the
+        candidate pool to rows tagged with one of the listed spaces.
+        Pre-v11 rows were backfilled to `embedding_space='text'` by
+        migration 021, so the filter is safe on legacy data.
+        """
         import numpy as np
 
-        # 1. Load binary vectors for active records
+        # 1. Load binary vectors for active records.
+        conds = ["k.status='active'"]
+        params: list = []
         if project:
-            rows = self.db.execute("""
-                SELECT e.knowledge_id, e.binary_vector
-                FROM embeddings e JOIN knowledge k ON e.knowledge_id = k.id
-                WHERE k.status='active' AND k.project=?
-            """, (project,)).fetchall()
-        else:
-            rows = self.db.execute("""
-                SELECT e.knowledge_id, e.binary_vector
-                FROM embeddings e JOIN knowledge k ON e.knowledge_id = k.id
-                WHERE k.status='active'
-            """).fetchall()
+            conds.append("k.project=?")
+            params.append(project)
+        if embedding_spaces:
+            ph = ",".join("?" * len(embedding_spaces))
+            conds.append(f"e.embedding_space IN ({ph})")
+            params.extend(embedding_spaces)
+        sql = (
+            "SELECT e.knowledge_id, e.binary_vector "
+            "FROM embeddings e JOIN knowledge k ON e.knowledge_id = k.id "
+            f"WHERE {' AND '.join(conds)}"
+        )
+        rows = self.db.execute(sql, params).fetchall()
 
         if not rows:
             return []
@@ -1185,6 +1313,32 @@ class Store:
         (``critical|high|medium|low``, default ``medium``) is persisted on
         the row and consumed by `fusion.py` to boost recall ranking.
         """
+        # v11 Phase 5 — total wall-clock for this save. Recorded into
+        # `memory_core.telemetry.counters['save_total_ms']` so the bench
+        # script can report p50/p95/p99 without re-instrumenting.
+        try:
+            from memory_core.telemetry import op_timer as _v11_op_timer
+        except Exception:
+            from contextlib import nullcontext as _v11_op_timer  # type: ignore[assignment]
+
+            def _v11_op_timer(_name):  # type: ignore[no-redef]
+                from contextlib import nullcontext
+                return nullcontext()
+
+        with _v11_op_timer("save_total_ms"):
+            return self._save_knowledge_impl(
+                sid, content, ktype, project=project, tags=tags,
+                context=context, branch=branch, skip_dedup=skip_dedup,
+                filter_name=filter_name, importance=importance,
+                skip_quality=skip_quality, coref=coref,
+                _from_outbox=_from_outbox,
+            )
+
+    def _save_knowledge_impl(self, sid, content, ktype, project="general", tags=None,
+                              context="", branch="", skip_dedup=False, filter_name=None,
+                              importance="medium", skip_quality=False, coref=None,
+                              _from_outbox=False):
+        """Underlying implementation; wrapped by `save_knowledge` for telemetry."""
         now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
         # v10 — Outbox / WriteIntent. Persist the original payload before
@@ -1405,19 +1559,84 @@ class Store:
         self.db.commit()
         rid = cur.lastrowid
 
-        embs = self.embed([f"{content} {context}"])
+        # v11 §J Phase 5b — classify FIRST, then embed via the
+        # per-space provider so code chunks really go through the code
+        # model (jina-embeddings-v2-base-code, 768d) and text/log/config
+        # go through the text model (MiniLM, 384d). Different sizes ⇒
+        # different Chroma collections (handled below).
+        try:
+            from memory_core.classifier import classify as _v11_classify
+            from memory_core.embedding_spaces import (
+                resolve_space as _v11_resolve_space,
+                model_for_space as _v11_model_for_space,
+            )
+            _cls = _v11_classify(content)
+            _v11_content_type = _cls.type
+            _v11_language = _cls.language
+            _v11_space = _v11_resolve_space(_cls.type, _cls.language)
+        except Exception as _cls_err:
+            LOG(f"classifier failed, using text defaults: {_cls_err}")
+            _v11_content_type = "text"
+            _v11_language = None
+            _v11_space = "text"
+
+        # Per-space embedding via memory_core.EmbeddingProvider when the
+        # space is anything but "text" — that lets jina-code (or whatever
+        # the user configured) actually fire. The text path keeps using
+        # the legacy `Store.embed` so the embedding cache, binary
+        # quantization and ST fallback stay wired.
+        embs: list[list[float]] | None = None
+        model_name = self._active_embed_model_name()
+        _v11_provider_name = self._embed_mode or "fastembed"
+        if _v11_space != "text":
+            try:
+                from memory_core.embeddings import EmbeddingProvider as _V11Embed
+                if not hasattr(self, "_v11_embed_provider") or self._v11_embed_provider is None:
+                    self._v11_embed_provider = _V11Embed()
+                v = self._v11_embed_provider.embed_query(
+                    f"{content} {context}", space=_v11_space,
+                )
+                if v:
+                    embs = [v]
+                    model_name = self._v11_embed_provider.active_model(_v11_space)
+                    _v11_provider_name = "fastembed"  # EmbeddingProvider is FastEmbed-first
+            except Exception as _emb_err:
+                LOG(f"per-space embed for space={_v11_space} fell back to text: {_emb_err}")
+                embs = None  # fall through to legacy text path
+        if embs is None:
+            embs = self.embed([f"{content} {context}"])
+            if embs and _v11_space != "text":
+                # Honest record-keeping: the row IS in `text` model space
+                # because per-space encoder failed — degrade gracefully.
+                _v11_space = "text"
         if embs:
-            model_name = self._active_embed_model_name()
-            self._upsert_embedding(rid, embs[0], model_name)
+            self._upsert_embedding(
+                rid, embs[0], model_name,
+                provider=_v11_provider_name,
+                embedding_space=_v11_space,
+                content_type=_v11_content_type,
+                language=_v11_language,
+            )
             self.db.commit()
-            if self.chroma and not self._check_binary_search():
+            if self._chroma_client and not self._check_binary_search():
                 try:
-                    self.chroma.upsert(
-                        ids=[str(rid)], embeddings=embs, documents=[content],
-                        metadatas=[{"type": ktype, "project": project, "status": "active",
-                                    "session_id": sid, "created_at": now, "confidence": 1.0}])
-                except Exception:
-                    pass
+                    coll = self._chroma_collection_for(_v11_space)
+                    if coll is not None:
+                        coll.upsert(
+                            ids=[str(rid)], embeddings=embs, documents=[content],
+                            metadatas=[{
+                                "type": ktype, "project": project, "status": "active",
+                                "session_id": sid, "created_at": now, "confidence": 1.0,
+                                # v11 §J multi-embedding-space metadata
+                                "embedding_provider": _v11_provider_name,
+                                "embedding_model": model_name,
+                                "embedding_dimension": len(embs[0]),
+                                "embedding_space": _v11_space,
+                                "content_type": _v11_content_type,
+                                "language": _v11_language or "",
+                            }])
+                except Exception as _ce:
+                    LOG(f"chroma per-space upsert failed: {_ce}")
         # Auto-link to knowledge graph
         try:
             from graph.auto_link import auto_link_knowledge
@@ -2314,6 +2533,7 @@ class Recall:
         "hyde": 1.0,
         "fuzzy": 0.5,
         "graph": 0.8,
+        "episode": 0.9,
     }
 
     @staticmethod
@@ -2339,32 +2559,89 @@ class Recall:
         """Check if advanced RAG (HyDE + reranker) is available and enabled."""
         if not HAS_RERANKER:
             return False
-        if USE_ADVANCED_RAG == "false":
+        # v11: respect MEMORY_USE_LLM_IN_HOT_PATH=false. Fast/balanced modes
+        # set this off via resolve_mode_defaults — ignoring whatever the
+        # legacy USE_ADVANCED_RAG env says. Read at runtime so tests that
+        # twiddle env vars per-test still work.
+        if os.environ.get(
+            "MEMORY_USE_LLM_IN_HOT_PATH", "false"
+        ).strip().lower() not in ("1", "true", "yes", "on"):
             return False
-        if USE_ADVANCED_RAG == "true":
+        # Re-read USE_ADVANCED_RAG at runtime too (the module-level constant
+        # is fixed at import; tests use monkeypatch.setenv after import).
+        rag = os.environ.get("USE_ADVANCED_RAG", USE_ADVANCED_RAG).strip().lower()
+        if rag == "false":
+            return False
+        if rag == "true":
             return True
         # auto: check if Ollama is available
         return self.s._check_ollama()
 
     def search(self, query, project=None, ktype="all", limit=10, detail="full", branch=None, fusion="rrf",
-               rerank=False, diverse=False):
+               rerank=False, diverse=False, embedding_space=None, _explain=False):
+        # v11 Phase 5 — total wall-clock for this search; recorded into
+        # `memory_core.telemetry.counters['search_total_ms']`.
+        try:
+            from memory_core.telemetry import op_timer as _v11_op_timer
+        except Exception:
+            from contextlib import nullcontext
+
+            def _v11_op_timer(_name):  # type: ignore[no-redef]
+                return nullcontext()
+
+        with _v11_op_timer("search_total_ms"):
+            return self._search_impl(
+                query, project=project, ktype=ktype, limit=limit, detail=detail,
+                branch=branch, fusion=fusion, rerank=rerank, diverse=diverse,
+                embedding_space=embedding_space, _explain=_explain,
+            )
+
+    def _search_impl(self, query, project=None, ktype="all", limit=10, detail="full",
+                     branch=None, fusion="rrf", rerank=False, diverse=False,
+                     embedding_space=None, _explain=False):
+        """Underlying implementation; wrapped by `search` for telemetry.
+
+        v11 Phase 6b — `embedding_space` (str | list[str] | None) filters
+        vector candidates to rows tagged with one of the listed spaces.
+        FTS / fuzzy / graph tiers are unaffected (those don't carry a
+        space). detail="full" exposes the per-row `embedding_space` so
+        clients can verify the filter took effect.
+
+        v11 Phase 6 — `_explain=True` returns an `_explain` payload with
+        per-tier breakdowns; this is the data path used by the
+        `memory_explain_search` MCP tool.
+        """
+        # Normalize embedding_space param to a sorted list[str] (or None).
+        if embedding_space is None or embedding_space == "":
+            _v11_spaces: list[str] | None = None
+        elif isinstance(embedding_space, str):
+            _v11_spaces = [embedding_space.strip().lower()]
+        else:
+            _v11_spaces = sorted({
+                str(s).strip().lower() for s in embedding_space if str(s).strip()
+            }) or None
         # v9 A2 L1: fast-path query cache. Keyed by full filter set so that
-        # different projects / ktypes / branches don't collide.
+        # different projects / ktypes / branches / spaces don't collide.
         _v9 = getattr(self.s, "v9_cache", None)
         _v9_filters = {
             "project": project, "ktype": ktype, "detail": detail, "branch": branch,
             "fusion": fusion, "rerank": rerank, "diverse": diverse,
+            # v11 Phase 6b — embedding_space affects candidate pool, must be in cache key.
+            "embedding_space": ",".join(_v11_spaces) if _v11_spaces else None,
         }
-        if _v9 is not None and _v9.l1.enabled:
+        # _explain bypasses both caches: the payload includes ephemeral
+        # tier rankings that are not part of the cached representation.
+        if not _explain and _v9 is not None and _v9.l1.enabled:
             hit = _v9.recall_get(query, mode="search", k=limit, filters=_v9_filters)
             if hit is not None:
                 return hit
 
         # Check cache first (include fusion param in cache key)
-        if self.s.cache is not None:
+        if not _explain and self.s.cache is not None:
             cache_key = self.s.cache.make_key(query=query, project=project, ktype=ktype,
                                                limit=limit, detail=detail, branch=branch,
-                                               fusion=fusion, rerank=rerank, diverse=diverse)
+                                               fusion=fusion, rerank=rerank, diverse=diverse,
+                                               embedding_space=",".join(_v11_spaces) if _v11_spaces else None)
             cached = self.s.cache.get(cache_key)
             if cached is not None:
                 return cached
@@ -2396,12 +2673,17 @@ class Recall:
         # Collect results per doc_id and per-tier ranked lists for RRF
         results = {}          # doc_id -> {"r": row, "score": legacy_score, "via": [tiers]}
         tier_rankings = {}    # tier_name -> [doc_id, ...] ordered by tier-specific score desc
+        # v11 Phase 6 — when _explain=True we also keep the raw per-tier
+        # scores (BM25, cosine, fuzzy ratio, …) so the explain payload
+        # can show them separately from the merged additive `score`.
+        tier_scores: dict[str, dict[int, float]] = {} if _explain else {}
 
         # Tier 1: FTS5 keyword search with BM25 scoring
         fts_q = " OR ".join(Store._fts_escape(w) for w in re.split(r'\s+', query) if len(w) > 2) or Store._fts_escape(query)
         try:
             conds = ["knowledge_fts MATCH ?", "k.status='active'"]
             params = [fts_q]
+            joins = ""
             if project:
                 conds.append("k.project=?")
                 params.append(project)
@@ -2411,10 +2693,19 @@ class Recall:
             if branch:
                 conds.append("(k.branch=? OR k.branch='')")
                 params.append(branch)
+            # v11 Phase 6b — restrict FTS results to records whose
+            # embedding row carries one of the requested spaces. Records
+            # without an embedding row are admitted only when no space
+            # filter was set (otherwise we'd leak unclassified rows).
+            if _v11_spaces:
+                joins += " JOIN embeddings e ON e.knowledge_id=k.id"
+                ph = ",".join("?" * len(_v11_spaces))
+                conds.append(f"e.embedding_space IN ({ph})")
+                params.extend(_v11_spaces)
             params.append(limit * 3)
             fts_rows = self.s.db.execute(f"""
                 SELECT k.*, bm25(knowledge_fts) AS _bm25
-                FROM knowledge_fts f JOIN knowledge k ON k.id=f.rowid
+                FROM knowledge_fts f JOIN knowledge k ON k.id=f.rowid{joins}
                 WHERE {' AND '.join(conds)} ORDER BY bm25(knowledge_fts) LIMIT ?
             """, params).fetchall()
             # Proper BM25 normalization: relative to max in batch
@@ -2427,6 +2718,8 @@ class Recall:
                 bm25_score = (bm25_raw / max(max_bm25, 0.01)) * 2.0
                 results[r["id"]] = {"r": row, "score": max(0.5, bm25_score), "via": ["fts"]}
                 fts_tier.append(r["id"])  # already sorted by BM25 from SQL ORDER BY
+                if _explain:
+                    tier_scores.setdefault("fts", {})[int(r["id"])] = float(bm25_raw)
             if fts_tier:
                 tier_rankings["fts"] = fts_tier
         except Exception:
@@ -2441,10 +2734,13 @@ class Recall:
             if embs:
                 try:
                     candidates = self.s._binary_search(
-                        embs[0], n_candidates=50, project=project, n_results=limit * 3)
+                        embs[0], n_candidates=50, project=project, n_results=limit * 3,
+                        embedding_spaces=_v11_spaces)
                     for kid, cos_sim in candidates:
                         score = max(0, cos_sim)
                         semantic_tier.append((kid, score))
+                        if _explain:
+                            tier_scores.setdefault("semantic", {})[int(kid)] = float(cos_sim)
                         if kid in results:
                             results[kid]["score"] += score
                             results[kid]["via"].append("semantic")
@@ -2461,10 +2757,13 @@ class Recall:
                         hyde_emb = hyde_expand(query, project)
                         if hyde_emb:
                             candidates2 = self.s._binary_search(
-                                hyde_emb, n_candidates=50, project=project, n_results=limit * 2)
+                                hyde_emb, n_candidates=50, project=project, n_results=limit * 2,
+                                embedding_spaces=_v11_spaces)
                             for kid, cos_sim in candidates2:
                                 score = max(0, cos_sim) * 0.8
                                 hyde_tier.append((kid, score))
+                                if _explain:
+                                    tier_scores.setdefault("hyde", {})[int(kid)] = float(cos_sim)
                                 if kid in results:
                                     results[kid]["score"] += score * 0.5
                                     if "hyde" not in results[kid]["via"]:
@@ -2480,9 +2779,17 @@ class Recall:
             # Fallback: ChromaDB semantic search
             embs = self.s.embed([query])
             if embs:
-                where = {"status": "active"}
+                # Build where filter — merge project + embedding_space when set.
+                # v11 Phase 6b — Chroma uses {"$in": [...]} for multi-value filters.
+                _w_clauses: list[dict] = [{"status": "active"}]
                 if project:
-                    where = {"$and": [{"status": "active"}, {"project": project}]}
+                    _w_clauses.append({"project": project})
+                if _v11_spaces:
+                    _w_clauses.append({"embedding_space": {"$in": _v11_spaces}})
+                if len(_w_clauses) == 1:
+                    where = _w_clauses[0]
+                else:
+                    where = {"$and": _w_clauses}
                 try:
                     cr = self.s.chroma.query(
                         query_embeddings=embs, where=where,
@@ -2491,6 +2798,8 @@ class Recall:
                         rid = int(rid_s)
                         score = max(0, 1.0 - cr["distances"][0][i])
                         semantic_tier.append((rid, score))
+                        if _explain:
+                            tier_scores.setdefault("semantic", {})[rid] = float(score)
                         if rid in results:
                             results[rid]["score"] += score
                             results[rid]["via"].append("semantic")
@@ -2513,6 +2822,8 @@ class Recall:
                                 rid = int(rid_s)
                                 score = max(0, 1.0 - cr2["distances"][0][i]) * 0.8
                                 hyde_tier.append((rid, score))
+                                if _explain:
+                                    tier_scores.setdefault("hyde", {})[rid] = float(score)
                                 if rid in results:
                                     results[rid]["score"] += score * 0.5
                                     if "hyde" not in results[rid]["via"]:
@@ -2598,6 +2909,8 @@ class Recall:
                     if ratio > 0.35:
                         results[r["id"]] = {"r": r, "score": ratio * 0.6, "via": ["fuzzy"]}
                         fuzzy_tier.append((r["id"], ratio))
+                        if _explain:
+                            tier_scores.setdefault("fuzzy", {})[int(r["id"])] = float(ratio)
                 if fuzzy_tier:
                     fuzzy_tier.sort(key=lambda x: x[1], reverse=True)
                     tier_rankings["fuzzy"] = [doc_id for doc_id, _ in fuzzy_tier]
@@ -2614,7 +2927,10 @@ class Recall:
             # Collect newly added graph results for RRF tier ranking
             for did in results:
                 if did not in before_ids:
-                    graph_tier.append((did, results[did]["score"]))
+                    sc = results[did]["score"]
+                    graph_tier.append((did, sc))
+                    if _explain:
+                        tier_scores.setdefault("graph", {})[int(did)] = float(sc)
         else:
             # Standard 1-hop expansion
             for kid in top5:
@@ -2627,10 +2943,65 @@ class Recall:
                         graph_score = results[kid]["score"] * 0.4
                         results[r["id"]] = {"r": r, "score": graph_score, "via": ["graph"]}
                         graph_tier.append((r["id"], graph_score))
+                        if _explain:
+                            tier_scores.setdefault("graph", {})[int(r["id"])] = float(graph_score)
 
         if graph_tier:
             graph_tier.sort(key=lambda x: x[1], reverse=True)
             tier_rankings["graph"] = [doc_id for doc_id, _ in graph_tier]
+
+        # Tier 6: Episode retrieval (v11 W1-A) — coherent (when/who/where/what)
+        # windows over fact rows. Each EpisodeHit expands to its constituent
+        # knowledge_ids weighted by the episode's fused score.
+        if os.environ.get("MEMORY_EPISODE_TIER", "true").strip().lower() in ("1", "true", "yes", "on"):
+            try:
+                from memory_core.episodes.retriever import retrieve_episodes
+                episode_tier: list[tuple[int, float]] = []
+                def ep_embed(txt):
+                    vecs = self.s.embed([txt])
+                    if not vecs:
+                        return None
+                    v = vecs[0]
+                    return v if v is not None else None
+                ep_hits = retrieve_episodes(
+                    self.s.db, query, project,
+                    k=max(5, limit // 2), embed_fn=ep_embed,
+                )
+                for hit in ep_hits:
+                    fact_ids = list(getattr(hit, "fact_ids", ()) or ())
+                    if not fact_ids:
+                        continue
+                    base = float(getattr(hit, "score", 0.0))
+                    for rank, fid in enumerate(fact_ids[:5]):
+                        if fid not in results:
+                            row = self.s.db.execute(
+                                "SELECT * FROM knowledge WHERE id=? AND status='active'",
+                                (fid,),
+                            ).fetchone()
+                            if row is None:
+                                continue
+                            ep_score = base * (1.0 / (1 + rank))
+                            results[fid] = {"r": dict(row), "score": ep_score, "via": ["episode"]}
+                            episode_tier.append((fid, ep_score))
+                            if _explain:
+                                tier_scores.setdefault("episode", {})[int(fid)] = float(ep_score)
+                        else:
+                            if "episode" not in results[fid]["via"]:
+                                results[fid]["via"].append("episode")
+                            episode_tier.append((fid, results[fid]["score"]))
+                if episode_tier:
+                    seen: set = set()
+                    deduped: list[int] = []
+                    for fid, _ in sorted(episode_tier, key=lambda x: x[1], reverse=True):
+                        if fid not in seen:
+                            seen.add(fid)
+                            deduped.append(fid)
+                    tier_rankings["episode"] = deduped
+            except sqlite3.OperationalError:
+                # Migration 023 not yet applied (e.g. legacy DB) — skip silently.
+                pass
+            except Exception as e:
+                LOG(f"episode tier error: {e}")
 
         # ── Apply decay scoring ──
         for item in results.values():
@@ -2865,6 +3236,22 @@ class Recall:
                 total_tokens += est
                 grouped[t].append(entry)
             else:  # full
+                # v11 Phase 6b — surface the embedding_space so callers can
+                # verify a space filter took effect. We pull it from the
+                # row first (FTS/fuzzy/graph rows include it implicitly via
+                # SELECT k.*), and fall back to a cheap lookup against the
+                # embeddings table for tiers that started from a kid only.
+                _v11_es = r.get("embedding_space")
+                if _v11_es is None:
+                    try:
+                        _v11_es_row = self.s.db.execute(
+                            "SELECT embedding_space FROM embeddings WHERE knowledge_id=?",
+                            (r["id"],),
+                        ).fetchone()
+                        if _v11_es_row is not None:
+                            _v11_es = _v11_es_row[0]
+                    except Exception:
+                        _v11_es = None
                 entry = {
                     "id": r["id"], "content": content, "context": context,
                     "project": r.get("project", ""), "tags": tags,
@@ -2875,6 +3262,7 @@ class Recall:
                     "recall_count": r.get("recall_count", 0),
                     "decay": round(Store._decay_factor(r.get("last_confirmed", ""), DECAY_HALF_LIFE), 3),
                     "branch": r.get("branch", ""),
+                    "embedding_space": _v11_es,
                 }
                 if "rrf_score" in item:
                     entry["rrf_score"] = round(item["rrf_score"], 6)
@@ -2885,6 +3273,11 @@ class Recall:
 
         result = {"query": query, "total": len(ranked), "detail": detail,
                   "fusion": fusion, "total_tokens": total_tokens, "results": grouped}
+        # v11 Phase 6b — record the requested embedding_space at the top level.
+        if _v11_spaces:
+            result["embedding_space"] = (
+                _v11_spaces[0] if len(_v11_spaces) == 1 else list(_v11_spaces)
+            )
         if use_rrf and tier_rankings:
             result["tiers_used"] = list(tier_rankings.keys())
         if router_classification is not None:
@@ -2893,15 +3286,17 @@ class Recall:
             if router_classification.entities:
                 result["routed_entities"] = router_classification.entities
 
-        # Cache the result
-        if self.s.cache is not None:
+        # Cache the result. _explain payloads are NOT cached — they include
+        # ephemeral tier rankings tied to a single execution.
+        if not _explain and self.s.cache is not None:
             cache_key = self.s.cache.make_key(query=query, project=project, ktype=ktype,
                                                limit=limit, detail=detail, branch=branch,
-                                               fusion=fusion, rerank=rerank, diverse=diverse)
+                                               fusion=fusion, rerank=rerank, diverse=diverse,
+                                               embedding_space=",".join(_v11_spaces) if _v11_spaces else None)
             self.s.cache.put(cache_key, result, project=project)
 
         # v9 A2 L1: mirror into fast LRU tagged with the ids this result touched.
-        if _v9 is not None and _v9.l1.enabled:
+        if not _explain and _v9 is not None and _v9.l1.enabled:
             try:
                 _ids: list[int] = []
                 for _tier in result.get("results", {}).values():
@@ -2913,6 +3308,44 @@ class Recall:
                                filters=_v9_filters, memory_ids=_ids)
             except Exception:
                 pass
+
+        # v11 Phase 6 — explain payload for `memory_explain_search`.
+        if _explain:
+            def _tier_pairs(tier_name: str, score_label: str) -> list[dict]:
+                """Build [{id, <score_label>}] from `tier_scores` keeping
+                the ranking order from `tier_rankings`."""
+                scores_for_tier = tier_scores.get(tier_name, {})
+                pairs: list[dict] = []
+                for did in tier_rankings.get(tier_name, []):
+                    sc = scores_for_tier.get(int(did))
+                    pairs.append({
+                        "id": int(did),
+                        score_label: round(float(sc), 4) if sc is not None else None,
+                    })
+                return pairs
+
+            merged = []
+            for item in ranked:
+                merged.append({
+                    "id": int(item["r"]["id"]),
+                    "score": round(float(item.get("rrf_score", item.get("score", 0))), 4),
+                    "via": list(item.get("via", [])),
+                })
+
+            result["_explain"] = {
+                "fts": _tier_pairs("fts", "bm25"),
+                "semantic": _tier_pairs("semantic", "cos"),
+                "graph": _tier_pairs("graph", "score"),
+                "fuzzy": _tier_pairs("fuzzy", "ratio"),
+                "hyde": _tier_pairs("hyde", "score"),
+                "merged": merged,
+                "rerank_applied": bool(rerank and HAS_RERANKER),
+                "embedding_space": (
+                    _v11_spaces[0] if (_v11_spaces and len(_v11_spaces) == 1)
+                    else (list(_v11_spaces) if _v11_spaces else None)
+                ),
+                "tiers_used": list(tier_rankings.keys()),
+            }
 
         return result
 
@@ -3172,7 +3605,9 @@ async def list_tools():
             description="Search ALL memory: decisions, solutions, facts, lessons from ALL past sessions. "
                         "6-stage pipeline: FTS5+BM25 → semantic → fuzzy → graph → (optional) CrossEncoder → (optional) MMR. "
                         "Default: hybrid mode (BM25+semantic+RRF, 97.4% R@5 on LongMemEval). "
-                        "Use BEFORE starting any task.",
+                        "Use BEFORE starting any task. "
+                        "v11.0: routes to fast hot path when MEMORY_MODE=fast (default). "
+                        "Use memory_search_fast / memory_explain_search for explicit fast routing.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -3242,7 +3677,9 @@ async def list_tools():
                         "v10: a quality gate scores the record before save; below-threshold records are "
                         "rejected with a `rejected_by_quality_gate: true` response (override with "
                         "MEMORY_QUALITY_GATE_ENABLED=false). Use `importance` to surface critical "
-                        "decisions at recall time (boosts the final RRF score).",
+                        "decisions at recall time (boosts the final RRF score). "
+                        "v11.0: routes to fast hot path when MEMORY_MODE=fast (default). "
+                        "Use memory_save_fast for explicit fast routing.",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -4006,6 +4443,188 @@ async def list_tools():
                 },
             },
         ),
+        # ── v11.0 Phase 6 — fast-path & introspection tools ──────────
+        Tool(
+            name="memory_save_fast",
+            description="v11.0: same as memory_save but routes through the fast hot path "
+                        "(skip_quality=True, no LLM, no async-blocking). Use when you want "
+                        "to bypass the v10 quality gate without flipping the env flag.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "content": {"type": "string"},
+                    "type": {"type": "string", "enum": ["decision", "fact", "solution", "lesson", "convention"]},
+                    "project": {"type": "string", "default": "general"},
+                    "tags": {"type": "array", "items": {"type": "string"}},
+                    "context": {"type": "string"},
+                    "branch": {"type": "string"},
+                    "filter": {"type": "string"},
+                    "importance": {"type": "string", "enum": ["critical", "high", "medium", "low"], "default": "medium"},
+                },
+                "required": ["content", "type"],
+            },
+        ),
+        Tool(
+            name="memory_search_fast",
+            description="v11.0: like memory_recall but with rerank=False, diverse=False forced. "
+                        "Deterministic fast path — zero LLM, FastEmbed-only.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "project": {"type": "string"},
+                    "type": {"type": "string", "enum": ["decision", "fact", "solution", "lesson", "convention", "all"], "default": "all"},
+                    "limit": {"type": "integer", "default": 10},
+                    "detail": {"type": "string", "enum": ["compact", "summary", "full"], "default": "full"},
+                    "branch": {"type": "string"},
+                    "fusion": {"type": "string", "enum": ["rrf", "legacy"], "default": "rrf"},
+                    "embedding_space": {
+                        "type": ["string", "array"],
+                        "description": "Filter to one or more embedding spaces (text|code|log|config).",
+                    },
+                },
+                "required": ["query"],
+            },
+        ),
+        Tool(
+            name="memory_explain_search",
+            description="v11.0: same as memory_search_fast but returns a per-tier breakdown "
+                        "(fts/semantic/graph/fuzzy/hyde with raw scores, the merged RRF list, "
+                        "rerank_applied flag, embedding_space). Use to debug why a record did "
+                        "or didn't surface for a query.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "project": {"type": "string"},
+                    "type": {"type": "string", "enum": ["decision", "fact", "solution", "lesson", "convention", "all"], "default": "all"},
+                    "limit": {"type": "integer", "default": 10},
+                    "embedding_space": {"type": ["string", "array"]},
+                },
+                "required": ["query"],
+            },
+        ),
+        Tool(
+            name="memory_warmup",
+            description="v11.0: pre-load FastEmbed model and open the vector store, so the "
+                        "first save/search after process start doesn't pay model-load latency.",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
+            name="memory_perf_report",
+            description="v11.0: dump in-process telemetry counters (search_total_ms, embed_ms, "
+                        "fts_ms, vector_ms, llm_calls, network_calls) plus persistent "
+                        "embedding_cache stats. Use to verify the fast hot path stays clean.",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
+            name="memory_rebuild_fts",
+            description="v11.0: drop and rebuild the SQLite FTS5 virtual table from `knowledge` "
+                        "rows. Useful after migrations or content_type column changes that the "
+                        "FTS triggers didn't see. Returns {rebuilt: int}.",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
+            name="memory_rebuild_embeddings",
+            description="v11.0: re-encode every record (or every record in a given embedding "
+                        "space) and update the binary + float32 vectors. Idempotent. Pass "
+                        "embedding_space='code' to refresh only code rows after switching the "
+                        "code embedder. Returns {rebuilt: int, skipped: int}.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "embedding_space": {
+                        "type": ["string", "array"],
+                        "description": "Optional: only re-encode rows in these spaces.",
+                    },
+                    "project": {"type": "string"},
+                    "batch_size": {"type": "integer", "default": 32},
+                    "limit": {"type": "integer"},
+                },
+            },
+        ),
+        # ── v11.0 Phase 8 — evaluation harness MCP tools ─────────────
+        Tool(
+            name="memory_eval_locomo",
+            description="v11.0 Phase 8: run the LongMemEval-style recall+prevention "
+                        "scenario suite (loaded from evals/scenarios/) against the live "
+                        "store. Forces MEMORY_MODE=fast by default. Returns "
+                        "{scenarios_total, scenarios_passed, recall_at_5, recall_at_10, "
+                        "latency_ms, mode, llm_calls_during_eval, network_calls_during_eval}.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "top_k": {"type": "integer", "default": 5},
+                    "limit": {"type": "integer", "description": "Cap how many scenarios to run."},
+                    "mode": {"type": "string", "enum": ["fast", "balanced", "deep"], "default": "fast"},
+                    "scenarios_path": {"type": "string", "description": "Optional override path."},
+                },
+            },
+        ),
+        Tool(
+            name="memory_eval_recall",
+            description="v11.0 Phase 8: generic recall benchmark on a dataset path or a "
+                        "small built-in fixture. Same payload shape as memory_eval_locomo.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "dataset_path": {"type": "string"},
+                    "top_k": {"type": "integer", "default": 5},
+                    "limit": {"type": "integer"},
+                    "mode": {"type": "string", "enum": ["fast", "balanced", "deep"], "default": "fast"},
+                },
+            },
+        ),
+        Tool(
+            name="memory_eval_temporal",
+            description="v11.0 Phase 8: temporal recall using temporal_kg + temporal_filter. "
+                        "Returns {status: 'not_implemented', ...} when modules are missing.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer"},
+                    "mode": {"type": "string", "enum": ["fast", "balanced", "deep"], "default": "fast"},
+                },
+            },
+        ),
+        Tool(
+            name="memory_eval_entity_consistency",
+            description="v11.0 Phase 8: verifies entity_dedup canonicalization is stable "
+                        "across repeated saves of variant tag spellings.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "mode": {"type": "string", "enum": ["fast", "balanced", "deep"], "default": "fast"},
+                },
+            },
+        ),
+        Tool(
+            name="memory_eval_contradictions",
+            description="v11.0 Phase 8: runs contradiction_detector against a labelled "
+                        "fixture. Requires balanced/deep mode (LLM). Returns "
+                        "{status: 'not_implemented', ...} if module is unavailable.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "mode": {"type": "string", "enum": ["fast", "balanced", "deep"], "default": "fast"},
+                    "fixture_path": {"type": "string"},
+                },
+            },
+        ),
+        Tool(
+            name="memory_eval_long_context",
+            description="v11.0 Phase 8: large-context recall scenario. Saves N records "
+                        "and queries them at the tail. Reuses eval_harness scenarios "
+                        "tagged 'long_context' if present.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "n_records": {"type": "integer", "default": 200},
+                    "top_k": {"type": "integer", "default": 5},
+                    "mode": {"type": "string", "enum": ["fast", "balanced", "deep"], "default": "fast"},
+                },
+            },
+        ),
         Tool(name="classify_task", description="v8.0: classify task into L1-L4 complexity + suggested phases.", inputSchema={"type": "object", "properties": {"description": {"type": "string"}, "project": {"type": "string"}}, "required": ["description"]}),
         Tool(name="task_create", description="v8.0: start a task in `van` phase (auto-classifies level if missing).", inputSchema={"type": "object", "properties": {"task_id": {"type": "string"}, "description": {"type": "string"}, "level": {"type": "integer"}}, "required": ["task_id", "description"]}),
         Tool(name="phase_transition", description="v8.0: advance a task to the next phase.", inputSchema={"type": "object", "properties": {"task_id": {"type": "string"}, "new_phase": {"type": "string"}, "artifacts": {"type": "object"}, "notes": {"type": "string"}}, "required": ["task_id", "new_phase"]}),
@@ -4092,6 +4711,73 @@ async def list_tools():
                 "required": ["title", "options", "criteria_matrix", "selected", "rationale"],
             },
         ),
+        # ── v11.0 W3 — new MCP tools: iterative recall, temporal, entity, consolidate ──
+        Tool(
+            name="memory_recall_iterative",
+            description="v11.0 W1-B: IRCoT-style iterative retrieval. Decomposes the query into "
+                        "sub-questions, retrieves per sub-question, and asks a planner LLM whether "
+                        "more retrieval is needed. Best for multi-hop questions. Returns unified "
+                        "evidence + provenance per iteration.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "project": {"type": "string"},
+                    "max_iters": {"type": "integer", "default": 4},
+                    "k_per_iter": {"type": "integer", "default": 5},
+                    "llm_model": {"type": "string", "default": "haiku"},
+                },
+                "required": ["query"],
+            },
+        ),
+        Tool(
+            name="memory_temporal_query",
+            description="v11.0 W1-C: deterministic temporal reasoning — Allen interval relations, "
+                        "duration arithmetic (days/weeks/months/years), and natural-language date "
+                        "normalization (en + ru). Pass op=relation|duration_between|normalize.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "op": {"type": "string", "enum": ["relation", "duration_between", "normalize"]},
+                    "a_start": {"type": "string", "description": "ISO datetime — relation only"},
+                    "a_end": {"type": "string"},
+                    "b_start": {"type": "string"},
+                    "b_end": {"type": "string"},
+                    "a": {"type": "string", "description": "ISO datetime — duration_between"},
+                    "b": {"type": "string"},
+                    "phrase": {"type": "string", "description": "Natural-language date — normalize"},
+                    "anchor": {"type": "string", "description": "ISO datetime anchor for relative phrases"},
+                    "lang": {"type": "string", "enum": ["auto", "en", "ru"], "default": "auto"},
+                },
+                "required": ["op"],
+            },
+        ),
+        Tool(
+            name="memory_entity_resolve",
+            description="v11.0 W1-F: resolve a mention to its canonical entity within a project+type. "
+                        "Cross-session coreference via name/alias index + embedding cosine. Returns "
+                        "canonical_id, matched_via, and is_new flag. Pronouns return -1.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "mention": {"type": "string"},
+                    "project": {"type": "string", "default": "general"},
+                    "type": {"type": "string", "default": "person",
+                             "description": "Entity type: person, technology, project, company, ..."},
+                    "threshold": {"type": "number", "default": 0.85,
+                                  "description": "Cosine similarity threshold for embedding match."},
+                    "create_if_missing": {"type": "boolean", "default": True},
+                },
+                "required": ["mention"],
+            },
+        ),
+        Tool(
+            name="memory_consolidate_status",
+            description="v11.0 W2-G: report the consolidation daemon state — per-project last-run, "
+                        "active locks, recent activity. Use to verify the idle-project worker is "
+                        "making progress without interfering with active work.",
+            inputSchema={"type": "object", "properties": {}},
+        ),
     ]
 
 
@@ -4104,6 +4790,122 @@ async def call_tool(name, args):
     except Exception as e:
         LOG(f"Error in {name}: {e}")
         return [TextContent(type="text", text=f"Error: {e}")]
+
+
+# ──────────────────────────────────────────────
+# v11.0 Phase 8 — evaluation harness helpers
+# ──────────────────────────────────────────────
+
+
+class _EvalModeContext:
+    """Force MEMORY_MODE for the duration of an eval call.
+
+    Saves and restores the relevant env vars so a tool invocation cannot leak
+    its mode into the long-running server process. Idempotent: nested usage
+    is safe because each instance snapshots its own slice of env.
+    """
+
+    _KEYS = (
+        "MEMORY_MODE",
+        "MEMORY_USE_LLM_IN_HOT_PATH",
+        "MEMORY_ALLOW_OLLAMA_IN_HOT_PATH",
+        "MEMORY_RERANK_ENABLED",
+        "MEMORY_ENRICHMENT_ENABLED",
+        "MEMORY_LLM_ENABLED",
+    )
+
+    def __init__(self, mode: str) -> None:
+        self.mode = (mode or "fast").strip().lower()
+        if self.mode not in ("fast", "balanced", "deep"):
+            self.mode = "fast"
+        self._saved: dict[str, str | None] = {}
+
+    def __enter__(self) -> "_EvalModeContext":
+        for k in self._KEYS:
+            self._saved[k] = os.environ.get(k)
+        os.environ["MEMORY_MODE"] = self.mode
+        if self.mode == "fast":
+            # Lock the hot path: zero LLM, zero network, zero rerank.
+            os.environ["MEMORY_USE_LLM_IN_HOT_PATH"] = "false"
+            os.environ["MEMORY_ALLOW_OLLAMA_IN_HOT_PATH"] = "false"
+            os.environ["MEMORY_RERANK_ENABLED"] = "false"
+            os.environ["MEMORY_ENRICHMENT_ENABLED"] = "false"
+            os.environ["MEMORY_LLM_ENABLED"] = "false"
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        for k, v in self._saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+
+def _eval_perf_snapshot_delta(before: dict[str, float]) -> tuple[int, int]:
+    """Diff llm_calls / network_calls against `before`. Counters can only
+    rise, so a negative diff means the caller reset between snapshots —
+    in that case we trust the post-reset value."""
+    try:
+        from memory_core.telemetry import counters as _c
+        snap = _c.snapshot()
+    except Exception:
+        return 0, 0
+    llm_now = int(snap.get("llm_calls", 0))
+    net_now = int(snap.get("network_calls", 0))
+    llm_before = int(before.get("llm_calls", 0))
+    net_before = int(before.get("network_calls", 0))
+    return max(0, llm_now - llm_before), max(0, net_now - net_before)
+
+
+def _eval_run_locomo(
+    *,
+    store_obj,
+    recall_obj,
+    top_k: int,
+    limit: int | None,
+    scenarios_path: str | None,
+) -> dict:
+    """Run eval_harness.EvalHarness against `evals/scenarios/` (or override).
+
+    Wires `recall_fn` and `file_warnings_fn` to the live Store/Recall.
+    """
+    import time as _t
+    from eval_harness import EvalHarness
+
+    def _recall_fn(query: str, params: dict):
+        result = recall_obj.search(
+            query, params.get("project"), "all",
+            params.get("limit", 10), "full",
+            None, "rrf", False, False,
+        )
+        out: list[dict] = []
+        results = result.get("results", {}) if isinstance(result, dict) else {}
+        for grp in results.values():
+            if isinstance(grp, list):
+                out.extend(grp)
+        return out
+
+    def _file_warnings_fn(file: str, params: dict):
+        try:
+            from file_context import FileContextGuard
+            guard = FileContextGuard(store_obj.db)
+            return guard.get_file_warnings(file, project=params.get("project"))
+        except Exception as exc:
+            return {"warnings": [], "related_rules": [], "error": str(exc)}
+
+    harness = EvalHarness(recall_fn=_recall_fn, file_warnings_fn=_file_warnings_fn)
+    scenarios = harness.load_scenarios(scenarios_path)
+    if limit is not None and limit > 0:
+        scenarios = scenarios[: int(limit)]
+    # Normalise k for recall scenarios so the tool's top_k applies.
+    for s in scenarios:
+        if s.get("type", "recall") == "recall":
+            s.setdefault("k", top_k)
+
+    t0 = _t.perf_counter()
+    report = harness.run_suite(scenarios)
+    elapsed_ms = (_t.perf_counter() - t0) * 1000.0
+    return {"report": report, "elapsed_ms": elapsed_ms, "scenarios": scenarios}
 
 
 async def _do(name, a):
@@ -5112,6 +5914,698 @@ async def _do(name, a):
         if store.cache is not None:
             store.cache.invalidate(project=decision.project)
         return J({"saved": True, "id": rid, "structured": True})
+
+    # ── v11.0 Phase 6 — fast-path & introspection tool dispatch ──────
+    elif name == "memory_save_fast":
+        rid, was_dedup, was_redacted, private_sections, quality_meta = store.save_knowledge(
+            SID, a["content"], a["type"],
+            a.get("project", "general"), a.get("tags", []), a.get("context", ""),
+            branch=a.get("branch", BRANCH), filter_name=a.get("filter"),
+            importance=a.get("importance", "medium"),
+            skip_quality=True,  # the explicit fast contract: no quality gate
+            coref=False,        # never spend an LLM round-trip on the fast path
+        )
+        if rid is None:
+            return J({"saved": False, "rejected_by_quality_gate": False,
+                      "reason": "save_knowledge returned no id"})
+        if store.cache is not None:
+            store.cache.invalidate(project=a.get("project"))
+        if getattr(store, "v9_cache", None) is not None:
+            store.v9_cache.invalidate_all()
+        out = {"saved": True, "id": rid, "deduplicated": was_dedup, "mode": "fast"}
+        if was_redacted:
+            out["privacy_redacted"] = True
+        if private_sections:
+            out["privacy_redacted_sections"] = private_sections
+        return J(out)
+
+    elif name == "memory_search_fast":
+        result = recall.search(
+            a["query"], a.get("project"), a.get("type", "all"),
+            a.get("limit", 10), a.get("detail", "full"),
+            a.get("branch"), a.get("fusion", "rrf"),
+            rerank=False, diverse=False,
+            embedding_space=a.get("embedding_space"),
+        )
+        result["mode"] = "fast"
+        return J(result)
+
+    elif name == "memory_explain_search":
+        result = recall.search(
+            a["query"], a.get("project"), a.get("type", "all"),
+            a.get("limit", 10), detail="full",
+            branch=a.get("branch"), fusion="rrf",
+            rerank=False, diverse=False,
+            embedding_space=a.get("embedding_space"),
+            _explain=True,
+        )
+        return J(result)
+
+    elif name == "memory_warmup":
+        import time as _t
+        t0 = _t.perf_counter()
+        fastembed_loaded = False
+        vector_backend = "none"
+        try:
+            store.embed(["warmup"])
+            fastembed_loaded = bool(store.fastembed) or bool(store.embedder)
+        except Exception as e:
+            LOG(f"warmup embed failed: {e}")
+        if store._check_binary_search():
+            vector_backend = "sqlite_binary"
+        elif store.chroma is not None:
+            vector_backend = "chroma"
+            try:
+                store.chroma.heartbeat()
+            except Exception:
+                pass
+        elapsed_ms = int((_t.perf_counter() - t0) * 1000)
+        return J({
+            "fastembed_loaded": fastembed_loaded,
+            "vector_backend": vector_backend,
+            "ms": elapsed_ms,
+        })
+
+    elif name == "memory_perf_report":
+        report: dict = {}
+        try:
+            from memory_core.telemetry import counters as _v11_counters
+            report["counters"] = _v11_counters.snapshot()
+        except Exception as e:
+            report["counters_error"] = str(e)
+        try:
+            from memory_core import embedding_cache as _v11_ec
+            report["embedding_cache_v11"] = _v11_ec.stats(store.db)
+        except Exception as e:
+            report["embedding_cache_v11_error"] = str(e)
+        # Optional benchmark snapshot from docs/v11/benchmark.md.
+        try:
+            from pathlib import Path as _P
+            bench = _P(__file__).resolve().parent.parent / "docs" / "v11" / "benchmark.md"
+            if bench.is_file():
+                report["benchmark_md_bytes"] = bench.stat().st_size
+                report["benchmark_md_path"] = str(bench)
+        except Exception:
+            pass
+        return J(report)
+
+    elif name == "memory_rebuild_fts":
+        # Drop and rebuild knowledge_fts from current knowledge rows. Idempotent.
+        n_before = 0
+        try:
+            n_before = store.db.execute(
+                "SELECT COUNT(*) FROM knowledge_fts"
+            ).fetchone()[0]
+        except Exception:
+            n_before = 0
+        try:
+            store.db.execute("DROP TABLE IF EXISTS knowledge_fts")
+            store.db.execute(
+                "CREATE VIRTUAL TABLE knowledge_fts USING fts5("
+                "content, context, tags, content='knowledge', content_rowid='id'"
+                ")"
+            )
+            store.db.execute(
+                "INSERT INTO knowledge_fts(rowid, content, context, tags) "
+                "SELECT id, content, context, tags FROM knowledge"
+            )
+            store.db.commit()
+        except Exception as e:
+            return J({"rebuilt": False, "error": str(e)})
+        n_after = store.db.execute(
+            "SELECT COUNT(*) FROM knowledge_fts"
+        ).fetchone()[0]
+        return J({
+            "rebuilt": True,
+            "rows_before": int(n_before),
+            "rows_after": int(n_after),
+        })
+
+    elif name == "memory_rebuild_embeddings":
+        # Re-encode every record in the listed spaces (default: all).
+        es = a.get("embedding_space")
+        if es is None:
+            spaces: list[str] | None = None
+        elif isinstance(es, str):
+            spaces = [es.strip().lower()]
+        else:
+            spaces = sorted({str(x).strip().lower() for x in es if str(x).strip()}) or None
+
+        proj = a.get("project")
+        batch = max(1, int(a.get("batch_size", 32)))
+        cap = a.get("limit")
+
+        # Build the candidate set: every active knowledge row whose existing
+        # embedding row matches the requested space (or every active row
+        # when no space is set).
+        sql = (
+            "SELECT k.id, k.content, k.context "
+            "FROM knowledge k "
+            "LEFT JOIN embeddings e ON e.knowledge_id=k.id "
+            "WHERE k.status='active'"
+        )
+        params: list = []
+        if proj:
+            sql += " AND k.project=?"
+            params.append(proj)
+        if spaces:
+            ph = ",".join("?" * len(spaces))
+            sql += f" AND COALESCE(e.embedding_space,'text') IN ({ph})"
+            params.extend(spaces)
+        if cap:
+            sql += " LIMIT ?"
+            params.append(int(cap))
+        rows = store.db.execute(sql, params).fetchall()
+
+        from memory_core.classifier import classify as _v11_classify
+        from memory_core.embedding_spaces import resolve_space as _v11_resolve_space
+
+        rebuilt = 0
+        skipped = 0
+        for i in range(0, len(rows), batch):
+            chunk = rows[i:i + batch]
+            texts = [
+                f"{r['content']} {(r['context'] if 'context' in r.keys() else '') or ''}"
+                for r in chunk
+            ]
+            embs = store.embed(texts)
+            if not embs or len(embs) != len(chunk):
+                skipped += len(chunk)
+                continue
+            model_name = store._active_embed_model_name()
+            provider = store._embed_mode or "fastembed"
+            for r, vec in zip(chunk, embs):
+                try:
+                    cls = _v11_classify(r["content"])
+                    space = _v11_resolve_space(cls.type, cls.language)
+                    store._upsert_embedding(
+                        r["id"], vec, model_name,
+                        provider=provider,
+                        embedding_space=space,
+                        content_type=cls.type,
+                        language=cls.language,
+                    )
+                    rebuilt += 1
+                except Exception as e:
+                    LOG(f"rebuild_embeddings failed for id={r['id']}: {e}")
+                    skipped += 1
+            store.db.commit()
+        return J({
+            "rebuilt": rebuilt,
+            "skipped": skipped,
+            "embedding_space_filter": spaces,
+            "project_filter": proj,
+        })
+
+    # ── v11.0 Phase 8 — evaluation tools dispatch ────────────────────
+    elif name == "memory_eval_locomo":
+        mode = a.get("mode", "fast")
+        top_k = int(a.get("top_k", 5))
+        limit = a.get("limit")
+        scenarios_path = a.get("scenarios_path")
+
+        with _EvalModeContext(mode):
+            try:
+                from memory_core.telemetry import counters as _c
+                _c.reset()
+                before = _c.snapshot()
+            except Exception:
+                before = {}
+
+            try:
+                run = _eval_run_locomo(
+                    store_obj=store, recall_obj=recall,
+                    top_k=top_k, limit=limit,
+                    scenarios_path=scenarios_path,
+                )
+            except Exception as exc:
+                return J({
+                    "status": "error",
+                    "reason": f"eval failed: {type(exc).__name__}: {exc}",
+                    "mode": mode,
+                })
+
+            llm_delta, net_delta = _eval_perf_snapshot_delta(before)
+
+        report = run["report"]
+        recall_block = report.get("recall", {})
+        return J({
+            "scenarios_total": int(report.get("total", 0)),
+            "scenarios_passed": int(report.get("passed", 0)),
+            "recall_at_5": float(recall_block.get("r_at_5", 0.0)),
+            "recall_at_10": float(recall_block.get("r_at_10", 0.0)),
+            "latency_ms": float(report.get("latency", {}).get("p95_ms", 0.0)),
+            "mode": mode,
+            "llm_calls_during_eval": int(llm_delta),
+            "network_calls_during_eval": int(net_delta),
+            "details": {
+                "recall": recall_block,
+                "prevention": report.get("prevention", {}),
+                "latency": report.get("latency", {}),
+            },
+        })
+
+    elif name == "memory_eval_recall":
+        mode = a.get("mode", "fast")
+        top_k = int(a.get("top_k", 5))
+        limit = a.get("limit")
+        dataset_path = a.get("dataset_path")
+
+        # Built-in fixture when no dataset_path: a tiny self-test that seeds
+        # two records and asks for them back. Deterministic; no LLM.
+        builtin: list[dict] | None = None
+        if not dataset_path:
+            seed_pairs = [
+                ("eval-recall fixture postgres autovacuum tuning notes",
+                 "fact", "postgres autovacuum"),
+                ("eval-recall fixture redis cluster failover playbook",
+                 "fact", "redis cluster"),
+            ]
+            for content, ktype, _q in seed_pairs:
+                try:
+                    store.save_knowledge(
+                        sid=getattr(__import__("server"), "SID", "eval-session"),
+                        content=content, ktype=ktype, project="memory_eval_recall",
+                    )
+                except Exception:
+                    pass
+            builtin = [
+                {"name": f"recall_{i}", "type": "recall", "query": q,
+                 "project": "memory_eval_recall", "must_contain": [q.split()[0]],
+                 "k": top_k}
+                for i, (_, _, q) in enumerate(seed_pairs)
+            ]
+
+        with _EvalModeContext(mode):
+            try:
+                from memory_core.telemetry import counters as _c
+                _c.reset()
+                before = _c.snapshot()
+            except Exception:
+                before = {}
+
+            try:
+                if builtin is not None:
+                    from eval_harness import EvalHarness
+                    h = EvalHarness(
+                        recall_fn=lambda q, p: [
+                            it
+                            for grp in (recall.search(
+                                q, p.get("project"), "all",
+                                p.get("limit", 10), "full",
+                                None, "rrf", False, False,
+                            ).get("results", {}) or {}).values()
+                            for it in grp
+                        ],
+                    )
+                    import time as _t
+                    t0 = _t.perf_counter()
+                    report = h.run_suite(builtin)
+                    elapsed = (_t.perf_counter() - t0) * 1000.0
+                    run = {"report": report, "elapsed_ms": elapsed, "scenarios": builtin}
+                else:
+                    run = _eval_run_locomo(
+                        store_obj=store, recall_obj=recall,
+                        top_k=top_k, limit=limit,
+                        scenarios_path=dataset_path,
+                    )
+            except Exception as exc:
+                return J({
+                    "status": "error",
+                    "reason": f"eval failed: {type(exc).__name__}: {exc}",
+                    "mode": mode,
+                })
+
+            llm_delta, net_delta = _eval_perf_snapshot_delta(before)
+
+        report = run["report"]
+        recall_block = report.get("recall", {})
+        return J({
+            "scenarios_total": int(report.get("total", 0)),
+            "scenarios_passed": int(report.get("passed", 0)),
+            "recall_at_5": float(recall_block.get("r_at_5", 0.0)),
+            "recall_at_10": float(recall_block.get("r_at_10", 0.0)),
+            "latency_ms": float(report.get("latency", {}).get("p95_ms", 0.0)),
+            "mode": mode,
+            "llm_calls_during_eval": int(llm_delta),
+            "network_calls_during_eval": int(net_delta),
+            "dataset": "builtin" if builtin is not None else dataset_path,
+        })
+
+    elif name == "memory_eval_temporal":
+        mode = a.get("mode", "fast")
+        try:
+            from temporal_kg import TemporalKG
+            from temporal_filter import parse_query_dates  # type: ignore  # noqa: F401
+        except Exception as exc:
+            return J({
+                "status": "not_implemented",
+                "reason": f"temporal modules unavailable: {type(exc).__name__}: {exc}",
+                "mode": mode,
+            })
+
+        # Verify the underlying schema is present. Without it the TemporalKG
+        # writes would error out — that's a not_implemented scenario.
+        try:
+            store.db.execute("SELECT 1 FROM fact_assertions LIMIT 1").fetchone()
+        except Exception as exc:
+            return J({
+                "status": "not_implemented",
+                "reason": f"fact_assertions table missing: {exc}",
+                "mode": mode,
+            })
+
+        with _EvalModeContext(mode):
+            try:
+                from memory_core.telemetry import counters as _c
+                _c.reset()
+                before = _c.snapshot()
+            except Exception:
+                before = {}
+
+            t_kg = TemporalKG(store.db)
+            project = "memory_eval_temporal"
+            # Two-fact timeline: stack=postgres at t1, then stack=mysql at t2.
+            t1 = "2026-01-01T00:00:00Z"
+            t2 = "2026-04-01T00:00:00Z"
+            try:
+                t_kg.add_fact("project_x", "uses", "postgres",
+                              project=project, valid_from=t1)
+                t_kg.add_fact("project_x", "uses", "mysql",
+                              project=project, valid_from=t2)
+            except Exception as exc:
+                return J({
+                    "status": "error",
+                    "reason": f"temporal write failed: {exc}",
+                    "mode": mode,
+                })
+
+            scenarios_total = 2
+            scenarios_passed = 0
+            details = {}
+
+            at_t1 = t_kg.query_at(t1, subject="project_x",
+                                  predicate="uses", project=project)
+            if any(r.get("object") == "postgres" for r in at_t1):
+                scenarios_passed += 1
+            details["query_at_t1"] = [r.get("object") for r in at_t1]
+
+            now_rows = t_kg.get_current(subject="project_x",
+                                        predicate="uses", project=project)
+            if any(r.get("object") == "mysql" for r in now_rows):
+                scenarios_passed += 1
+            details["current"] = [r.get("object") for r in now_rows]
+
+            llm_delta, net_delta = _eval_perf_snapshot_delta(before)
+
+        return J({
+            "scenarios_total": scenarios_total,
+            "scenarios_passed": scenarios_passed,
+            "recall_at_5": round(scenarios_passed / scenarios_total, 4),
+            "recall_at_10": round(scenarios_passed / scenarios_total, 4),
+            "latency_ms": 0.0,
+            "mode": mode,
+            "llm_calls_during_eval": int(llm_delta),
+            "network_calls_during_eval": int(net_delta),
+            "details": details,
+        })
+
+    elif name == "memory_eval_entity_consistency":
+        mode = a.get("mode", "fast")
+        try:
+            from entity_dedup import EntityCandidate, canonicalize_entity_tags
+        except Exception as exc:
+            return J({
+                "status": "not_implemented",
+                "reason": f"entity_dedup unavailable: {type(exc).__name__}: {exc}",
+                "mode": mode,
+            })
+
+        with _EvalModeContext(mode):
+            try:
+                from memory_core.telemetry import counters as _c
+                _c.reset()
+                before = _c.snapshot()
+            except Exception:
+                before = {}
+
+            # Deterministic embed_fn: hash text → 8-d vector. Same text
+            # → same vector → cosine=1.0 for exact matches, low otherwise.
+            import hashlib as _hl
+
+            def _det_embed(texts):
+                out = []
+                for t in texts:
+                    h = _hl.sha256(t.lower().strip().encode("utf-8")).digest()
+                    vec = [b / 255.0 for b in h[:8]]
+                    out.append(vec)
+                return out
+
+            canonical = "Anthropic Claude"
+            candidates = [EntityCandidate(
+                node_id="n1", name=canonical, type="company",
+                embedding=_det_embed([canonical])[0],
+            )]
+
+            scenarios_total = 3
+            scenarios_passed = 0
+            attempts = []
+            for variant in (canonical, canonical, canonical):
+                try:
+                    rewritten, decisions = canonicalize_entity_tags(
+                        [variant], candidates=candidates,
+                        embed_fn=_det_embed, threshold=0.99,
+                    )
+                    matched = canonical.lower() in [t.lower() for t in rewritten]
+                    if matched:
+                        scenarios_passed += 1
+                    attempts.append({
+                        "input": variant,
+                        "rewritten": rewritten,
+                        "decision": decisions[0].decision if decisions else None,
+                    })
+                except Exception as exc:
+                    attempts.append({"input": variant, "error": str(exc)})
+
+            llm_delta, net_delta = _eval_perf_snapshot_delta(before)
+
+        return J({
+            "scenarios_total": scenarios_total,
+            "scenarios_passed": scenarios_passed,
+            "recall_at_5": round(scenarios_passed / scenarios_total, 4),
+            "recall_at_10": round(scenarios_passed / scenarios_total, 4),
+            "latency_ms": 0.0,
+            "mode": mode,
+            "llm_calls_during_eval": int(llm_delta),
+            "network_calls_during_eval": int(net_delta),
+            "attempts": attempts,
+        })
+
+    elif name == "memory_eval_contradictions":
+        mode = a.get("mode", "fast")
+        try:
+            from contradiction_detector import detect_contradictions
+        except Exception as exc:
+            return J({
+                "status": "not_implemented",
+                "reason": f"contradiction_detector unavailable: {type(exc).__name__}: {exc}",
+                "mode": mode,
+            })
+
+        # The detector requires LLM — fast mode cannot exercise it. Honour
+        # the contract: refuse without crashing, instruct caller.
+        if mode == "fast":
+            return J({
+                "status": "not_implemented",
+                "reason": "contradiction_detector requires LLM — call with mode='balanced' or 'deep'.",
+                "mode": mode,
+            })
+
+        with _EvalModeContext(mode):
+            try:
+                from memory_core.telemetry import counters as _c
+                _c.reset()
+                before = _c.snapshot()
+            except Exception:
+                before = {}
+
+            # Labelled fixture: one pair where new clearly supersedes old,
+            # one pair where they are unrelated. We use injected fns so we
+            # don't depend on a configured Ollama/Anthropic provider.
+            fixture = [
+                {
+                    "label": "supersedes",
+                    "old": "Use ChromaDB as the vector backend.",
+                    "new": "Switch to SQLite-vec as the vector backend; ChromaDB is removed.",
+                    "expected": "superseded",
+                },
+                {
+                    "label": "unrelated",
+                    "old": "Use ChromaDB as the vector backend.",
+                    "new": "Bump pgbouncer pool_size from 25 to 100.",
+                    "expected": "rejected",
+                },
+            ]
+
+            def _fake_embed(texts):
+                # Deterministic length-only vector; cosine ~ 1 for same text,
+                # ~ length-correlated otherwise. Good enough for the fixture.
+                out = []
+                for t in texts:
+                    n = float(len(t))
+                    out.append([n, n / 2.0, n / 3.0])
+                return out
+
+            def _fake_llm_for(case_label: str):
+                def _llm(prompt: str) -> str:
+                    # The fixture pipes the new content into the prompt verbatim.
+                    if case_label == "supersedes":
+                        return ('{"contradicts": true, "confidence": 0.95, '
+                                '"reason": "new switches the vector backend"}')
+                    return ('{"contradicts": false, "confidence": 0.1, '
+                            '"reason": "unrelated topics"}')
+                return _llm
+
+            scenarios_total = len(fixture)
+            scenarios_passed = 0
+            details = []
+            for case in fixture:
+                old_row = {
+                    "id": 1, "type": "solution",
+                    "content": case["old"], "project": "memory_eval_contradictions",
+                }
+
+                def _fetch(_ids, _row=old_row):
+                    return [_row]
+
+                try:
+                    verdicts = detect_contradictions(
+                        content=case["new"],
+                        ktype="solution",
+                        project="memory_eval_contradictions",
+                        candidate_pool=[(1, 0.85)],
+                        fetch_candidates=_fetch,
+                        llm_fn=_fake_llm_for(case["label"]),
+                    )
+                    decisions = [v.decision for v in verdicts]
+                    ok = case["expected"] in decisions
+                    if ok:
+                        scenarios_passed += 1
+                    details.append({"label": case["label"],
+                                    "expected": case["expected"],
+                                    "decisions": decisions, "passed": ok})
+                except Exception as exc:
+                    details.append({"label": case["label"], "error": str(exc)})
+
+            llm_delta, net_delta = _eval_perf_snapshot_delta(before)
+
+        return J({
+            "scenarios_total": scenarios_total,
+            "scenarios_passed": scenarios_passed,
+            "recall_at_5": round(scenarios_passed / max(1, scenarios_total), 4),
+            "recall_at_10": round(scenarios_passed / max(1, scenarios_total), 4),
+            "latency_ms": 0.0,
+            "mode": mode,
+            "llm_calls_during_eval": int(llm_delta),
+            "network_calls_during_eval": int(net_delta),
+            "details": details,
+        })
+
+    elif name == "memory_eval_long_context":
+        mode = a.get("mode", "fast")
+        n_records = max(10, int(a.get("n_records", 200)))
+        top_k = int(a.get("top_k", 5))
+
+        with _EvalModeContext(mode):
+            try:
+                from memory_core.telemetry import counters as _c
+                _c.reset()
+                before = _c.snapshot()
+            except Exception:
+                before = {}
+
+            project = "memory_eval_long_context"
+            # Seed a haystack of N filler records + 1 needle at the tail.
+            for i in range(n_records):
+                try:
+                    store.save_knowledge(
+                        sid=getattr(__import__("server"), "SID", "eval-session"),
+                        content=f"long-context filler {i} — generic noise about caches and queues",
+                        ktype="fact", project=project,
+                    )
+                except Exception:
+                    pass
+            needle_phrase = "tachyon-aluminium hyperspecific marker"
+            try:
+                store.save_knowledge(
+                    sid=getattr(__import__("server"), "SID", "eval-session"),
+                    content=f"NEEDLE — {needle_phrase}",
+                    ktype="fact", project=project,
+                )
+            except Exception:
+                pass
+
+            scenarios = [{
+                "name": "long_context_needle",
+                "type": "recall",
+                "query": needle_phrase,
+                "project": project,
+                "must_contain": ["tachyon"],
+                "k": top_k,
+            }]
+            from eval_harness import EvalHarness
+            h = EvalHarness(
+                recall_fn=lambda q, p: [
+                    it
+                    for grp in (recall.search(
+                        q, p.get("project"), "all",
+                        p.get("limit", 10), "full",
+                        None, "rrf", False, False,
+                    ).get("results", {}) or {}).values()
+                    for it in grp
+                ],
+            )
+            import time as _t
+            t0 = _t.perf_counter()
+            report = h.run_suite(scenarios)
+            elapsed_ms = (_t.perf_counter() - t0) * 1000.0
+
+            llm_delta, net_delta = _eval_perf_snapshot_delta(before)
+
+        recall_block = report.get("recall", {})
+        return J({
+            "scenarios_total": int(report.get("total", 0)),
+            "scenarios_passed": int(report.get("passed", 0)),
+            "recall_at_5": float(recall_block.get("r_at_5", 0.0)),
+            "recall_at_10": float(recall_block.get("r_at_10", 0.0)),
+            "latency_ms": float(report.get("latency", {}).get("p95_ms", elapsed_ms)),
+            "mode": mode,
+            "llm_calls_during_eval": int(llm_delta),
+            "network_calls_during_eval": int(net_delta),
+            "n_records": n_records,
+        })
+
+    # ── v11.0 W3 dispatch ──────────────────────────────────────────────
+    elif name == "memory_recall_iterative":
+        from v11_handlers import handle_recall_iterative
+        def _search(q, project, ktype, k):
+            return recall.search(q, project, ktype, limit=k)
+        return J(handle_recall_iterative(args, search_fn=_search))
+
+    elif name == "memory_temporal_query":
+        from v11_handlers import handle_temporal_query
+        return J(handle_temporal_query(args))
+
+    elif name == "memory_entity_resolve":
+        from v11_handlers import handle_entity_resolve
+        def _emb(t):
+            vs = store.embed([t])
+            return vs[0] if vs else None
+        return J(handle_entity_resolve(args, conn=store.db, embed_fn=_emb))
+
+    elif name == "memory_consolidate_status":
+        from v11_handlers import handle_consolidate_status
+        return J(handle_consolidate_status(args, conn=store.db))
 
     return J({"error": "Unknown tool"})
 

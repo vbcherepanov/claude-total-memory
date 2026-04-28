@@ -202,6 +202,22 @@ class FastEmbedProvider:
 # ──────────────────────────────────────────────
 
 
+def _l2_normalise_vec(vec: list[float]) -> list[float]:
+    """Return a copy of `vec` rescaled to unit L2 length.
+
+    Pure-Python fallback (no numpy dep): cosine similarity == dot product
+    once both query and stored vectors are L2-normalised, which lets the
+    binary-quantization path treat sign bits as Hamming proxies for cosine.
+    """
+    s = 0.0
+    for x in vec:
+        s += float(x) * float(x)
+    if s <= 0.0:
+        return [float(x) for x in vec]
+    inv = 1.0 / (s ** 0.5)
+    return [float(x) * inv for x in vec]
+
+
 class OpenAIEmbedProvider:
     """OpenAI embeddings API.
 
@@ -209,6 +225,15 @@ class OpenAIEmbedProvider:
     `{"data": [{"embedding": [...]}, ...]}`. Supports `text-embedding-3-small`
     (1536) and `text-embedding-3-large` (3072). `api_base` override lets this
     target LiteLLM / OpenRouter / self-hosted proxies.
+
+    Vectors are L2-normalised before being returned (see `normalize=False` to
+    opt out). The `embeddings` table stores both float32 and 1-bit quantised
+    blobs; cosine similarity reduces to a dot product (or a Hamming distance
+    on the binary blob) only when both query and stored vectors live on the
+    unit sphere.
+
+    Outputs are batched at `batch_size` (default 64) to stay under OpenAI's
+    per-request token cap on long documents.
     """
 
     name = "openai"
@@ -218,14 +243,23 @@ class OpenAIEmbedProvider:
         api_key: str | None = None,
         api_base: str | None = None,
         model: str | None = None,
+        *,
+        batch_size: int = 64,
+        normalize: bool = False,
     ) -> None:
         self.api_key = api_key
         self.api_base = (api_base or config.get_embed_api_base("openai")).rstrip("/")
         self._model = model or config.get_embed_model("openai")
+        self._batch_size = max(1, int(batch_size))
+        self._normalize = bool(normalize)
 
     @property
     def model(self) -> str:
         return self._model
+
+    @property
+    def batch_size(self) -> int:
+        return self._batch_size
 
     def available(self) -> bool:
         return bool(self.api_key) and bool(self.api_base)
@@ -233,12 +267,8 @@ class OpenAIEmbedProvider:
     def dim(self) -> int:
         return _OPENAI_DIM.get(self._model, 0)
 
-    def embed(self, texts: Sequence[str], *, timeout: float = 60.0) -> list[list[float]]:
-        if not self.api_key:
-            raise RuntimeError("OpenAIEmbedProvider: missing api_key")
-        if not texts:
-            return []
-        body = {"input": list(texts), "model": self._model}
+    def _embed_batch(self, batch: list[str], *, timeout: float) -> list[list[float]]:
+        body = {"input": batch, "model": self._model}
         headers = {"Authorization": f"Bearer {self.api_key}"}
         resp = _http_post_json(
             f"{self.api_base}/embeddings",
@@ -248,14 +278,32 @@ class OpenAIEmbedProvider:
         )
         try:
             items = resp["data"]
-            # Preserve input order via `index` when provided.
-            ordered: list[list[float]] = [[] for _ in items]
-            for entry in items:
-                idx = int(entry.get("index", 0))
-                ordered[idx] = [float(x) for x in entry["embedding"]]
-            return ordered
-        except (KeyError, TypeError, ValueError) as exc:
+        except (KeyError, TypeError) as exc:
             raise RuntimeError(f"OpenAIEmbedProvider: malformed response: {exc}") from exc
+        # Preserve input order via `index` when provided.
+        ordered: list[list[float]] = [[] for _ in items]
+        for entry in items:
+            try:
+                idx = int(entry.get("index", 0))
+                vec = [float(x) for x in entry["embedding"]]
+            except (KeyError, TypeError, ValueError) as exc:
+                raise RuntimeError(
+                    f"OpenAIEmbedProvider: malformed entry: {exc}"
+                ) from exc
+            ordered[idx] = _l2_normalise_vec(vec) if self._normalize else vec
+        return ordered
+
+    def embed(self, texts: Sequence[str], *, timeout: float = 60.0) -> list[list[float]]:
+        if not self.api_key:
+            raise RuntimeError("OpenAIEmbedProvider: missing api_key")
+        if not texts:
+            return []
+        all_texts = list(texts)
+        out: list[list[float]] = []
+        for i in range(0, len(all_texts), self._batch_size):
+            chunk = all_texts[i : i + self._batch_size]
+            out.extend(self._embed_batch(chunk, timeout=timeout))
+        return out
 
 
 # ──────────────────────────────────────────────
@@ -335,8 +383,12 @@ class CohereEmbedProvider:
 def make_embed_provider(name: str, **kwargs) -> EmbeddingProvider:
     """Build an embedding provider by name.
 
-    kwargs (optional): api_key, api_base, model. Missing values fall back
-    to config-driven defaults.
+    kwargs (optional): api_key, api_base, model, batch_size, normalize.
+    Missing values fall back to config-driven defaults.
+
+    `name="auto"` — read `MEMORY_EMBED_PROVIDER` (default fastembed). When
+    that resolves to `openai`, the model defaults to `MEMORY_EMBED_MODEL`
+    (or `text-embedding-3-small`); pass `model=` explicitly to override.
     """
     key = (name or "").strip().lower()
     if key == "auto":
@@ -345,10 +397,19 @@ def make_embed_provider(name: str, **kwargs) -> EmbeddingProvider:
     if key == "fastembed":
         return FastEmbedProvider(model=kwargs.get("model"))
     if key == "openai":
+        # Production OpenAI path always L2-normalises so cosine == dot
+        # against existing FastEmbed/ST vectors, which are unit-norm too.
+        # The class default is `False` purely to preserve byte-for-byte
+        # back-compat in legacy tests that constructed the class directly.
+        opts: dict = {
+            "batch_size": int(kwargs["batch_size"]) if "batch_size" in kwargs else 64,
+            "normalize": bool(kwargs["normalize"]) if "normalize" in kwargs else True,
+        }
         return OpenAIEmbedProvider(
             api_key=kwargs.get("api_key") or config.get_embed_api_key("openai"),
             api_base=kwargs.get("api_base") or config.get_embed_api_base("openai"),
-            model=kwargs.get("model"),
+            model=kwargs.get("model") or config.get_embed_model("openai"),
+            **opts,
         )
     if key == "cohere":
         return CohereEmbedProvider(
@@ -359,3 +420,22 @@ def make_embed_provider(name: str, **kwargs) -> EmbeddingProvider:
     raise ValueError(
         f"unknown embedding provider {name!r}; expected fastembed|openai|cohere|auto"
     )
+
+
+# ──────────────────────────────────────────────
+# Env-driven dispatch
+# ──────────────────────────────────────────────
+
+
+def provider_from_env() -> EmbeddingProvider:
+    """Build an embedding provider from MEMORY_EMBED_* env vars.
+
+    Reads `MEMORY_EMBED_PROVIDER` (fastembed|openai|cohere) and
+    `MEMORY_EMBED_MODEL`; secrets/base URLs come from
+    `config.get_embed_api_key()` / `get_embed_api_base()` so the same
+    plumbing as `choose_embed.get_provider()` is used. Intended for
+    re-embed scripts and any caller that wants to honour the operator's
+    `MEMORY_EMBED_PROVIDER=openai` flip without bouncing through the
+    `V9_EMBED_BACKEND` table.
+    """
+    return make_embed_provider("auto")

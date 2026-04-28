@@ -587,7 +587,12 @@ def process_qa(client, server_mod, store, recall, qa: dict, project: str,
         elif cat == 5:  # adversarial → truncate to reduce confabulation surface
             entries = entries[:max(5, top_k // 2)]
 
-    # Evidence recall (retrieval-only metric)
+    # Evidence recall (retrieval-only metric).
+    # canonical_tags lowercases all stored tags (e.g. "D1:5" → "d1:5") whereas
+    # LoCoMo gold evidence keeps the original case ("D1:5"). Compare
+    # case-insensitively on both sides so r@K reflects real retrieval, not a
+    # tag-pipeline artefact. (See benchmarks/results/v9-* for the pre-canonical
+    # runs that didn't have this issue.)
     ranked_dia_ids = []
     for entry in entries:
         tags = entry.get("tags") or []
@@ -596,11 +601,17 @@ def process_qa(client, server_mod, store, recall, qa: dict, project: str,
                 tags = json.loads(tags)
             except Exception:
                 tags = []
-        did = next((t for t in tags if isinstance(t, str) and t.startswith("D") and ":" in t), "")
-        ranked_dia_ids.append(did)
-    r_at_1 = int(any(d in evidence for d in ranked_dia_ids[:1]))
-    r_at_5 = int(any(d in evidence for d in ranked_dia_ids[:5]))
-    r_at_10 = int(any(d in evidence for d in ranked_dia_ids[:10]))
+        did = next(
+            (t for t in tags
+             if isinstance(t, str) and len(t) > 1
+             and t[0] in ("D", "d") and ":" in t),
+            "",
+        )
+        ranked_dia_ids.append(did.upper() if did else "")
+    evidence_norm = {(e or "").upper() for e in evidence}
+    r_at_1 = int(any(d in evidence_norm for d in ranked_dia_ids[:1] if d))
+    r_at_5 = int(any(d in evidence_norm for d in ranked_dia_ids[:5] if d))
+    r_at_10 = int(any(d in evidence_norm for d in ranked_dia_ids[:10] if d))
 
     # L2 fact-index boost: prepend structured (entity, attribute)→value hits
     # to the context so the generator sees them first. Keep raw turns too.
@@ -803,6 +814,33 @@ def process_qa(client, server_mod, store, recall, qa: dict, project: str,
             pred, gen_in, gen_out = call_llm(client, system_prompt, user_prompt,
                                              max_tokens=80, model=gen_model)
 
+    # v11.0 W3 — post-process: NLI verify + answerability + calibrated routing.
+    # Rewrites `pred` to refusal only when router emits IDK; otherwise keeps
+    # the base pipeline's prediction (failure analysis: 30% of errors are
+    # over-cautious refusals, so v11 stays additive, not pre-emptive).
+    v11_meta: dict = {}
+    if os.environ.get("V11_PIPELINE") == "1":
+        try:
+            from v11_pipeline import apply_v11_pipeline
+            v11_out = apply_v11_pipeline(
+                client, question, pred, entries,
+                category=cat,
+                gen_model=gen_model,
+                judge_model=judge_model,
+                enable_verifier=os.environ.get("V11_SKIP_NLI") != "1",
+                enable_router=True,
+                enable_negative=False,
+            )
+            pred = v11_out.get("final_pred") or pred
+            v11_meta = {
+                "v11_route": v11_out.get("route"),
+                "v11_original_pred": v11_out.get("original_pred"),
+                "v11_nli_decision": (v11_out.get("nli") or {}).get("decision"),
+                "v11_answerable": (v11_out.get("answerability") or {}).get("answerable"),
+            }
+        except Exception as e:  # noqa: BLE001
+            v11_meta = {"v11_error": str(e)}
+
     # Judge
     judge_prompt = (
         f"Question: {question}\n"
@@ -814,7 +852,7 @@ def process_qa(client, server_mod, store, recall, qa: dict, project: str,
                                       max_tokens=4, model=judge_model)
     correct = judge_out.upper().startswith("YES")
 
-    return {
+    rec = {
         "question": question,
         "gold": gold,
         "pred": pred,
@@ -830,6 +868,9 @@ def process_qa(client, server_mod, store, recall, qa: dict, project: str,
         "tokens_in": gen_in + j_in + guard_in + aux_in,
         "tokens_out": gen_out + j_out + guard_out + aux_out,
     }
+    if v11_meta:
+        rec.update(v11_meta)
+    return rec
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -1001,6 +1042,13 @@ def main() -> int:
     parser.add_argument("--oracle-routing", action="store_true",
                         help="Use true LoCoMo category to route retrieval strategy "
                              "(measures upper bound before building real classifier)")
+    parser.add_argument("--v11-pipeline", action="store_true",
+                        help="v11.0 W3: post-process predictions through NLI verifier + "
+                             "answerability classifier + calibrated answer router. "
+                             "Rewrites to refusal only when router emits IDK; otherwise "
+                             "leaves the base pipeline's prediction intact.")
+    parser.add_argument("--v11-skip-nli", action="store_true",
+                        help="v11.0: skip NLI verifier (saves ~270MB model load + per-QA latency).")
     args = parser.parse_args()
 
     # v9 D4: propagate --reranker flag into env BEFORE any reranker import.
@@ -1008,6 +1056,19 @@ def main() -> int:
     # caching is per-process — set this before reranker._get_reranker() runs.
     if args.reranker is not None:
         os.environ["V9_RERANKER_BACKEND"] = args.reranker
+
+    # v11.0 W3: enable v11 post-processing pipeline (NLI verifier + answer router).
+    if args.v11_pipeline:
+        os.environ["V11_PIPELINE"] = "1"
+    if args.v11_skip_nli:
+        os.environ["V11_SKIP_NLI"] = "1"
+    if os.environ.get("V11_PIPELINE") == "1" and os.environ.get("V11_SKIP_NLI") != "1":
+        # Pre-load NLI model so the first QA doesn't pay ~5s download/load.
+        try:
+            from v11_pipeline import warmup as _v11_warm
+            _v11_warm()
+        except Exception as e:
+            print(f"[v11] warmup failed: {e}", file=sys.stderr)
 
     # v9 D6: optionally swap CATEGORY_PROMPTS with the few-shot-augmented
     # version. Affects per-cat-prompts code path only.
