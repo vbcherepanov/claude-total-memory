@@ -6802,22 +6802,22 @@ async def _do(name, a):
         from v11_handlers import handle_recall_iterative
         def _search(q, project, ktype, k):
             return recall.search(q, project, ktype, limit=k)
-        return J(handle_recall_iterative(args, search_fn=_search))
+        return J(handle_recall_iterative(a, search_fn=_search))
 
     elif name == "memory_temporal_query":
         from v11_handlers import handle_temporal_query
-        return J(handle_temporal_query(args))
+        return J(handle_temporal_query(a))
 
     elif name == "memory_entity_resolve":
         from v11_handlers import handle_entity_resolve
         def _emb(t):
             vs = store.embed([t])
             return vs[0] if vs else None
-        return J(handle_entity_resolve(args, conn=store.db, embed_fn=_emb))
+        return J(handle_entity_resolve(a, conn=store.db, embed_fn=_emb))
 
     elif name == "memory_consolidate_status":
         from v11_handlers import handle_consolidate_status
-        return J(handle_consolidate_status(args, conn=store.db))
+        return J(handle_consolidate_status(a, conn=store.db))
 
     return J({"error": "Unknown tool"})
 

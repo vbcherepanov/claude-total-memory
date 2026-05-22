@@ -25,6 +25,7 @@ def _run_install(home: Path, *args: str, extra_env: dict | None = None):
     env["INSTALL_TEST_MODE"] = "1"
     # Pin memory dir inside sandbox; keep inherited PATH so python3 (3.10+) is found.
     env["CLAUDE_MEMORY_DIR"] = str(home / ".claude-memory")
+    env["TAM_MEMORY_DIR"] = env["CLAUDE_MEMORY_DIR"]
     if extra_env:
         env.update(extra_env)
 
@@ -142,6 +143,9 @@ def test_ide_codex_writes_codex_toml_with_env_overrides(sandbox_home: Path):
     assert "[mcp_servers.memory]" in content
     assert "[mcp_servers.memory.env]" in content
     # PR #5 env overrides must be present
+    assert f'TAM_MEMORY_DIR = "{sandbox_home / ".claude-memory"}"' in content
+    assert f'CLAUDE_MEMORY_DIR = "{sandbox_home / ".claude-memory"}"' in content
+    assert 'MEMORY_MODE = "fast"' in content
     assert 'MEMORY_TRIPLE_TIMEOUT_SEC = "120"' in content
     assert 'MEMORY_ENRICH_TIMEOUT_SEC = "90"' in content
     assert 'MEMORY_REPR_TIMEOUT_SEC = "120"' in content
@@ -151,12 +155,56 @@ def test_ide_codex_writes_codex_toml_with_env_overrides(sandbox_home: Path):
     assert "# --- End total-agent-memory ---" in content
 
 
+def test_ide_codex_installs_memory_hooks(sandbox_home: Path):
+    result = _run_install(sandbox_home, "--ide", "codex")
+    assert result.returncode == 0, result.stderr
+
+    hooks_dir = sandbox_home / ".codex" / "hooks"
+    for name in (
+        "session-start.sh",
+        "pre-edit.sh",
+        "user-prompt-submit.sh",
+        "on-stop.sh",
+        "on-bash-error.sh",
+        "lib/common.sh",
+        "lib/memory-nudge.sh",
+    ):
+        assert (hooks_dir / name).is_file(), f"missing Codex hook {name}"
+
+    hooks_json = sandbox_home / ".codex" / "hooks.json"
+    assert hooks_json.exists(), "Codex hooks.json must be created"
+    data = json.loads(hooks_json.read_text())
+    hooks = data["hooks"]
+
+    assert "SessionStart" in hooks
+    assert "PreToolUse" in hooks
+    assert "UserPromptSubmit" in hooks
+    assert "Stop" in hooks
+    assert "PostToolUse" in hooks
+
+    all_commands = [
+        h["command"]
+        for blocks in hooks.values()
+        for block in blocks
+        for h in block.get("hooks", [])
+    ]
+    assert any("session-start.sh" in c for c in all_commands)
+    assert any("pre-edit.sh" in c for c in all_commands)
+    assert any("user-prompt-submit.sh" in c for c in all_commands)
+    assert any("on-stop.sh" in c for c in all_commands)
+    assert any("on-bash-error.sh" in c for c in all_commands)
+    assert all("TAM_MEMORY_DIR=" in c for c in all_commands)
+    assert not any("auto-capture.sh" in c for c in all_commands)
+    assert not any("post-tool-use.sh" in c for c in all_commands)
+
+
 def test_install_codex_shim_still_works(sandbox_home: Path):
     # install-codex.sh remains as backward-compat shim
     env = os.environ.copy()
     env["HOME"] = str(sandbox_home)
     env["INSTALL_TEST_MODE"] = "1"
     env["CLAUDE_MEMORY_DIR"] = str(sandbox_home / ".claude-memory")
+    env["TAM_MEMORY_DIR"] = env["CLAUDE_MEMORY_DIR"]
 
     result = subprocess.run(
         ["bash", str(INSTALL_CODEX_SH)],
@@ -226,7 +274,7 @@ def test_codex_install_is_idempotent(sandbox_home: Path):
     assert "[other_section]" in content1
     assert "[mcp_servers.memory]" in content1
 
-    # Second run — must not duplicate the memory block
+    # Second run - must not duplicate the memory block
     result2 = _run_install(sandbox_home, "--ide", "codex")
     assert result2.returncode == 0, result2.stderr
     content2 = cfg.read_text()
@@ -234,3 +282,14 @@ def test_codex_install_is_idempotent(sandbox_home: Path):
     assert content2.count("# --- total-agent-memory MCP Server ---") == 1
     # Other section still there
     assert "[other_section]" in content2
+
+    hooks = json.loads((codex_dir / "hooks.json").read_text())["hooks"]
+    commands = [
+        h["command"]
+        for blocks in hooks.values()
+        for block in blocks
+        for h in block.get("hooks", [])
+    ]
+    assert sum(1 for c in commands if c.endswith("/session-start.sh")) == 1
+    assert sum(1 for c in commands if c.endswith("/pre-edit.sh")) == 1
+    assert sum(1 for c in commands if c.endswith("/on-bash-error.sh")) == 1

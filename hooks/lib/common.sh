@@ -18,8 +18,10 @@ HOOK_INPUT=$(cat)
 # Resolve install dir (where hooks/src live)
 CLAUDE_MEMORY_INSTALL_DIR="${CLAUDE_MEMORY_INSTALL_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)}"
 
-# Resolve memory storage dir
-CLAUDE_MEMORY_DIR="${CLAUDE_MEMORY_DIR:-$HOME/.claude-memory}"
+# Resolve memory storage dir. TAM_MEMORY_DIR is the canonical name; keep
+# CLAUDE_MEMORY_DIR as a compatibility alias for older hook scripts.
+CLAUDE_MEMORY_DIR="${CLAUDE_MEMORY_DIR:-${TAM_MEMORY_DIR:-$HOME/.tam}}"
+TAM_MEMORY_DIR="${TAM_MEMORY_DIR:-$CLAUDE_MEMORY_DIR}"
 
 # Python from venv (prefer install dir venv, fallback to system)
 HOOK_PYTHON="${CLAUDE_MEMORY_INSTALL_DIR}/.venv/bin/python"
@@ -56,6 +58,10 @@ except:
 
 # Get project name from cwd
 hook_project_name() {
+    if [ -n "${MEMORY_PROJECT:-}" ]; then
+        echo "$MEMORY_PROJECT"
+        return 0
+    fi
     local cwd
     cwd=$(hook_get 'cwd')
     [ -z "$cwd" ] && cwd="$PWD"

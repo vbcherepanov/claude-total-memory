@@ -462,6 +462,45 @@ install_hooks_to_home() {
     echo "  OK: Hooks synced to $hooks_target (copied=$copied, skipped=$skipped)"
 }
 
+install_hooks_to_codex() {
+    local hooks_target="$HOME/.codex/hooks"
+    local lib_target="$hooks_target/lib"
+    local overwrite="${INSTALL_OVERWRITE_HOOKS:-0}"
+    local copied=0 skipped=0
+
+    mkdir -p "$lib_target"
+
+    _copy_codex_hook() {
+        local src="$1"
+        local dst="$2"
+        if [ ! -f "$src" ]; then
+            return 0
+        fi
+        if [ -f "$dst" ] && [ "$overwrite" != "1" ]; then
+            echo "  SKIP (exists): $(basename "$dst") — set INSTALL_OVERWRITE_HOOKS=1 to replace"
+            skipped=$((skipped + 1))
+            return 0
+        fi
+        cp "$src" "$dst"
+        chmod +x "$dst" 2>/dev/null || true
+        copied=$((copied + 1))
+    }
+
+    local name
+    for name in session-start.sh user-prompt-submit.sh on-stop.sh pre-edit.sh on-bash-error.sh; do
+        _copy_codex_hook "$INSTALL_DIR/hooks/$name" "$hooks_target/$name"
+    done
+
+    local lib
+    for lib in "$INSTALL_DIR"/hooks/lib/*.sh; do
+        [ -f "$lib" ] || continue
+        _copy_codex_hook "$lib" "$lib_target/$(basename "$lib")"
+    done
+
+    echo "  OK: Codex hooks synced to $hooks_target (copied=$copied, skipped=$skipped)"
+}
+
+
 register_mcp_claude_code() {
     local settings="$HOME/.claude/settings.json"
     echo "-> Step 4: Configuring Claude Code MCP server..."
@@ -751,6 +790,8 @@ tool_timeout_sec = 120.0
 
 [mcp_servers.memory.env]
 TAM_MEMORY_DIR = "{memory_dir}"
+CLAUDE_MEMORY_DIR = "{memory_dir}"
+MEMORY_MODE = "fast"
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 MEMORY_TRIPLE_TIMEOUT_SEC = "120"
 MEMORY_ENRICH_TIMEOUT_SEC = "90"
@@ -778,6 +819,90 @@ else:
 content = content.lstrip('\n')
 with open(config_path, 'w') as f:
     f.write(content)
+PY
+
+    echo "-> Step 4a: Installing Codex hook scripts..."
+    install_hooks_to_codex
+
+    echo "-> Step 4b: Registering Codex hooks..."
+    local hooks_json="$codex_dir/hooks.json"
+    CODEX_HOOKS_JSON="$hooks_json" CODEX_HOOKS_DIR="$codex_dir/hooks" \
+    INSTALL_DIR="$INSTALL_DIR" MEMORY_DIR="$MEMORY_DIR" MEMORY_MODE="${MEMORY_MODE:-fast}" \
+    python3 - <<'PY'
+import json, os, shlex
+from pathlib import Path
+
+path = Path(os.environ["CODEX_HOOKS_JSON"])
+hooks_dir = Path(os.environ["CODEX_HOOKS_DIR"])
+
+data = {}
+if path.exists():
+    try:
+        data = json.loads(path.read_text())
+        if not isinstance(data, dict):
+            data = {}
+    except Exception:
+        data = {}
+
+hooks = data.setdefault("hooks", {})
+
+hook_env = {
+    "CLAUDE_MEMORY_INSTALL_DIR": os.environ["INSTALL_DIR"],
+    "TAM_MEMORY_DIR": os.environ["MEMORY_DIR"],
+    "CLAUDE_MEMORY_DIR": os.environ["MEMORY_DIR"],
+    "MEMORY_MODE": os.environ.get("MEMORY_MODE", "fast"),
+}
+
+def hook_command(script_name: str) -> str:
+    prefix = " ".join(
+        f"{key}={shlex.quote(value)}"
+        for key, value in hook_env.items()
+        if value
+    )
+    return f"{prefix} {shlex.quote(str(hooks_dir / script_name))}"
+
+def ensure(event: str, matcher: str, script_name: str, timeout: int, status: str) -> None:
+    cmd = hook_command(script_name)
+    entries = hooks.setdefault(event, [])
+    if not isinstance(entries, list):
+        entries = []
+        hooks[event] = entries
+
+    for block in entries:
+        if not isinstance(block, dict) or block.get("matcher") != matcher:
+            continue
+        hook_list = block.setdefault("hooks", [])
+        if any(isinstance(h, dict) and h.get("command") == cmd for h in hook_list):
+            return
+        hook_list.append({
+            "type": "command",
+            "command": cmd,
+            "timeout": timeout,
+            "async": False,
+            "statusMessage": status,
+        })
+        return
+
+    entries.append({
+        "matcher": matcher,
+        "hooks": [{
+            "type": "command",
+            "command": cmd,
+            "timeout": timeout,
+            "async": False,
+            "statusMessage": status,
+        }],
+    })
+
+ensure("SessionStart", "*", "session-start.sh", 5, "Loading memory")
+ensure("PreToolUse", "^(Write|Edit)$", "pre-edit.sh", 5, "Checking file memory")
+ensure("UserPromptSubmit", "*", "user-prompt-submit.sh", 5, "Saving intent")
+ensure("Stop", "*", "on-stop.sh", 10, "Saving recovery context")
+ensure("PostToolUse", "^Bash$", "on-bash-error.sh", 5, "Checking command failure")
+
+path.parent.mkdir(parents=True, exist_ok=True)
+path.write_text(json.dumps(data, indent=2) + "\n")
+print(f"  OK: Codex hooks registered in {path}")
 PY
 
     # -- Install Codex Skill --

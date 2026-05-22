@@ -15,7 +15,8 @@
 
 # Resolve install / memory dirs (same layout as other hooks).
 CLAUDE_MEMORY_INSTALL_DIR="${CLAUDE_MEMORY_INSTALL_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)}"
-CLAUDE_MEMORY_DIR="${CLAUDE_MEMORY_DIR:-$HOME/.claude-memory}"
+CLAUDE_MEMORY_DIR="${CLAUDE_MEMORY_DIR:-${TAM_MEMORY_DIR:-$HOME/.tam}}"
+TAM_MEMORY_DIR="${TAM_MEMORY_DIR:-$CLAUDE_MEMORY_DIR}"
 
 HOOK_PYTHON="${CLAUDE_MEMORY_INSTALL_DIR}/.venv/bin/python"
 if [ ! -x "$HOOK_PYTHON" ]; then
@@ -77,7 +78,7 @@ if not prompt:
 
 session_id = data.get("session_id") or os.environ.get("CLAUDE_SESSION_ID") or "unknown"
 cwd = data.get("cwd") or os.getcwd()
-project = os.path.basename(cwd) or "unknown"
+project = os.environ.get("MEMORY_PROJECT") or os.path.basename(cwd) or "unknown"
 
 if not Path(db_path).exists():
     sys.exit(0)
