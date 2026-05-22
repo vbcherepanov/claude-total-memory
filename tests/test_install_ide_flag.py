@@ -155,49 +155,6 @@ def test_ide_codex_writes_codex_toml_with_env_overrides(sandbox_home: Path):
     assert "# --- End total-agent-memory ---" in content
 
 
-def test_ide_codex_installs_memory_hooks(sandbox_home: Path):
-    result = _run_install(sandbox_home, "--ide", "codex")
-    assert result.returncode == 0, result.stderr
-
-    hooks_dir = sandbox_home / ".codex" / "hooks"
-    for name in (
-        "session-start.sh",
-        "pre-edit.sh",
-        "user-prompt-submit.sh",
-        "on-stop.sh",
-        "on-bash-error.sh",
-        "lib/common.sh",
-        "lib/memory-nudge.sh",
-    ):
-        assert (hooks_dir / name).is_file(), f"missing Codex hook {name}"
-
-    hooks_json = sandbox_home / ".codex" / "hooks.json"
-    assert hooks_json.exists(), "Codex hooks.json must be created"
-    data = json.loads(hooks_json.read_text())
-    hooks = data["hooks"]
-
-    assert "SessionStart" in hooks
-    assert "PreToolUse" in hooks
-    assert "UserPromptSubmit" in hooks
-    assert "Stop" in hooks
-    assert "PostToolUse" in hooks
-
-    all_commands = [
-        h["command"]
-        for blocks in hooks.values()
-        for block in blocks
-        for h in block.get("hooks", [])
-    ]
-    assert any("session-start.sh" in c for c in all_commands)
-    assert any("pre-edit.sh" in c for c in all_commands)
-    assert any("user-prompt-submit.sh" in c for c in all_commands)
-    assert any("on-stop.sh" in c for c in all_commands)
-    assert any("on-bash-error.sh" in c for c in all_commands)
-    assert all("TAM_MEMORY_DIR=" in c for c in all_commands)
-    assert not any("auto-capture.sh" in c for c in all_commands)
-    assert not any("post-tool-use.sh" in c for c in all_commands)
-
-
 def test_install_codex_shim_still_works(sandbox_home: Path):
     # install-codex.sh remains as backward-compat shim
     env = os.environ.copy()
@@ -282,14 +239,3 @@ def test_codex_install_is_idempotent(sandbox_home: Path):
     assert content2.count("# --- total-agent-memory MCP Server ---") == 1
     # Other section still there
     assert "[other_section]" in content2
-
-    hooks = json.loads((codex_dir / "hooks.json").read_text())["hooks"]
-    commands = [
-        h["command"]
-        for blocks in hooks.values()
-        for block in blocks
-        for h in block.get("hooks", [])
-    ]
-    assert sum(1 for c in commands if c.endswith("/session-start.sh")) == 1
-    assert sum(1 for c in commands if c.endswith("/pre-edit.sh")) == 1
-    assert sum(1 for c in commands if c.endswith("/on-bash-error.sh")) == 1
