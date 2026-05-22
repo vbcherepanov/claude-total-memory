@@ -231,7 +231,7 @@ def test_codex_install_is_idempotent(sandbox_home: Path):
     assert "[other_section]" in content1
     assert "[mcp_servers.memory]" in content1
 
-    # Second run - must not duplicate the memory block
+    # Second run — must not duplicate the memory block
     result2 = _run_install(sandbox_home, "--ide", "codex")
     assert result2.returncode == 0, result2.stderr
     content2 = cfg.read_text()
