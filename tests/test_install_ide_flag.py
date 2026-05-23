@@ -1,7 +1,7 @@
 """Tests for P0.2: unified install.sh with --ide <IDE> flag.
 
 All cases run install.sh in INSTALL_TEST_MODE=1 with a sandbox HOME so we
-don't hit the real filesystem, pip, or launchctl.
+don't hit the real filesystem, pip, launchctl, or systemctl.
 """
 from __future__ import annotations
 
@@ -19,6 +19,21 @@ INSTALL_SH = ROOT / "install.sh"
 INSTALL_CODEX_SH = ROOT / "install-codex.sh"
 
 
+def _add_fake_systemctl(env: dict[str, str], home: Path) -> None:
+    fake_bin = home / ".test-bin"
+    fake_bin.mkdir(exist_ok=True)
+    systemctl = fake_bin / "systemctl"
+    systemctl.write_text(
+        "#!/usr/bin/env bash\n"
+        'if [ "$1" = "--user" ] && [ "$2" = "show-environment" ]; then\n'
+        "  exit 1\n"
+        "fi\n"
+        "exit 1\n"
+    )
+    systemctl.chmod(0o755)
+    env["PATH"] = f"{fake_bin}:{env.get('PATH', '')}"
+
+
 def _run_install(home: Path, *args: str, extra_env: dict | None = None):
     env = os.environ.copy()
     env["HOME"] = str(home)
@@ -26,6 +41,8 @@ def _run_install(home: Path, *args: str, extra_env: dict | None = None):
     # Pin memory dir inside sandbox; keep inherited PATH so python3 (3.10+) is found.
     env["CLAUDE_MEMORY_DIR"] = str(home / ".claude-memory")
     env["TAM_MEMORY_DIR"] = env["CLAUDE_MEMORY_DIR"]
+    env["XDG_CONFIG_HOME"] = str(home / ".config")
+    _add_fake_systemctl(env, home)
     if extra_env:
         env.update(extra_env)
 
@@ -162,6 +179,8 @@ def test_install_codex_shim_still_works(sandbox_home: Path):
     env["INSTALL_TEST_MODE"] = "1"
     env["CLAUDE_MEMORY_DIR"] = str(sandbox_home / ".claude-memory")
     env["TAM_MEMORY_DIR"] = env["CLAUDE_MEMORY_DIR"]
+    env["XDG_CONFIG_HOME"] = str(sandbox_home / ".config")
+    _add_fake_systemctl(env, sandbox_home)
 
     result = subprocess.run(
         ["bash", str(INSTALL_CODEX_SH)],
@@ -231,7 +250,7 @@ def test_codex_install_is_idempotent(sandbox_home: Path):
     assert "[other_section]" in content1
     assert "[mcp_servers.memory]" in content1
 
-    # Second run — must not duplicate the memory block
+    # Second run - must not duplicate the memory block
     result2 = _run_install(sandbox_home, "--ide", "codex")
     assert result2.returncode == 0, result2.stderr
     content2 = cfg.read_text()
