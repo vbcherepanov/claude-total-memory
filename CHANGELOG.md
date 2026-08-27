@@ -95,6 +95,36 @@ code changing.
   write path scales with store size. Not yet profiled; recorded rather than
   explained away.
 
+### Added — LLM-judged accuracy, reported as a spread
+- `benchmarks/locomo_bench_llm.py` gains `--seed`, threaded through to both the
+  generator and the judge. A single LLM-judged run is a *sample*: temperature 0
+  does not make the API deterministic and `seed` is documented as best-effort,
+  so one number cannot answer "does it reproduce".
+- Published as three seeded runs with the spread: **0.551 ± 0.005** over the
+  1,540 non-adversarial questions, **0.645 ± 0.004** over all 1,986, adversarial
+  **0.966**. Retrieval was byte-identical across all three seeds — only
+  generation and judging vary.
+- `multi-hop` spreads 3.1 points on N=96, which is the point: at that sample
+  size a single run says almost nothing, and our own earlier single-number claim
+  for that category was over-claiming.
+- **Supersedes the previously published 0.582.** That run predates
+  `record_usage=False` in this runner — it too was measuring its own earlier
+  queries. The drop is the correction, not a regression.
+- The report banner used to hardcode "v8" and "Haiku 4.5" whatever was actually
+  run, and labelled token counts "Haiku tokens". It now prints the real version,
+  models and seed, and the seed is recorded in the artifact — otherwise a
+  published number cannot be traced to the run that produced it.
+
+### Added — negative controls under the retrieval numbers
+- Every LoCoMo run now scores three degenerate baselines on the same questions:
+  ten random turns from the conversation (R@5 **0.012**), the ten earliest
+  (**0.023**), the ten most recent (**0.003**), against the pipeline's
+  **0.607** — **27x the best of them**.
+- They run in the same pass as the metric, so the floor ships with the number
+  instead of living in a script that stops being run. Technique borrowed from a
+  sibling project that used exactly this to catch a scoring metric a deliberate
+  non-answer could beat; ours survives it.
+
 ### Added — LongMemEval measures the product now
 - The runner reimplemented its own BM25 / RRF / MMR / CrossEncoder stack, so
   the published 96.2% described *an algorithm*, not this software. A new

@@ -85,15 +85,23 @@ class LLMClient:
         max_tokens: int = 256,
         temperature: float = 0.0,
         retries: int = 3,
+        seed: int | None = None,
     ) -> LLMResult:
-        """Run one completion. On failure, exponential backoff."""
+        """Run one completion. On failure, exponential backoff.
+
+        `seed` is best-effort determinism, not a guarantee: OpenAI documents it
+        as such, and Anthropic has no equivalent. It is here so repeated runs
+        are *comparable samples* rather than the same call replayed — a single
+        LLM-judged run is one sample, and the spread across seeds is what
+        should be reported.
+        """
         model = MODEL_ALIASES.get(model, model)
         last: Exception | None = None
         for attempt in range(retries):
             try:
                 if self.provider == "anthropic":
                     return self._call_anthropic(system, user, model, max_tokens, temperature)
-                return self._call_openai(system, user, model, max_tokens, temperature)
+                return self._call_openai(system, user, model, max_tokens, temperature, seed)
             except Exception as e:  # noqa: BLE001
                 last = e
                 time.sleep(1.5 * (2 ** attempt))
@@ -115,7 +123,8 @@ class LLMClient:
         return LLMResult(text, r.usage.input_tokens, r.usage.output_tokens)
 
     def _call_openai(
-        self, system: str, user: str, model: str, max_tokens: int, temperature: float
+        self, system: str, user: str, model: str, max_tokens: int,
+        temperature: float, seed: int | None = None,
     ) -> LLMResult:
         # The o1-* family doesn't accept system messages / temperature yet;
         # fold the system into the user turn for those.
@@ -135,6 +144,8 @@ class LLMClient:
                 "max_tokens": max_tokens,
                 "temperature": temperature,
             }
+        if seed is not None:
+            kwargs["seed"] = seed
         r = self._openai.chat.completions.create(**kwargs)
         text = (r.choices[0].message.content or "").strip()
         usage = r.usage

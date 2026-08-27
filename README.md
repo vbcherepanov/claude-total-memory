@@ -312,20 +312,58 @@ Reproduce: `python benchmarks/longmemeval_bench.py --modes store` →
 ### On end-to-end accuracy numbers
 
 Systems in this space usually publish LoCoMo **accuracy** — a generator answers
-from the retrieved context and an LLM judges it. Our last full run of that kind
-(gpt-4o generator, gpt-4o-mini judge, 2026-06-28, tuned profile) scored **0.676
-over all 1,986 questions** and **0.582 over the 1,540 non-adversarial ones**,
-with 0.993 on adversarial — where abstaining is correct and where this project
-leads.
+from the retrieved context and an LLM judges it. We now publish it too, with
+the caveat that makes it meaningful.
 
-Those numbers are not directly comparable to the 90%+ figures competitors
-publish: different generators, different judges, different prompts, different
-question subsets. We report the retrieval numbers as the primary metric
-precisely because they are checkable — the runner, the corpus and the gold
-labels are all public, and you can re-run them without an API key.
+**A single LLM-judged run is a sample, not a measurement.** Temperature 0 does
+not make the API deterministic, and OpenAI documents `seed` as best-effort
+only. So the runner takes `--seed` and we report three runs, not one:
 
-[`benchmarks/results/v9_full_gpt4o_20260628-194133.json`](benchmarks/results/) ·
+| Category | N | mean | min | max | spread |
+|---|---:|---:|---:|---:|---:|
+| single-hop | 282 | 0.431 | 0.426 | 0.440 | 0.014 |
+| temporal | 321 | 0.569 | 0.561 | 0.579 | 0.019 |
+| multi-hop | 96 | 0.399 | 0.385 | 0.417 | **0.031** |
+| open-domain | 841 | 0.602 | 0.598 | 0.610 | 0.012 |
+| adversarial | 446 | **0.966** | 0.960 | 0.971 | 0.011 |
+| **overall (no adversarial)** | 1,540 | **0.551 ± 0.005** | 0.547 | 0.556 | 0.009 |
+| **overall (all)** | 1,986 | **0.645 ± 0.004** | 0.642 | 0.649 | 0.008 |
+
+gpt-4o generator, gpt-4o-mini judge, seeds 1/2/3. Retrieval was **byte-identical
+across all three** — only generation and judging vary, which is the expected
+shape and a check that the seeding is doing what it claims.
+
+Note `multi-hop`: 3.1 points of spread on N=96. At that sample size a single
+run says almost nothing, and anyone quoting one number for that category —
+including us, previously — is over-claiming.
+
+> **This replaces our previous 0.582**, and the drop is a correction rather
+> than a regression. That figure came from a run predating the
+> `record_usage=False` fix, so it was partly measuring its own earlier queries.
+> We would rather publish the lower number that is true.
+
+Not comparable to the 90%+ figures some competitors publish: different
+generators, judges, prompts and question subsets. The retrieval numbers above
+remain our primary metric because they are checkable without an API key.
+
+[`benchmarks/results/v13-locomo-llm-3seeds.json`](benchmarks/results/v13-locomo-llm-3seeds.json) ·
 Runner: [`benchmarks/locomo_bench_llm.py`](benchmarks/locomo_bench_llm.py)
+
+### Do the retrieval numbers mean anything? — negative controls
+
+A retrieval score with no floor under it is not a claim. Every LoCoMo run now
+scores three degenerate baselines on the same questions:
+
+| Baseline | R@1 | R@5 | R@10 |
+|---|---:|---:|---:|
+| random — ten turns from the same conversation | 0.001 | 0.012 | 0.023 |
+| first — the ten earliest turns | 0.000 | 0.023 | 0.039 |
+| recency — the ten most recent turns | 0.001 | 0.003 | 0.011 |
+| **the pipeline** | **0.331** | **0.607** | **0.687** |
+
+**27× the best degenerate baseline.** The controls run in the same pass as the
+metric, so the floor ships with the number rather than living in a script
+somebody stops running.
 
 ### Latency profile
 

@@ -70,6 +70,26 @@
       "n": 446,
       "mean_top_score": 2.2489,
       "note": "Lower is better \u2014 adversarial has no gold evidence"
+    },
+    "negative_controls": {
+      "random": {
+        "n": 1536,
+        "R@1": 0.0013,
+        "R@5": 0.0117,
+        "R@10": 0.0228
+      },
+      "first": {
+        "n": 1536,
+        "R@1": 0.0,
+        "R@5": 0.0228,
+        "R@10": 0.0391
+      },
+      "recency": {
+        "n": 1536,
+        "R@1": 0.0007,
+        "R@5": 0.0026,
+        "R@10": 0.0111
+      }
     }
   },
   "config": {

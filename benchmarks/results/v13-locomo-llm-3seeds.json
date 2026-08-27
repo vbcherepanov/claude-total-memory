@@ -1,0 +1,119 @@
+{
+  "benchmark": "LoCoMo (LLM-judged accuracy)",
+  "run_date": "2026-08-27",
+  "version": "total-agent-memory v13.0.0",
+  "generator": "gpt-4o",
+  "judge": "gpt-4o-mini",
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "flags": "--temporal-filter --over-fetch-k 20 --concurrency 8, record_usage=False",
+  "why_three_runs": "An LLM-judged run is one sample, not a measurement: temperature 0 does not make the API deterministic and OpenAI documents `seed` as best-effort only. A single number would not survive the question 'does it reproduce'. Three seeded runs; the spread is published.",
+  "per_category": {
+    "single-hop": {
+      "n": 282,
+      "per_seed": {
+        "1": 0.4255,
+        "2": 0.4397,
+        "3": 0.4291
+      },
+      "mean": 0.4314,
+      "min": 0.4255,
+      "max": 0.4397,
+      "range": 0.0142,
+      "stdev": 0.0074
+    },
+    "temporal": {
+      "n": 321,
+      "per_seed": {
+        "1": 0.5794,
+        "2": 0.567,
+        "3": 0.5607
+      },
+      "mean": 0.569,
+      "min": 0.5607,
+      "max": 0.5794,
+      "range": 0.0187,
+      "stdev": 0.0095
+    },
+    "multi-hop": {
+      "n": 96,
+      "per_seed": {
+        "1": 0.4167,
+        "2": 0.3854,
+        "3": 0.3958
+      },
+      "mean": 0.3993,
+      "min": 0.3854,
+      "max": 0.4167,
+      "range": 0.0313,
+      "stdev": 0.0159
+    },
+    "open-domain": {
+      "n": 841,
+      "per_seed": {
+        "1": 0.5981,
+        "2": 0.61,
+        "3": 0.5981
+      },
+      "mean": 0.6021,
+      "min": 0.5981,
+      "max": 0.61,
+      "range": 0.0119,
+      "stdev": 0.0069
+    },
+    "adversarial": {
+      "n": 446,
+      "per_seed": {
+        "1": 0.9596,
+        "2": 0.9709,
+        "3": 0.9686
+      },
+      "mean": 0.9664,
+      "min": 0.9596,
+      "max": 0.9709,
+      "range": 0.0113,
+      "stdev": 0.006
+    }
+  },
+  "overall_no_adversarial": {
+    "n": 1540,
+    "per_seed": {
+      "1": 0.5513,
+      "2": 0.5558,
+      "3": 0.5468
+    },
+    "mean": 0.5513,
+    "min": 0.5468,
+    "max": 0.5558,
+    "range": 0.009,
+    "stdev": 0.0045
+  },
+  "overall_all": {
+    "n": 1986,
+    "per_seed": {
+      "1": 0.643,
+      "2": 0.649,
+      "3": 0.6415
+    },
+    "mean": 0.6445,
+    "min": 0.6415,
+    "max": 0.649,
+    "range": 0.0075,
+    "stdev": 0.004
+  },
+  "retrieval_is_deterministic": {
+    "note": "Retrieval does not vary across seeds \u2014 only generation and judging do.",
+    "R@1": 0.361,
+    "R@5": 0.6019,
+    "R@10": 0.6831,
+    "identical_across_seeds": true
+  },
+  "tokens_total_all_runs": {
+    "input": 6689184,
+    "output": 53872
+  },
+  "supersedes": "benchmarks/results/v9_full_gpt4o_20260628-194133.json (0.582 no-adv). That run predates the record_usage=False fix, so it was partly measuring its own earlier queries and was inflated. The drop to 0.551 is the correction, not a regression."
+}
