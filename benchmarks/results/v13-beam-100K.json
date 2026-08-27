@@ -1,0 +1,103 @@
+{
+  "benchmark": "BEAM (retrieval)",
+  "scale": "100K",
+  "dataset": "Mohammadta/BEAM \u00b7 100K-00000-of-00001.parquet",
+  "ingest": {
+    "chats": 20,
+    "saved": 5732,
+    "skipped": 0,
+    "elapsed_sec": 224.33,
+    "rate_msg_per_sec": 25.55
+  },
+  "eval": {
+    "per_ability": {
+      "contradiction_resolution": {
+        "n": 40,
+        "R@1": 0.7,
+        "R@5": 1.0,
+        "R@10": 1.0,
+        "MRR": 0.8238
+      },
+      "event_ordering": {
+        "n": 40,
+        "R@1": 0.025,
+        "R@5": 0.15,
+        "R@10": 0.2,
+        "MRR": 0.0736
+      },
+      "information_extraction": {
+        "n": 40,
+        "R@1": 0.4,
+        "R@5": 0.625,
+        "R@10": 0.725,
+        "MRR": 0.5026
+      },
+      "instruction_following": {
+        "n": 40,
+        "R@1": 0.025,
+        "R@5": 0.075,
+        "R@10": 0.15,
+        "MRR": 0.0545
+      },
+      "knowledge_update": {
+        "n": 40,
+        "R@1": 0.55,
+        "R@5": 0.925,
+        "R@10": 0.95,
+        "MRR": 0.719
+      },
+      "multi_session_reasoning": {
+        "n": 40,
+        "R@1": 0.375,
+        "R@5": 0.675,
+        "R@10": 0.85,
+        "MRR": 0.4862
+      },
+      "preference_following": {
+        "n": 39,
+        "R@1": 0.0769,
+        "R@5": 0.2821,
+        "R@10": 0.4103,
+        "MRR": 0.1693
+      },
+      "summarization": {
+        "n": 36,
+        "R@1": 0.1667,
+        "R@5": 0.4444,
+        "R@10": 0.5556,
+        "MRR": 0.267
+      },
+      "temporal_reasoning": {
+        "n": 40,
+        "R@1": 0.475,
+        "R@5": 0.975,
+        "R@10": 1.0,
+        "MRR": 0.689
+      }
+    },
+    "overall": {
+      "n": 355,
+      "R@1": 0.3127,
+      "R@5": 0.5746,
+      "R@10": 0.6507,
+      "MRR": 0.423
+    },
+    "latency": {
+      "p50_ms": 17.68,
+      "p95_ms": 39.99,
+      "mean_ms": 20.8,
+      "queries": 400
+    },
+    "abstention": {
+      "n": 40,
+      "mean_top_score": 2.3344,
+      "note": "no gold evidence by design \u2014 lower is better"
+    }
+  },
+  "config": {
+    "db_path": "/tmp/beam_bench_db_100K",
+    "top_k": 10,
+    "limit_chats": null,
+    "llm_enabled": false
+  }
+}

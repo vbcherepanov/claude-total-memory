@@ -72,7 +72,7 @@ def setup_env(db_path: Path, disable_llm_extraction: bool) -> None:
 
 
 def import_store():
-    sys.path.insert(0, "/Users/vitalii-macpro/claude-memory-server/src")
+    sys.path.insert(0, str(ROOT / "src"))
     import server
     return server
 
@@ -1132,7 +1132,7 @@ def main() -> int:
     # Optional L2 structured lookup — loaded once, shared across threads.
     fact_index_obj = None
     if args.fact_index:
-        sys.path.insert(0, "/Users/vitalii-macpro/claude-memory-server/src")
+        sys.path.insert(0, str(ROOT / "src"))
         from fact_index import FactIndex  # noqa: PLC0415
         fact_index_obj = FactIndex(store.db)
         print(f"[locomo-llm] fact_index ON — stats={fact_index_obj.stats()}")

@@ -3,14 +3,27 @@
 LongMemEval Benchmark Runner for Claude Total Memory.
 
 Measures R@5 (recall_any@5) and NDCG@5 across 500 questions.
-Compares multiple retrieval modes:
-  - raw: ChromaDB cosine similarity only
-  - bm25: FTS5 + BM25 only
-  - hybrid: BM25 + semantic (no reranking)
-  - full: 6-stage pipeline (BM25 + semantic + fuzzy + graph + CrossEncoder + MMR)
+
+Two families of mode, and the difference matters when quoting a number:
+
+  Reference implementations — self-contained ranking built inside this file,
+  useful for ablations because each stage can be isolated:
+    - raw    : dense cosine similarity only
+    - bm25   : BM25 only
+    - hybrid : BM25 + dense, no reranking
+    - full   : BM25 + dense + fuzzy + graph + CrossEncoder + MMR
+
+  The product:
+    - store  : ingest each question's haystack into a real `Store` and query
+               through `Recall.search` — the exact path a user's agent takes.
+
+`full` and `store` are NOT the same thing. Only `store` is a claim about what
+this software does; the others are a claim about the algorithm. Numbers
+published as the project's own should come from `store`.
 
 Usage:
-    python benchmarks/longmemeval_bench.py [--limit N] [--modes raw,hybrid,full]
+    python benchmarks/longmemeval_bench.py --modes store
+    python benchmarks/longmemeval_bench.py --limit 50 --modes full,store
 """
 
 import argparse
@@ -27,6 +40,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import numpy as np
+
+_OUTPUT_PATH: str | None = None
 
 # Embedding setup
 USE_OLLAMA = False
@@ -320,6 +335,76 @@ def retrieve_full(query: str, corpus: list[str], corpus_embs: np.ndarray,
 # Evaluation metrics
 # =============================================================================
 
+def ingest_store(corpus: list[str], corpus_ids: list[str], project: str) -> None:
+    """Load one question's haystack into a real `Store` under its own project.
+
+    Kept separate from `retrieve_store` so the reported latency is search time,
+    not search-plus-ingest — a user's agent pays the ingest once, over months.
+    """
+    store, _recall = _store_pair()
+    sid = f"lme__{project}"
+    store.session_start(sid, project=project)
+    for idx, (text, cid) in enumerate(zip(corpus, corpus_ids)):
+        store.save_knowledge(
+            sid=sid,
+            content=text,
+            ktype="fact",
+            project=project,
+            tags=[f"lme:{idx}", cid],
+            context=f"longmemeval session={cid}",
+            skip_dedup=True,
+            skip_quality=True,
+        )
+
+
+def retrieve_store(question: str, project: str, top_k: int = 5) -> list[int]:
+    """Rank through the shipping retrieval path.
+
+    Queries `Recall.search` exactly as an agent would. `record_usage=False`
+    keeps the recall-count feedback out of the measurement (see locomo_bench).
+    """
+    _store, recall = _store_pair()
+    res = recall.search(query=question, project=project, limit=top_k,
+                        detail="summary", record_usage=False)
+    entries = res.get("results", {}).get("fact", [])
+
+    order: list[int] = []
+    for entry in entries:
+        tags = entry.get("tags") or []
+        if isinstance(tags, str):
+            try:
+                tags = json.loads(tags)
+            except ValueError:
+                tags = []
+        for tag in tags:
+            if isinstance(tag, str) and tag.lower().startswith("lme:"):
+                try:
+                    order.append(int(tag.split(":", 1)[1]))
+                except ValueError:
+                    pass
+                break
+    return order[:top_k]
+
+
+_STORE_CACHE: dict = {}
+
+
+def _store_server():
+    if "server" not in _STORE_CACHE:
+        import server as server_mod  # noqa: PLC0415 — heavy import, mode-gated
+
+        _STORE_CACHE["server"] = server_mod
+    return _STORE_CACHE["server"]
+
+
+def _store_pair():
+    if "pair" not in _STORE_CACHE:
+        server_mod = _store_server()
+        store = server_mod.Store()
+        _STORE_CACHE["pair"] = (store, server_mod.Recall(store))
+    return _STORE_CACHE["pair"]
+
+
 def recall_any_at_k(retrieved_ids: list[str], gold_ids: list[str], k: int = 5) -> float:
     """1.0 if any gold ID is in top-k retrieved."""
     top_k = set(retrieved_ids[:k])
@@ -357,6 +442,14 @@ def run_benchmark(data_path: str, modes: list[str], limit: int = 0, k: int = 5):
     print(f"[bench] Modes: {modes}")
     print(f"[bench] K={k}")
     print()
+
+    if "store" in modes:
+        # Each question gets its own project inside one throwaway database.
+        db_dir = os.environ.get("LME_STORE_DIR") or tempfile.mkdtemp(prefix="lme-store-")
+        os.environ["CLAUDE_MEMORY_DIR"] = db_dir
+        os.environ["MEMORY_LLM_ENABLED"] = "false"
+        os.environ.setdefault("MEMORY_QUIET", "1")
+        print(f"[bench] store mode → {db_dir}")
 
     # Pre-load models
     if any(m in modes for m in ["raw", "hybrid", "full"]):
@@ -404,6 +497,9 @@ def run_benchmark(data_path: str, modes: list[str], limit: int = 0, k: int = 5):
         if need_bm25:
             bm25 = SimpleBM25(corpus)
 
+        if "store" in modes:
+            ingest_store(corpus, corpus_ids, project=f"lme_{qid}")
+
         # Run each mode
         for mode in modes:
             t0 = time.time()
@@ -416,6 +512,9 @@ def run_benchmark(data_path: str, modes: list[str], limit: int = 0, k: int = 5):
                 top_indices = retrieve_hybrid(question, corpus_embs, query_emb, bm25, k)
             elif mode == "full":
                 top_indices = retrieve_full(question, corpus, corpus_embs, query_emb, bm25, k)
+            elif mode == "store":
+                top_indices = retrieve_store(question, project=f"lme_{qid}",
+                                             top_k=k)
             else:
                 continue
 
@@ -523,7 +622,7 @@ def run_benchmark(data_path: str, modes: list[str], limit: int = 0, k: int = 5):
                     "count": len(scores),
                 }
 
-    out_path = str(Path(__file__).parent / "results_longmemeval.json")
+    out_path = _OUTPUT_PATH or str(Path(__file__).parent / "results_longmemeval.json")
     with open(out_path, "w") as f:
         json.dump(output, f, indent=2)
     print(f"\nResults saved to {out_path}")
@@ -532,12 +631,16 @@ def run_benchmark(data_path: str, modes: list[str], limit: int = 0, k: int = 5):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="LongMemEval Benchmark")
     parser.add_argument("--limit", type=int, default=0, help="Limit to N questions (0=all)")
-    parser.add_argument("--modes", type=str, default="raw,bm25,hybrid,full",
-                        help="Comma-separated retrieval modes")
+    parser.add_argument("--modes", type=str, default="store",
+                        help="Comma-separated retrieval modes: "
+                             "store (the product) | raw | bm25 | hybrid | full")
+    parser.add_argument("--output", type=str, default=None,
+                        help="Where to write the JSON report")
     parser.add_argument("--k", type=int, default=5, help="Top-K for recall")
     parser.add_argument("--data", type=str,
                         default=str(Path(__file__).parent / "data" / "longmemeval_s.json"),
                         help="Path to dataset")
     args = parser.parse_args()
 
+    _OUTPUT_PATH = args.output
     run_benchmark(args.data, args.modes.split(","), limit=args.limit, k=args.k)

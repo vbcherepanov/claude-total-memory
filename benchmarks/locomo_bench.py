@@ -54,7 +54,7 @@ def setup_env(db_path: Path, disable_llm: bool) -> None:
 
 
 def import_store():
-    sys.path.insert(0, str(Path("/Users/vitalii-macpro/claude-memory-server/src")))
+    sys.path.insert(0, str(ROOT / "src"))
     import server  # noqa: F401  — triggers MEMORY_DIR resolution
     return server
 
@@ -147,7 +147,10 @@ def extract_dia_ids(entry: dict) -> list[str]:
             tags = json.loads(tags)
         except Exception:
             tags = []
-    return [t for t in tags if isinstance(t, str) and t.startswith("D") and ":" in t]
+    # Store lowercases tags on save; gold evidence ids are upper-case
+    # (e.g. "D14:6"). Match case-insensitively and normalise to upper.
+    return [t.upper() for t in tags
+            if isinstance(t, str) and t[:1].lower() == "d" and ":" in t]
 
 
 def eval_samples(server_mod, samples: list[dict], top_k: int = 10,
@@ -171,8 +174,12 @@ def eval_samples(server_mod, samples: list[dict], top_k: int = 10,
             evidence = set(qa.get("evidence", []) or [])
 
             t0 = time.time()
+            # record_usage=False: search() otherwise bumps recall_count on every
+            # returned row, and `recall_boost` feeds that straight back into the
+            # score. Leaving it on makes each re-run against the same DB score
+            # higher than the last — the benchmark would measure its own history.
             res = recall.search(query=question, project=project, limit=top_k,
-                                detail="summary")
+                                detail="summary", record_usage=False)
             latencies.append((time.time() - t0) * 1000)
 
             # All entries are type="fact"
@@ -248,6 +255,14 @@ def eval_samples(server_mod, samples: list[dict], top_k: int = 10,
             "R@1": round(sum(d["r@1"] for c, d in per_cat.items() if c != 5) / total_n, 4),
             "R@5": round(sum(d["r@5"] for c, d in per_cat.items() if c != 5) / total_n, 4),
             "R@10": round(sum(d["r@10"] for c, d in per_cat.items() if c != 5) / total_n, 4),
+            "MRR": round(
+                sum(
+                    sum(1.0 / r for r in d["first_rank"])
+                    for c, d in per_cat.items() if c != 5
+                ) / total_n, 4),
+            "found_in_top10": round(
+                sum(d["gold_in_topk_cnt"] for c, d in per_cat.items() if c != 5)
+                / total_n, 4),
         }
         agg["overall"] = overall
 
@@ -267,10 +282,14 @@ def eval_samples(server_mod, samples: list[dict], top_k: int = 10,
     return {"per_category": agg, "latency": latency, "adversarial": adv}
 
 
+# Verified against benchmarks/data/locomo/data/locomo10.json: category 2 is
+# "When did ...?" (temporal, n=321) and category 3 is inference-style
+# multi-hop (n=96). The map used to have 2 and 3 swapped, which silently
+# mislabelled every per-category number this runner printed.
 CATEGORY_NAMES = {
     1: "single-hop",
-    2: "multi-hop",
-    3: "temporal",
+    2: "temporal",
+    3: "multi-hop",
     4: "open-domain",
     5: "adversarial",
 }
