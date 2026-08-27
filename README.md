@@ -5,7 +5,7 @@
 > Temporal knowledge graph · procedural memory · AST codebase ingest · cross-project analogy · 3D WebGL visualization.
 
 [![Version](https://img.shields.io/badge/version-13.0.0-8ad.svg)](https://pypi.org/project/total-agent-memory/)
-[![Tests](https://img.shields.io/badge/tests-1870%20passing-4a9.svg)]()
+[![Tests](https://img.shields.io/badge/tests-1881%20passing-4a9.svg)]()
 [![IDEs](https://img.shields.io/badge/IDEs-9%20supported-4a9.svg)]()
 [![LongMemEval R@5](https://img.shields.io/badge/LongMemEval%20R@5-95.1%25-4a9.svg)](evals/longmemeval-2026-08-27-v13-store.json)
 [![LoCoMo R@5](https://img.shields.io/badge/LoCoMo%20R@5-0.607-4a9.svg)](benchmarks/results/v13-locomo-retrieval.json)
@@ -71,6 +71,15 @@ labels.
 of the suite — retrieval across its ten memory abilities at the 100K / 500K /
 1M scales, graded against each probe's `source_chat_ids` with no LLM in the
 loop.
+
+**The server was carrying ~450 MB it never used.** `chromadb` and
+`sentence_transformers` were imported at module scope, both are fallback paths,
+and the second pulls in torch — so every user paid for a stack that fastembed
+made unnecessary. Deferring them took `import server` from 558 MB to **116 MB**
+and a serving process from 1367 MB to **909 MB**. Reported by d.snezhinskiy.
+A failed fastembed init also stops being a single log line: it now names the
+cache and the memory cost, because a macOS-purged model cache is the usual
+reason a memory server suddenly wants 1.5 GB.
 
 **Bugs worth naming — all of the "works in a checkout, silently dead when
 installed" kind.** `tree-sitter-language-pack` was in no requirements file, so

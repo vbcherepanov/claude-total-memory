@@ -104,6 +104,37 @@ code changing.
   with the docstring saying plainly that `full` and `store` are not the same
   claim.
 
+### Fixed — the server was carrying ~450 MB it never used
+Reported by **d.snezhinskiy**, who noticed an MCP server sitting at ~1.5 GB and
+sent a patch.
+
+- `chromadb` and `sentence_transformers` were imported at module scope in
+  `src/server.py`. Both are *fallback* paths — when fastembed is healthy
+  neither is used — and `sentence_transformers` pulls in torch. Availability is
+  now decided by `importlib.util.find_spec` and the real import deferred to
+  first use. Measured on this machine:
+
+  | | before | after |
+  |---|---:|---:|
+  | `import server` | 558 MB | **116 MB** |
+  | serving, steady state | 1367 MB | **909 MB** |
+
+  torch is no longer loaded at all unless the fallback is actually reached.
+- A failed fastembed init used to be one log line, after which the server
+  quietly fell back to sentence-transformers and gained ~400 MB. It now names
+  the model cache and the memory cost, because the usual cause is macOS purging
+  the system tmp dir where fastembed caches models by default.
+- New `TAM_MODEL_CACHE` opts into a durable cache location. It is **not** the
+  default: moving the cache orphans models the user already downloaded, so
+  every install would re-fetch ~500 MB once and offline test runs would fail.
+  The contributor's patch pinned it unconditionally; this ships the diagnosis
+  loudly and leaves the move to the people who need it.
+
+> The patch's other half pinned `mcp[cli]<2`. That is the same bug this release
+> fixes, and pinning would cap every user at the 1.x SDK forever, so it is not
+> taken — but it independently confirmed the failure on a client machine, with
+> the symptom `MCP error -32000: Connection closed`.
+
 ### Fixed — other
 - **`tree-sitter-language-pack` was in no requirements file.** The README sold
   "AST codebase ingest, 9 languages" as a differentiator while every user's
@@ -164,7 +195,7 @@ The suite was red on a clean checkout: 21 failed, 9 errors.
 - Embedding tests asserted raw vectors; the production OpenAI path
   L2-normalises so cosine equals dot product.
 
-**1870 passing, 0 failing.**
+**1881 passing, 0 failing.**
 
 ## [12.4.0] — 2026-05-26 — 100% functional through every install path
 

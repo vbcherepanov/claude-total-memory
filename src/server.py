@@ -42,17 +42,16 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool, TextContent, ToolAnnotations
 
-try:
-    import chromadb
-    HAS_CHROMA = True
-except ImportError:
-    HAS_CHROMA = False
+import importlib.util
 
-try:
-    from sentence_transformers import SentenceTransformer
-    HAS_ST = True
-except ImportError:
-    HAS_ST = False
+# chromadb (~70 MB RSS) and sentence_transformers (which pulls in torch,
+# ~450 MB) are *fallback* paths — when fastembed is healthy neither is ever
+# used. Importing them eagerly cost every user that memory anyway: a bare
+# `import server` measured 548 MB RSS with all three loaded. find_spec answers
+# "is it installed" without importing; the real import happens at first use.
+# Reported by d.snezhinskiy, who saw a 1.5 GB MCP server on a client machine.
+HAS_CHROMA = importlib.util.find_spec("chromadb") is not None
+HAS_ST = importlib.util.find_spec("sentence_transformers") is not None
 
 try:
     from fastembed import TextEmbedding
@@ -256,6 +255,8 @@ class Store:
         self._chroma_client = None
         if HAS_CHROMA and USE_BINARY_SEARCH != "true":
             try:
+                import chromadb  # noqa: PLC0415 — deferred: see HAS_CHROMA above
+
                 self._chroma_client = chromadb.PersistentClient(path=str(MEMORY_DIR / "chroma"))
                 # Default collection name `knowledge` == text space (legacy alias).
                 self.chroma = self._chroma_client.get_or_create_collection(
@@ -321,6 +322,10 @@ class Store:
     def embedder(self):
         if self._embedder is None and HAS_ST:
             try:
+                from sentence_transformers import (  # noqa: PLC0415 — deferred
+                    SentenceTransformer,
+                )
+
                 self._embedder = SentenceTransformer(EMBEDDING_MODEL)
             except Exception:
                 pass

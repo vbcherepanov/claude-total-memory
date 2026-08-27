@@ -50,7 +50,54 @@ def memory_dir() -> Path:
 
     Idempotent and safe to call from any number of modules; the migration
     runs at most once per process.
+
+    Also pins the embedding-model cache — see `pin_model_cache`.
     """
+    pin_model_cache()
+    return _resolve_memory_dir()
+
+
+def model_cache_dir() -> Path:
+    """Where downloaded embedding models live, once pinned.
+
+    Deliberately **not** inside the resolved memory dir. Models are immutable,
+    machine-wide artifacts (~500 MB): a second memory dir, a benchmark on a
+    throwaway database, or a test run must reuse them rather than re-download.
+    So this tracks the user's home, not ``$TAM_MEMORY_DIR``.
+    """
+    override = os.environ.get("TAM_MODEL_CACHE")
+    if override:
+        return Path(override).expanduser()
+    return (NEW_DIR if NEW_DIR.exists() or not OLD_DIR.exists() else OLD_DIR) / "models"
+
+
+def pin_model_cache() -> Path | None:
+    """Opt in to a model cache that survives, via ``TAM_MODEL_CACHE``.
+
+    fastembed defaults its cache to the system tmp dir, which macOS purges. A
+    *half*-purged cache makes `TextEmbedding` init fail, and the server then
+    falls back to sentence-transformers, dragging torch in with it — an MCP
+    server sitting at ~1.4 GB instead of ~1.0 GB. Reported by d.snezhinskiy.
+
+    This is **not** applied by default, deliberately: moving the cache orphans
+    the models a user has already downloaded, so every install would re-fetch
+    ~500 MB once and every offline test run would fail. Users who hit the
+    purge set ``TAM_MODEL_CACHE`` (or ``FASTEMBED_CACHE_PATH`` directly) and
+    pay that cost knowingly.
+
+    The failure is no longer silent either way — see
+    ``embed_provider.FastEmbedProvider._ensure_model``.
+    """
+    override = os.environ.get("TAM_MODEL_CACHE")
+    if not override:
+        return None
+    cache = Path(override).expanduser()
+    os.environ.setdefault("FASTEMBED_CACHE_PATH", str(cache))
+    return cache
+
+
+def _resolve_memory_dir() -> Path:
+    """The resolution itself, without the cache-path side effect."""
     global _warned_env
 
     new_env_val = os.environ.get(NEW_ENV)

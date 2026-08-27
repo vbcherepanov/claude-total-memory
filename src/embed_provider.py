@@ -170,7 +170,24 @@ class FastEmbedProvider:
         try:
             self._model = TextEmbedding(self._model_name)
         except Exception as exc:  # noqa: BLE001
+            # Loudly: the caller falls back to sentence-transformers, which
+            # pulls torch and costs ~400 MB RSS. That used to happen with only
+            # this one line to explain it, so a purged model cache looked like
+            # "the memory server randomly eats 1.5 GB". Name the cache, because
+            # a half-purged one (macOS clears the system tmp dir) is the usual
+            # cause and TAM_MODEL_CACHE is the fix.
+            import os as _os  # noqa: PLC0415
+
+            cache = _os.environ.get("FASTEMBED_CACHE_PATH") or "the system temp dir"
             LOG(f"FastEmbed init failed: {exc}")
+            LOG(
+                f"  model cache: {cache}"
+            )
+            LOG(
+                "  falling back to sentence-transformers (pulls torch, ~400 MB "
+                "extra RSS). If the cache was purged, set TAM_MODEL_CACHE to a "
+                "durable path and restart."
+            )
             self._model = False
             return None
         return self._model
