@@ -33,10 +33,12 @@ def auto_link_knowledge(
     """
     try:
         from graph.store import GraphStore
-        from ingestion.extractor import ConceptExtractor
+        from ingestion.extractor import shared_extractor
 
         gs = GraphStore(db)
-        ex = ConceptExtractor(db)
+        # Reused, not constructed: a fresh extractor drops the node-name cache,
+        # and this runs on every save.
+        ex = shared_extractor(db)
 
         # Fast extraction only -- no Ollama call
         result = ex.extract_fast(content)

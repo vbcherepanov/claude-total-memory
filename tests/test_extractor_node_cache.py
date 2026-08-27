@@ -125,3 +125,78 @@ def test_cache_put_is_a_no_op_before_the_cache_is_warm(extractor):
     extractor._node_names_cache = None
     extractor._cache_put("ghost", "id-1", "concept")
     assert extractor._node_names_cache is None
+
+
+# ── The cache only helps if the instance survives ────────────────────
+
+
+def test_saving_does_not_reread_the_node_table_per_write(tmp_path, monkeypatch):
+    """The quadratic bug: a fresh extractor per save throws the cache away.
+
+    `graph.auto_link.auto_link_knowledge` runs on every save and used to
+    construct its own `ConceptExtractor`, so `_get_node_names` re-read the whole
+    `graph_nodes` table each time — O(N) per write, O(N^2) over an ingest.
+    Measured on BEAM at three sizes on identical code: 25.6 msg/s at ~15k nodes,
+    10.8 at ~60k, 6.3 at ~139k.
+
+    Counting reads is deterministic, unlike timing, so that is what is asserted.
+    """
+    import server
+    from ingestion import extractor as ex_mod
+
+    monkeypatch.setattr(server, "MEMORY_DIR", tmp_path)
+    reloads = {"n": 0}
+    original = ex_mod.ConceptExtractor._get_node_names
+
+    def counting(self):
+        before = self._node_names_cache
+        out = original(self)
+        if before is not out or before is None:
+            reloads["n"] += 1
+        return out
+
+    monkeypatch.setattr(ex_mod.ConceptExtractor, "_get_node_names", counting)
+
+    store = server.Store()
+    try:
+        store.session_start("s", project="scaling")
+        writes = 40
+        for i in range(writes):
+            store.save_knowledge(
+                sid="s",
+                content=f"PostgreSQL {i} uses UUID v7 primary keys for orders",
+                ktype="fact", project="scaling",
+                skip_dedup=True, skip_quality=True,
+            )
+        assert reloads["n"] <= 2, (
+            f"re-read graph_nodes {reloads['n']} times for {writes} saves — the "
+            "node cache is being discarded per write again (check that "
+            "auto_link uses shared_extractor rather than ConceptExtractor())"
+        )
+    finally:
+        store.db.close()
+
+
+def test_auto_link_reuses_one_extractor_per_connection(tmp_path, monkeypatch):
+    import sqlite3
+
+    from ingestion.extractor import shared_extractor
+
+    conn = sqlite3.connect(tmp_path / "a.db")
+    other = sqlite3.connect(tmp_path / "b.db")
+    try:
+        assert shared_extractor(conn) is shared_extractor(conn)
+        assert shared_extractor(conn) is not shared_extractor(other)
+    finally:
+        conn.close()
+        other.close()
+
+
+def test_auto_link_does_not_construct_its_own_extractor():
+    """Guard the source: the constructor call is easy to reintroduce."""
+    source = (ROOT / "src" / "graph" / "auto_link.py").read_text()
+    assert "ConceptExtractor(db)" not in source, (
+        "auto_link runs on every save; constructing an extractor there drops "
+        "the node cache and makes the write path quadratic"
+    )
+    assert "shared_extractor" in source

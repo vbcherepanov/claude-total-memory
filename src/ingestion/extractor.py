@@ -55,6 +55,29 @@ def _new_id() -> str:
     return uuid.uuid4().hex
 
 
+_shared_extractors: dict[int, "ConceptExtractor"] = {}
+
+
+def shared_extractor(db: sqlite3.Connection) -> "ConceptExtractor":
+    """One extractor per connection, reused for the life of the process.
+
+    The node-name cache lives on the instance. Callers that construct a fresh
+    ConceptExtractor per save throw that cache away every time, so
+    `_get_node_names` re-reads the whole `graph_nodes` table on every write —
+    O(N) per save, O(N^2) over an ingest. Measured on BEAM: 25.6 msg/s at 15k
+    nodes, 10.8 at 60k, 6.3 at 139k, on identical code.
+
+    Keyed by connection identity so a second Store (tests, benchmarks) does not
+    inherit another one's cache.
+    """
+    key = id(db)
+    inst = _shared_extractors.get(key)
+    if inst is None:
+        inst = ConceptExtractor(db)
+        _shared_extractors[key] = inst
+    return inst
+
+
 class ConceptExtractor:
     """Extract concepts, entities, and relations from text.
 
