@@ -1,9 +1,9 @@
 # Append to ~/.codex/config.toml. The installer
-# (~/claude-memory-server/install.sh --ide codex) does this automatically.
+# (~/total-agent-memory/install.sh --ide codex) does this automatically.
 
 [mcp.servers.memory]
-command = "python3"
-args = ["-m", "claude_total_memory.cli", "serve", "--mode", "stdio"]
+command = "total-agent-memory"
+args = []
 
 [mcp.servers.memory.env]
 MEMORY_ASYNC_ENRICHMENT = "false"

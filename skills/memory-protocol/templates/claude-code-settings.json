@@ -1,15 +1,9 @@
 {
-  "_comment": "Append the mcpServers and hooks entries below into your existing ~/.claude/settings.json. The installer (~/claude-memory-server/install.sh --ide claude-code) does this automatically.",
+  "_comment": "Append the mcpServers and hooks entries below into your existing ~/.claude/settings.json. The installer (~/total-agent-memory/install.sh --ide claude-code) does this automatically, as does the Claude Code plugin (/plugin install total-agent-memory@vbcherepanov).",
   "mcpServers": {
     "memory": {
-      "command": "python3",
-      "args": [
-        "-m",
-        "claude_total_memory.cli",
-        "serve",
-        "--mode",
-        "stdio"
-      ],
+      "command": "total-agent-memory",
+      "args": [],
       "env": {
         "MEMORY_ASYNC_ENRICHMENT": "false",
         "MEMORY_QUALITY_GATE_ENABLED": "auto",

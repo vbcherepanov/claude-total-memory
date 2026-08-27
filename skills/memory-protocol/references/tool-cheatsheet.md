@@ -46,8 +46,10 @@ memory_save(
 ### `memory_recall(query, project?, type?, branch?, limit?, mode?, detail?, decisions_only?, expand_context?, fusion?)`
 
 The main retrieval tool. 6-stage pipeline (FTS5+BM25 → semantic →
-fuzzy → graph → optional CrossEncoder → optional MMR). Default
-hybrid mode hits 97.4% R@5 on LongMemEval.
+fuzzy → graph → optional CrossEncoder → optional MMR). Measured
+retrieval quality is published in the project README; the numbers are
+reproducible with `benchmarks/locomo_bench.py` and
+`benchmarks/beam_bench.py`.
 
 ```
 query           : what to search

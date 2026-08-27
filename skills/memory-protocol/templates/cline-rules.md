@@ -49,4 +49,4 @@ After 3 identical errors STOP. `memory_save(type='lesson', stuck=...)`
 - Never guess a convention you can recall.
 
 For the full tool reference and per-IDE setup see
-`~/claude-memory-server/skills/memory-protocol/references/`.
+`~/total-agent-memory/skills/memory-protocol/references/`.

@@ -18,13 +18,13 @@ content into your system-prompt or rules file.
 - Python 3.10+ (3.13 recommended)
 - One of: Ollama (local LLM, recommended) or any cloud provider
   (OpenAI / Anthropic / Cohere / OpenAI-compat)
-- ~/claude-memory-server checked out (or installed via package)
+- ~/total-agent-memory checked out (or installed via any package channel)
 - ~/.claude-memory/ writable for SQLite + cache + wikis
 ```
 
 ```bash
 # Verify the MCP server starts in stdio mode:
-python3 -m claude_total_memory.cli verify
+bash ~/total-agent-memory/scripts/diagnose.sh
 ```
 
 ---
@@ -38,7 +38,7 @@ python3 -m claude_total_memory.cli verify
 ### Install
 
 ```bash
-~/claude-memory-server/install.sh --ide claude-code
+~/total-agent-memory/install.sh --ide claude-code
 ```
 
 The installer writes:
@@ -55,8 +55,8 @@ The installer writes:
 {
   "mcpServers": {
     "memory": {
-      "command": "python3",
-      "args": ["-m", "claude_total_memory.cli", "serve", "--mode", "stdio"]
+      "command": "total-agent-memory",
+      "args": []
     }
   },
   "hooks": {
@@ -83,7 +83,7 @@ listed.
 ### Install
 
 ```bash
-~/claude-memory-server/install.sh --ide codex
+~/total-agent-memory/install.sh --ide codex
 ```
 
 Writes:
@@ -97,8 +97,8 @@ Writes:
 
 ```toml
 [mcp.servers.memory]
-command = "python3"
-args = ["-m", "claude_total_memory.cli", "serve", "--mode", "stdio"]
+command = "total-agent-memory"
+args = []
 
 [hooks]
 SessionStart    = "~/.codex/hooks/session-start.sh"
@@ -122,7 +122,7 @@ distilled version is in `templates/codex-AGENTS-block.md`.
 ### Install
 
 ```bash
-~/claude-memory-server/install.sh --ide cursor
+~/total-agent-memory/install.sh --ide cursor
 ```
 
 Writes:
@@ -152,8 +152,8 @@ alwaysApply: true
 {
   "mcpServers": {
     "memory": {
-      "command": "python3",
-      "args": ["-m", "claude_total_memory.cli", "serve", "--mode", "stdio"]
+      "command": "total-agent-memory",
+      "args": []
     }
   }
 }
@@ -175,7 +175,7 @@ loaded manually with `/recall` style commands.
 ### Install
 
 ```bash
-~/claude-memory-server/install.sh --ide cline
+~/total-agent-memory/install.sh --ide cline
 ```
 
 Writes:
@@ -198,8 +198,8 @@ VS Code → settings.json:
 {
   "cline.mcpServers": {
     "memory": {
-      "command": "python3",
-      "args": ["-m", "claude_total_memory.cli", "serve", "--mode", "stdio"]
+      "command": "total-agent-memory",
+      "args": []
     }
   }
 }
@@ -216,7 +216,7 @@ VS Code → settings.json:
 ### Install
 
 ```bash
-~/claude-memory-server/install.sh --ide continue
+~/total-agent-memory/install.sh --ide continue
 ```
 
 Writes:
@@ -231,8 +231,8 @@ Writes:
 {
   "mcpServers": {
     "memory": {
-      "command": "python3",
-      "args": ["-m", "claude_total_memory.cli", "serve", "--mode", "stdio"]
+      "command": "total-agent-memory",
+      "args": []
     }
   },
   "systemMessage": "Follow the rules in ~/.continue/rules/memory-protocol.md.",
@@ -256,17 +256,17 @@ the bash bridge:
 ```yaml
 # .aider.conf.yml
 read:
-  - ~/claude-memory-server/skills/memory-protocol/SKILL.md
+  - ~/total-agent-memory/skills/memory-protocol/SKILL.md
 ```
 
 In the prompt, instruct Aider to shell out:
 
 ```
 For any past convention, run:
-  ~/claude-memory-server/ollama/lookup_memory.sh "<query>"
+  lookup-memory "<query>"
 
 For saving:
-  ~/claude-memory-server/ollama/save_memory.sh --type solution \
+  ~/total-agent-memory/ollama/save_memory.sh --type solution \
       --project <name> --tags "reusable,..." --content "..."
 ```
 
@@ -281,7 +281,7 @@ For saving:
 ### Install
 
 ```bash
-~/claude-memory-server/install.sh --ide windsurf
+~/total-agent-memory/install.sh --ide windsurf
 ```
 
 Writes:
@@ -300,7 +300,7 @@ Writes:
 ### Install
 
 ```bash
-~/claude-memory-server/install.sh --ide gemini-cli
+~/total-agent-memory/install.sh --ide gemini-cli
 ```
 
 Writes:
@@ -319,7 +319,7 @@ Writes:
 ### Install
 
 ```bash
-~/claude-memory-server/install.sh --ide opencode
+~/total-agent-memory/install.sh --ide opencode
 ```
 
 Writes:
@@ -340,7 +340,7 @@ by a small JSON adapter the installer writes.
 Use the PowerShell variants:
 
 ```powershell
-~\claude-memory-server\install.ps1 -Ide claude-code
+~\total-agent-memory\install.ps1 -Ide claude-code
 ```
 
 The `.ps1` hooks read PowerShell-formatted JSON from stdin. Same
@@ -383,7 +383,7 @@ After install, verify in three places:
 
 ```bash
 # 1. MCP server reachable
-python3 -m claude_total_memory.cli verify
+bash ~/total-agent-memory/scripts/diagnose.sh
 
 # 2. Skill loaded by IDE
 # (Claude Code) /skills | grep memory-protocol
@@ -400,7 +400,7 @@ If any step fails, the installer's `--diagnose` flag prints a
 detailed health report:
 
 ```bash
-~/claude-memory-server/install.sh --diagnose
+~/total-agent-memory/install.sh --diagnose
 ```
 
 ---
@@ -408,14 +408,14 @@ detailed health report:
 ## Removing / switching IDE
 
 ```bash
-~/claude-memory-server/install.sh --uninstall --ide <name>
+~/total-agent-memory/install.sh --uninstall --ide <name>
 ```
 
 Removes only that IDE's wiring; the MCP server, DB, and skill files
 remain. To wipe everything:
 
 ```bash
-~/claude-memory-server/install.sh --uninstall --all
+~/total-agent-memory/install.sh --uninstall --all
 # … and optionally:
 rm -rf ~/.claude-memory/
 ```
@@ -426,7 +426,7 @@ rm -rf ~/.claude-memory/
 
 If your client speaks MCP but isn't on this list:
 
-1. Register the server: command `python3 -m claude_total_memory.cli serve --mode stdio`.
+1. Register the server: command `total-agent-memory`, no arguments.
 2. In your system prompt, paste the body of
    `skills/memory-protocol/SKILL.md` (drop the YAML frontmatter).
 3. Memorise: **`session_init` first, `memory_recall` before tasks,

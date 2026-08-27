@@ -7,8 +7,8 @@ This directory contains drop-in examples:
 | What | Where it lives on your machine | What it does |
 |---|---|---|
 | [`rules/memory.md`](rules/memory.md) | append to `~/.claude/rules/memory.md` (or `CLAUDE.md`) | Tells the agent *when* to call v7 tools (`file_context`, `learn_error`, `session_init`, `kg_*`, `workflow_*`, `analogize`, `ingest_codebase`, `benchmark`) |
-| [`hooks/pre-edit.sh`](hooks/pre-edit.sh) | `~/.claude/hooks/pre-edit.sh` | Before every `Write`/`Edit` — emits a reminder to call `file_context(path)`, so the agent sees prior errors / risk_score for that file |
-| [`hooks/on-bash-error.sh`](hooks/on-bash-error.sh) | `~/.claude/hooks/on-bash-error.sh` | After a non-zero bash exit — emits a reminder to call `learn_error(...)`. After N≥3 same patterns the server auto-consolidates them into a rule |
+| [`hooks/pre-edit.sh`](../hooks/pre-edit.sh) | `~/.claude/hooks/pre-edit.sh` | Before every `Write`/`Edit` — emits a reminder to call `file_context(path)`, so the agent sees prior errors / risk_score for that file |
+| [`hooks/on-bash-error.sh`](../hooks/on-bash-error.sh) | `~/.claude/hooks/on-bash-error.sh` | After a non-zero bash exit — emits a reminder to call `learn_error(...)`. After N≥3 same patterns the server auto-consolidates them into a rule |
 | [`hooks/session-start-addon.sh`](hooks/session-start-addon.sh) | append to `~/.claude/hooks/session-start.sh` | At session start — emits a reminder to call `session_init(project)` FIRST, before `memory_recall`. Returns previous session's `summary + next_steps + pitfalls` |
 | [`settings/hooks.fragment.json`](settings/hooks.fragment.json) | merge into `~/.claude/settings.json` under `"hooks"` | Registers the hooks above with Claude Code |
 
@@ -24,8 +24,8 @@ cat examples/rules/memory.md >> ~/.claude/rules/memory.md
 
 # 2. Hooks — give the agent automatic reminders
 mkdir -p ~/.claude/hooks
-cp examples/hooks/pre-edit.sh       ~/.claude/hooks/
-cp examples/hooks/on-bash-error.sh  ~/.claude/hooks/
+cp hooks/pre-edit.sh       ~/.claude/hooks/
+cp hooks/on-bash-error.sh  ~/.claude/hooks/
 chmod +x ~/.claude/hooks/pre-edit.sh ~/.claude/hooks/on-bash-error.sh
 
 # If you already have ~/.claude/hooks/session-start.sh:

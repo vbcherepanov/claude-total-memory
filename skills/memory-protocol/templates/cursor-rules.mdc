@@ -55,4 +55,4 @@ Tags must include `["reusable", "<tech>"]` if the recipe applies elsewhere.
 - Don't guess a convention you can recall.
 
 For the full tool reference, hooks documentation, and per-IDE setup
-see `~/claude-memory-server/skills/memory-protocol/references/`.
+see `~/total-agent-memory/skills/memory-protocol/references/`.

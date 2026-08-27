@@ -147,8 +147,8 @@ the search.
 
 For sub-agents that don't have direct MCP access, use the bash bridge:
 ```bash
-~/claude-memory-server/ollama/lookup_memory.sh "<query>"
-~/claude-memory-server/ollama/lookup_memory.sh --project NAME "<query>"
+lookup-memory "<query>"
+lookup-memory --project NAME "<query>"
 ```
 
 See `references/subagent-protocol.md` for the full sub-agent header
@@ -178,7 +178,7 @@ The full matrix and per-IDE commands are in
 `references/ide-setup.md`. Quick path:
 
 ```bash
-~/claude-memory-server/install.sh --ide claude-code   # or codex|cursor|cline|continue|aider|windsurf|gemini-cli|opencode
+~/total-agent-memory/install.sh --ide claude-code   # or codex|cursor|cline|continue|aider|windsurf|gemini-cli|opencode
 ```
 
 The installer writes the right files to the right place (skill,

@@ -26,4 +26,4 @@ Cross-project lookup: `analogize(text, exclude_project=<current>)`.
 Time-travel: `kg_at(timestamp)`. Stuck: 3 failures → STOP, save
 `type='lesson'`, ask the user A/B/C.
 
-Full reference: `~/claude-memory-server/skills/memory-protocol/`.
+Full reference: `~/total-agent-memory/skills/memory-protocol/`.

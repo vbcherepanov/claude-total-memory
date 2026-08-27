@@ -52,11 +52,11 @@ For those, use the bash bridge:
 
 ```bash
 # Recall (read-only):
-~/claude-memory-server/ollama/lookup_memory.sh "<query>"
-~/claude-memory-server/ollama/lookup_memory.sh --project NAME "<query>"
+lookup-memory "<query>"
+lookup-memory --project NAME "<query>"
 
 # Save (returns the new id):
-~/claude-memory-server/ollama/save_memory.sh \
+~/total-agent-memory/ollama/save_memory.sh \
     --type solution \
     --project NAME \
     --tags "reusable,go,concurrency" \

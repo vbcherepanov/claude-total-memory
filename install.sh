@@ -398,8 +398,8 @@ PY
 # Copies:
 #   hooks/*.sh                        — core hooks (session-start, on-stop, etc.)
 #   hooks/lib/common.sh               — shared utils sourced by example hooks
-#   examples/hooks/pre-edit.sh        — v7.0 file_context guard (PreToolUse)
-#   examples/hooks/on-bash-error.sh   — v7.0 learn_error trigger (PostToolUse)
+#   (pre-edit.sh and on-bash-error.sh moved from examples/hooks/ into
+#    hooks/ in v13 so the Claude Code plugin can reference one directory.)
 #
 # Behaviour:
 #   Existing files are preserved (user may have customized them). Set
@@ -448,16 +448,6 @@ install_hooks_to_home() {
             copied=$((copied + 1))
         fi
     fi
-
-    # Example hooks — treat as optional add-ons (pre-edit.sh, on-bash-error.sh).
-    # These sit under examples/ in the repo but are expected to live in
-    # ~/.claude/hooks/ for the hook matchers registered below to find them.
-    local ex
-    for ex in pre-edit.sh on-bash-error.sh; do
-        src="$INSTALL_DIR/examples/hooks/$ex"
-        [ -f "$src" ] || continue
-        _copy_hook "$src" "$hooks_target/$ex"
-    done
 
     echo "  OK: Hooks synced to $hooks_target (copied=$copied, skipped=$skipped)"
 }
@@ -576,7 +566,7 @@ hooks['PostToolUse'] = [
         {'type': 'command', 'command': os.environ['HOOK_POSTTOOL']},
     ]},
 ]
-# Append on-bash-error if the script was installed (examples/hooks).
+# Append on-bash-error if the script was installed.
 if os.path.isfile(os.environ['HOOK_BASH_ERR']):
     for block in hooks['PostToolUse']:
         if block.get('matcher') == 'Bash':

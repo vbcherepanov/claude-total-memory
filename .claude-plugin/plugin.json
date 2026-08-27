@@ -1,0 +1,20 @@
+{
+  "name": "total-agent-memory",
+  "description": "Persistent local memory for Claude Code — temporal knowledge graph, procedural memory, AST codebase ingest, cross-project analogy. Installs the MCP server, the memory-protocol skill and the capture hooks in one step.",
+  "version": "13.0.0",
+  "author": {
+    "name": "Vitalii Cherepanov",
+    "url": "https://github.com/vbcherepanov"
+  },
+  "homepage": "https://totalmemory.dev",
+  "repository": "https://github.com/vbcherepanov/total-agent-memory",
+  "license": "MIT",
+  "keywords": [
+    "memory",
+    "mcp",
+    "knowledge-graph",
+    "local-first",
+    "context",
+    "recall"
+  ]
+}
