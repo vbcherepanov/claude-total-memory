@@ -13,6 +13,7 @@ Covers:
 from __future__ import annotations
 
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -106,6 +107,12 @@ def test_embed_wiring_defaults_to_fastembed(monkeypatch, tmp_path):
             pass
 
 
+def _unit(vec: list[float]) -> list[float]:
+    """L2-normalise, mirroring embed_provider._l2_normalise_vec."""
+    norm = math.sqrt(sum(x * x for x in vec))
+    return [x / norm for x in vec]
+
+
 # ──────────────────────────────────────────────
 # OpenAI wiring through Store
 # ──────────────────────────────────────────────
@@ -132,7 +139,10 @@ def test_embed_wiring_uses_configured_provider(monkeypatch, tmp_path):
         )
 
         vecs = store.embed(["hello"])
-        assert vecs == [[0.11, 0.22, 0.33]]
+        # The production OpenAI path L2-normalises so cosine == dot product
+        # (see embed_provider._l2_normalise_vec); assert the unit vector the
+        # stub payload maps to, not the raw API values.
+        assert vecs == [_unit([0.11, 0.22, 0.33])]
         assert sink["url"] == "https://api.openai.com/v1/embeddings"
         h = {k.lower(): v for k, v in sink["headers"].items()}
         assert h["authorization"] == "Bearer sk-XXX"
@@ -172,7 +182,7 @@ def test_reranker_uses_embed_provider(monkeypatch):
     )
 
     vec = reranker._provider_embed("hypothetical answer")
-    assert vec == [1.5, 2.5]
+    assert vec == _unit([1.5, 2.5])
     assert sink["url"] == "https://api.openai.com/v1/embeddings"
     assert sink["body"]["model"] == "text-embedding-3-small"
 

@@ -46,7 +46,9 @@ def _run_install(
         env=env,
         capture_output=True,
         text=True,
-        timeout=120,
+        # Generous — this runs the real installer; a loaded machine must not
+        # turn into a red test. Nothing here measures speed.
+        timeout=900,
     )
 
 
@@ -339,7 +341,11 @@ def test_launchagents_substitute_install_dir_and_memory_dir(
 
     result = subprocess.run(
         ["bash", str(INSTALL_SH), "--ide", "claude-code"],
-        env=env, capture_output=True, text=True, timeout=180,
+        # Generous: this runs the real installer end to end, and on a loaded
+        # machine (a benchmark ingesting in another process, CI on a shared
+        # runner) 180s was not enough — the test then fails for load, not for
+        # a regression. Nothing here measures speed.
+        env=env, capture_output=True, text=True, timeout=900,
     )
     # We don't assert returncode==0: pip/model steps may skip with
     # non-fatal warnings under our partial test mode. We only care that

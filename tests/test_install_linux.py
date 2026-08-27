@@ -49,7 +49,9 @@ def _run_install(
         env=env,
         capture_output=True,
         text=True,
-        timeout=120,
+        # Generous — this runs the real installer; a loaded machine must not
+        # turn into a red test. Nothing here measures speed.
+        timeout=900,
     )
 
 

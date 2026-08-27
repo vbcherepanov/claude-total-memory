@@ -51,7 +51,20 @@ from ai_layer.verifier import (  # noqa: E402
 
 
 _FIXTURE = _REPO / "tests" / "fixtures" / "nli_calibration_set.json"
-_CALIBRATION_JSON = Path(os.path.expanduser("~/.claude-memory/nli_calibration.json"))
+# Resolved the same way production does — follows $TAM_MEMORY_DIR / ~/.tam and
+# falls back to the legacy ~/.claude-memory location.
+sys.path.insert(0, str(_REPO / "src"))
+from ai_layer.verifier import _calibration_path as _resolve_calibration_path  # noqa: E402
+
+_CALIBRATION_JSON = _resolve_calibration_path()
+
+# The calibration JSON is a machine-local tuning artifact, not a repo file:
+# `scripts/calibrate_nli.py --tune` writes it next to the memory database.
+# A clean checkout (and CI) has none, so the tests that read it skip.
+_NO_CALIBRATION = (
+    f"no NLI calibration at {_CALIBRATION_JSON} — run "
+    "`python scripts/calibrate_nli.py --tune` to produce one"
+)
 _PRODUCTION_MODEL = "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7"
 
 
@@ -94,10 +107,8 @@ def test_fixture_is_deterministic() -> None:
 
 
 def test_calibration_json_is_well_formed() -> None:
-    assert _CALIBRATION_JSON.exists(), (
-        "calibration config missing — run "
-        "`python scripts/calibrate_nli.py --tune ...`"
-    )
+    if not _CALIBRATION_JSON.exists():
+        pytest.skip(_NO_CALIBRATION)
     payload = json.loads(_CALIBRATION_JSON.read_text(encoding="utf-8"))
     for key in (
         "model_name",
@@ -116,6 +127,8 @@ def test_calibration_json_is_well_formed() -> None:
 
 def test_calibration_set_md5_matches_fixture() -> None:
     """The MD5 stored in the calibration JSON must match the fixture on disk."""
+    if not _CALIBRATION_JSON.exists():
+        pytest.skip(_NO_CALIBRATION)
     cal = json.loads(_CALIBRATION_JSON.read_text(encoding="utf-8"))
     triples, stats, seed, md5 = calibrate_nli.load_fixture(_FIXTURE)
     assert cal["calibration_set_md5"] == md5, (

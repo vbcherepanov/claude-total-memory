@@ -51,7 +51,9 @@ def _run_install(home: Path, *args: str, extra_env: dict | None = None):
         env=env,
         capture_output=True,
         text=True,
-        timeout=120,
+        # Generous — this runs the real installer; a loaded machine must not
+        # turn into a red test. Nothing here measures speed.
+        timeout=900,
     )
 
 
@@ -187,7 +189,9 @@ def test_install_codex_shim_still_works(sandbox_home: Path):
         env=env,
         capture_output=True,
         text=True,
-        timeout=120,
+        # Generous — this runs the real installer; a loaded machine must not
+        # turn into a red test. Nothing here measures speed.
+        timeout=900,
     )
     assert result.returncode == 0, f"stderr={result.stderr}\nstdout={result.stdout}"
 

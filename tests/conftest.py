@@ -75,6 +75,29 @@ def _disable_async_enrichment_in_tests(monkeypatch):
 
 
 @pytest.fixture
+def llm_enabled(monkeypatch):
+    """Declare that a test exercises an LLM-backed code path.
+
+    Modules that stub `_llm_complete` (or an equivalent seam) still have to get
+    past the `config.has_llm()` gate, and in `auto` mode that gate probes for a
+    live Ollama on localhost. On a machine without Ollama every such generator
+    short-circuits to empty output and the test fails for an environmental
+    reason rather than a code one.
+
+    Setting the mode to `force` skips the probe entirely: the stub is what the
+    test is measuring, so no network call should ever be attempted. Tests that
+    assert the *degraded* (no-LLM) path set `MEMORY_LLM_ENABLED=false`
+    themselves and must not use this fixture.
+
+    Usage — module level:
+
+        pytestmark = pytest.mark.usefixtures("llm_enabled")
+    """
+    monkeypatch.setenv("MEMORY_LLM_ENABLED", "force")
+    yield
+
+
+@pytest.fixture
 def db():
     """In-memory SQLite database with all v5 tables."""
     conn = sqlite3.connect(":memory:")

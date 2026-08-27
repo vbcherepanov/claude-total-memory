@@ -27,11 +27,21 @@ EXPECTED_MD5 = "29258307fdfb6a33c2668298a515fe65"
 EXPECTED_TRAIN_IDS = [0, 1, 2, 3, 4, 5, 6]
 
 
+# benchmarks/data/ is gitignored — the LoCoMo corpus is redistributed under its
+# own licence and the mined bundle is derived from it. A fresh clone (and CI)
+# has neither, so these tests skip rather than fail. Regenerate locally with:
+#   python scripts/mine_locomo_fewshot.py --version 3 --seed 42
+pytestmark = pytest.mark.skipif(
+    not (V3_PATH.exists() and LOCOMO_PATH.exists()),
+    reason=(
+        "LoCoMo corpus / mined v3 bundle absent (benchmarks/data is gitignored); "
+        "run scripts/mine_locomo_fewshot.py --version 3 --seed 42"
+    ),
+)
+
+
 @pytest.fixture(scope="module")
 def v3_bundle() -> dict:
-    assert V3_PATH.exists(), (
-        f"missing {V3_PATH}; run scripts/mine_locomo_fewshot.py --version 3 first."
-    )
     return json.loads(V3_PATH.read_text())
 
 
