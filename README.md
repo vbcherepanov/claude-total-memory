@@ -4,16 +4,17 @@
 > Persistent, local memory for AI coding agents: Claude Code, Codex CLI, Cursor, any MCP client.
 > Temporal knowledge graph · procedural memory · AST codebase ingest · cross-project analogy · 3D WebGL visualization.
 
-[![Version](https://img.shields.io/badge/version-12.2.0-8ad.svg)](https://pypi.org/project/total-agent-memory/)
-[![Tests](https://img.shields.io/badge/tests-1769%20passing-4a9.svg)]()
+[![Version](https://img.shields.io/badge/version-13.0.0-8ad.svg)](https://pypi.org/project/total-agent-memory/)
+[![Tests](https://img.shields.io/badge/tests-1870%20passing-4a9.svg)]()
 [![IDEs](https://img.shields.io/badge/IDEs-9%20supported-4a9.svg)]()
-[![LongMemEval R@5](https://img.shields.io/badge/LongMemEval%20R@5-96.2%25-4a9.svg)](evals/longmemeval-2026-04-17.json)
-[![LoCoMo Acc](https://img.shields.io/badge/LoCoMo%20Acc-0.596-4a9.svg)](benchmarks/results/)
-[![vs Supermemory](https://img.shields.io/badge/vs%20Supermemory-%2B10.8pp-4a9.svg)](docs/vs-competitors.md)
+[![LongMemEval R@5](https://img.shields.io/badge/LongMemEval%20R@5-95.1%25-4a9.svg)](evals/longmemeval-2026-08-27-v13-store.json)
+[![LoCoMo R@5](https://img.shields.io/badge/LoCoMo%20R@5-0.607-4a9.svg)](benchmarks/results/v13-locomo-retrieval.json)
+[![BEAM R@5](https://img.shields.io/badge/BEAM%20100K%20R@5-0.575-4a9.svg)](benchmarks/results/v13-beam-100K.json)
+[![vs Supermemory](https://img.shields.io/badge/vs%20Supermemory-%2B9.7pp-4a9.svg)](docs/vs-competitors.md)
 [![p50 latency](https://img.shields.io/badge/p50%20warm-0.065ms-4a9.svg)](evals/results-2026-04-17.json)
 [![Local-First](https://img.shields.io/badge/100%25-local-4a9.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-fa4.svg)](LICENSE)
-[![MCP](https://img.shields.io/badge/protocol-MCP-blue.svg)](https://modelcontextprotocol.io)
+[![MCP](https://img.shields.io/badge/MCP-2026--07--28-blue.svg)](https://modelcontextprotocol.io)
 [![npm](https://img.shields.io/badge/npm-total--agent--memory-cb3837.svg)](https://www.npmjs.com/package/total-agent-memory)
 [![PyPI](https://img.shields.io/badge/PyPI-total--agent--memory-3776AB.svg)](https://pypi.org/project/total-agent-memory/)
 [![Docker GHCR](https://img.shields.io/badge/docker-ghcr.io-2496ED.svg)](https://github.com/vbcherepanov/total-agent-memory/pkgs/container/total-agent-memory)
@@ -24,232 +25,86 @@
 
 ---
 
-## v12.2.0 — v11 W3 dispatch fix + Codex env alignment (2026-05-24)
+## v13.0.0 — MCP 2026-07-28, and honest benchmarks (2026-08-27)
 
-Bugfix release. Four v11 W3 MCP tools — `memory_recall_iterative`,
-`memory_temporal_query`, `memory_entity_resolve`, `memory_consolidate_status` —
-were silently broken on `main`: the dispatcher forwarded an out-of-scope
-`args` symbol, the resulting `NameError` was swallowed by `call_tool`'s
-exception handler, and clients saw `"Error: name 'args' is not defined"`.
-Fix passes the per-call args, with regression coverage via
-`tests/test_v11_dispatch_args.py`.
+> **Upgrade if you installed after the MCP Python SDK went 2.0.** The 2.x line
+> dropped the `@Server.list_tools()` / `@Server.call_tool()` decorators this
+> server was built on, and the dependency was floored at `mcp[cli]>=1.0.0` — so
+> every fresh `pip` / `uvx` / `npx` / `brew` / `docker` install resolved 2.x and
+> died at import. Existing installs kept working only because their pinned 1.x
+> never moved.
 
-Also aligns the Codex installer env with the `.tam` memory layout
-(`TAM_MEMORY_DIR` canonical, `CLAUDE_MEMORY_DIR` kept as compatibility alias,
-`MEMORY_MODE=fast` default) and isolates install tests from real
-`launchctl` / `systemctl` / `XDG` directories. Full notes in
-[`CHANGELOG.md`](CHANGELOG.md#1220--2026-05-24--v11-w3-dispatch-fix--codex-env-alignment).
+**Protocol.** Tools now register through whichever API the installed SDK
+exposes, and the server serves both protocol eras from one process: the
+stateless **2026-07-28** revision — `tools/list`, `server/discover` and
+`tools/call` with no `initialize` handshake, protocol metadata per request —
+alongside the legacy handshake for clients on older SDKs. JSON-answering tools
+return `structuredContent`, so clients stop re-parsing strings, and all 74
+tools carry `readOnlyHint` / `destructiveHint` / `idempotentHint` annotations
+that clients use to decide what runs without a confirmation prompt.
 
----
-
-## v12.1.0 — Claude Code v2.1.145 subagent lineage (2026-05-20)
-
-Claude Code **v2.1.139+** emits subagent IDs on every API request
-(`x-claude-code-agent-id` / `x-claude-code-parent-agent-id` HTTP headers,
-plus the same fields as `agent_id` / `parent_agent_id` attributes on the
-`claude_code.tool` and `claude_code.llm_request` OTEL spans). v12.1 wires
-these through end-to-end:
-
-- **Schema (migration `028_agent_lineage.sql`)** — nullable `agent_id` and
-  `parent_agent_id` columns on `knowledge`, partial indexes (`WHERE … IS NOT NULL`)
-  so lineage filters are free.
-- **MCP tools** — `memory_save` and `memory_save_fast` accept two new
-  optional inputs: `agent_id` and `parent_agent_id`. Old callers see no
-  behaviour change.
-- **`extract_transcript.py`** — reads `agent_id` / `agentId` /
-  `parent_agent_id` / `parentAgentId` from `.jsonl` when Claude Code writes
-  them, and falls back to `isSidechain=true` as a proxy: sessions with any
-  sidechain activity get `agent_id = "session-<id>"` plus a
-  `has-subagent-work` tag on their auto-extracted rows.
-- **KG fact `spawned_by`** — when `memory_save` carries both ids, the
-  store auto-records `TemporalKG.add_fact(agent, "spawned_by", parent,
-  source="agent-lineage", invalidate_previous=False)`. Idempotent.
-  `kg_at(timestamp)` and `kg_timeline()` can now reconstruct the subagent
-  lineage tree at any past moment.
-
-A reconnect of the MCP `memory` server is required for clients to see the
-updated `inputSchema`. Full notes in [`CHANGELOG.md`](CHANGELOG.md#1210--2026-05-20--claude-code-v21145-subagent-lineage).
-
----
-
-## v12.0.0 — rebrand to `total-agent-memory` (2026-05-16)
-
-The project was renamed from `claude-total-memory` to **`total-agent-memory`** to
-reflect that it works with **every MCP client**, not just Claude Code (Cursor,
-Codex CLI, Cline, Continue, Aider, Windsurf, Gemini CLI, OpenCode — all
-covered).
-
-**Nothing breaks.** The old PyPI package (`claude-total-memory==11.3.0`) is now a
-deprecation shim that auto-resolves to `total-agent-memory>=12.0.0`. Legacy
-imports, CLI binaries, env vars, and the `~/.claude-memory/` directory keep
-working through automatic migration:
-
-| Old | New | Backward-compat |
-|---|---|---|
-| `pip install claude-total-memory` | `pip install total-agent-memory` | old name still works (shim + warning) |
-| `from claude_total_memory import …` | `from total_agent_memory import …` | old import still works (sys.modules alias + warning) |
-| `claude-total-memory` CLI | `total-agent-memory` (alias `tam`) | old CLI still ships in v12 wheel |
-| `CLAUDE_MEMORY_DIR` env | `TAM_MEMORY_DIR` env | old env still respected (deprecation warning) |
-| `~/.claude-memory/` dir | `~/.tam/` dir | auto-migrated on first run; `~/.claude-memory` becomes a symlink to `~/.tam/` so pinned scripts keep working |
-
-Six install paths — pick one:
+**Claude Code plugin.** The MCP server, the `memory-protocol` skill and the
+seven capture hooks now install in one step:
 
 ```bash
-npx -y total-agent-memory connect claude-code            # Node, zero-install
-uvx total-agent-memory                                    # Python via uv (fast)
-pipx install total-agent-memory                           # Python via pipx (isolated)
-brew install vbcherepanov/tap/total-memory                # Homebrew (macOS / Linuxbrew)
-docker run -p 37737:37737 -v ~/.tam:/data \
-  ghcr.io/vbcherepanov/total-agent-memory:12.2.0          # Docker (multi-arch amd64+arm64)
-git clone https://github.com/vbcherepanov/total-agent-memory \
-  ~/total-agent-memory && cd ~/total-agent-memory && ./install.sh   # manual
+/plugin marketplace add vbcherepanov/total-agent-memory
+/plugin install total-agent-memory@vbcherepanov
 ```
 
-The `npx` path also wires the MCP entry into the IDE you pass to `connect <ide>`:
-`claude-code`, `codex`, `cursor`, `cline`, `continue`, `aider`, `windsurf`,
-`gemini-cli`, `opencode`.
+**LongMemEval now measures the product.** The runner had its own
+self-contained BM25 / RRF / MMR / CrossEncoder stack, so the published 96.2%
+described an algorithm rather than this software. A new `--modes store` — now
+the default — ingests each haystack into a real `Store` and queries
+`Recall.search`. Re-measured: **95.1% R@5**, 27.6 ms per query.
 
-**Project URLs:** [totalmemory.dev](https://totalmemory.dev) · [PyPI](https://pypi.org/project/total-agent-memory/) · [npm](https://www.npmjs.com/package/total-agent-memory) · [Docker GHCR](https://ghcr.io/vbcherepanov/total-agent-memory) · [GitHub Release](https://github.com/vbcherepanov/total-agent-memory/releases/tag/v12.2.0)
+**Benchmarks that no longer measure themselves.** `Recall.search` bumps
+`recall_count` on every row it returns, and the scorer adds
+`recall_boost = min(0.3, recall_count * 0.05)`. Spaced repetition is wanted in
+normal use and fatal for measurement: successive runs against one database
+scored 0.547 → 0.565 → 0.588 → 0.607 R@5 without a line of retrieval code
+changing. Both runners now pass `record_usage=False`, a clean run and a re-run
+are byte-identical, and every number below was re-measured on that basis. The
+LoCoMo runner had also been printing categories 2 and 3 under each other's
+labels.
 
-Full migration notes (Docker volume names kept for backward-compat, brew formula
-changes, etc.) live in [`CHANGELOG.md`](CHANGELOG.md). The historical sections
-below (v11.1, v11.0, …) are preserved for reference.
+**[BEAM](https://github.com/mohammadtavakoli78/BEAM) (ICLR 2026)** is now part
+of the suite — retrieval across its ten memory abilities at the 100K / 500K /
+1M scales, graded against each probe's `source_chat_ids` with no LLM in the
+loop.
 
----
+**Bugs worth naming — all of the "works in a checkout, silently dead when
+installed" kind.** `tree-sitter-language-pack` was in no requirements file, so
+"AST codebase ingest, 9 languages" degraded to whole-file chunks for everyone.
+`vocabularies/` and `filters/` never made it into the wheel or the image, so
+canonical tag normalisation ran against an empty vocabulary and every
+`memory_save(filter=…)` was a no-op. The enrichment worker shared the Store's
+sqlite connection — safe for reads, not for writes — and long ingests died on
+`cannot start a transaction within a transaction`. Migration 028 failed on every fresh
+database and could never record itself, so it retried on every startup forever
+(root cause spotted by @juicetin in #12: two owners for one schema change). And
+`ai_layer/verifier.py` looked for NLI calibrations at the pre-`.tam` path.
 
-## v11.1 — graph dedup + proactive save nudges
-
-Two client-reported bugs fixed (2026-05-14):
-
-**Bug #1 — orphan + duplicate `graph_nodes`.** The graph accumulated
-case-variant duplicates (`Vue` / `vue` / `VUE`) and type-collision
-duplicates (`vue/concept` vs `vue/technology` created by different
-extractors), plus orphan nodes when an edge insert failed after both
-nodes were already committed. Fixed by migration `026_graph_nodes_dedup`
-(`name_norm` column, triggers, indexes), a case-insensitive UPSERT
-rewrite of `add_node` with type-collision detection, a new atomic
-`GraphStore.link_pair()` helper, and a one-shot cleanup tool
-`src/tools/merge_duplicate_nodes.py` (dry-run by default).
-
-```bash
-# After upgrade migration 026 applies automatically. Then optionally:
-.venv/bin/python src/tools/merge_duplicate_nodes.py --dry-run
-.venv/bin/python src/tools/merge_duplicate_nodes.py --apply --add-unique
-```
-
-Verified on a real production DB (8304 nodes): 102 duplicates merged,
-1472 stale edges cleaned, UNIQUE constraint installed.
-
-**Bug #2 — model never calls `memory_save` on its own.** Sonnet/Haiku
-skip the priority-10 save rule when SessionStart context fades. v11.1
-adds in-session **nudges**: a counter in `~/.claude-memory/state/`
-tracks writes-vs-saves per session, and `hooks/post-tool-use.{sh,ps1}`
-emits a stdout line that Claude reads as system context on the next
-turn. Soft nudge at 3 edits with 0 saves, hard at 7, and a
-`MEMORY_FINAL_WARNING` on session stop. A new priority-10 rule
-instructs the model to treat `MEMORY_NUDGE` as an immediate command.
-
-Tunables: `MEMORY_NUDGE_DISABLE=1` to silence; `MEMORY_NUDGE_SOFT` /
-`_HARD` / `_STEP` to retune (defaults `3 / 7 / 3`).
-
-Test coverage: +24 graph tests, +12 nudge tests. Full details in
-[`CHANGELOG.md`](CHANGELOG.md#1110--2026-05-14--graph-dedup--proactive-save-nudges).
-
----
-
-## v11.0 — production memory engine
-
-**v11.0 = production memory engine: fast deterministic memory core + async AI enrichment layer. Default mode is `fast`: zero LLM, zero Ollama, zero network in the save/search/recall hot path.**
-
-The codebase is now split into two layers:
-
-- **`src/memory_core/*`** — deterministic facade modules (storage, embeddings, vector_store, classifier, chunker, dedup, cache, graph_links, telemetry, health, embedding_spaces). No LLM imports allowed. Enforced by `tests/test_no_llm_hot_path.py`.
-- **`src/ai_layer/*`** — every LLM-touching path (enrichment_worker, summarizer, keyword_extractor, question_generator, relation_extractor, contradiction_detector, reflection, self_improve, plus thin shims for quality_gate / coref_resolver / reranker / query_rewriter). Off-limits to memory_core.
-
-Architecture details and full hot-path audit: [`docs/v11/audit.md`](docs/v11/audit.md).
-
-### Modes
-
-`MEMORY_MODE` selects the runtime profile. Default is `fast`.
-
-| Mode | Hot-path LLM | Async enrichment | Reranker | Embed fallback | Use when |
-|---|:-:|:-:|:-:|:-:|---|
-| `ultrafast` | off | off | off | FastEmbed only (vector index off, FTS-only) | Throughput stress / CI |
-| **`fast`** (default) | **off** | **off** | **off** | **FastEmbed only, Ollama fallback gated** | **Production coding-agent loop** |
-| `balanced` | off (sync) | **on** | off | FastEmbed only | You want LLM-derived facets, but never on the critical path |
-| `deep` | on (sync) | on | on (when `rerank=true`) | FastEmbed → Ollama ladder | v10.5 behaviour: quality gate / contradiction / coref / HyDE inline |
-
-`deep` mode reproduces v10.5.0 defaults exactly. Set `MEMORY_MODE=deep` if you depended on synchronous quality_gate, contradiction_detector, or coref. `balanced` keeps the same ergonomics but moves enrichment off-thread.
-
-Migration from v10.5: [`docs/v11/MIGRATION-FROM-V10.md`](docs/v11/MIGRATION-FROM-V10.md).
-
-### v11.0 hot-path benchmark
-
-Warm, in-memory SQLite, MacBook M-series, `MEMORY_MODE=fast`, `MEMORY_ALLOW_OLLAMA_IN_HOT_PATH=false`:
-
-| metric              |   p50 |   p95 |   p99 |
-|---------------------|------:|------:|------:|
-| `save_fast`         |  6.5  |  9.0  | 27.8  |
-| `save_fast` cached  |  0.3  |  0.4  |  1.1  |
-| `search_fast`       |  3.7  |  4.0  |  6.2  |
-| `cached_search`     |  0.0  |  0.0  |  0.0  |
-
-**`llm_calls = 0`, `network_calls = 0`** across the entire hot path. Reproduce: `bin/memory-bench`. CI gate: `bin/memory-perf-gate`. Raw artifact: [`docs/v11/benchmark.md`](docs/v11/benchmark.md).
-
-### v10.5 → v11.0 — same workload, same script
-
-The v10.5 native bench (`benchmarks/v10_5_latency.py`) re-run on v11 fast against the recorded v10.5 baseline (`benchmarks/results/v10_5_latency.json`):
-
-| metric                | v10.5 sync (with LLM) | v11.0 fast | speedup |
-|-----------------------|----------------------:|-----------:|--------:|
-| save p95              | 2150.51 ms            | 8.51 ms    | **252×** |
-| save p99              | 2178.98 ms            | 11.09 ms   | **196×** |
-| recall p95            | 1424.26 ms            | 5.81 ms    | **245×** |
-| recall p99            | 1771.70 ms            | 6.75 ms    | **262×** |
-| LLM calls / save      | 2-4                   | 0          | gate    |
-| Network calls / save  | 1-3                   | 0          | gate    |
-
-Even versus v10.5 _without_ LLM (`23.3 ms p95`), v11 fast is `2.7×` faster — the deterministic-only stages (quality_gate probe, contradiction candidate fetch, episodic event creation, project_wiki refresh) are now fully bypassed in fast mode and queued only when `MEMORY_ENRICHMENT_ENABLED=true`.
-
-Recall quality is preserved: LongMemEval R@5 = 100% on a 30-question sample; hybrid retrieval (FTS5 + dense + RRF + base graph) is identical to v10.5 except for HyDE / analyze_query LLM expansion which is opt-in via `MEMORY_MODE=deep`. See [`docs/v11/benchmark.md`](docs/v11/benchmark.md) for the full table including LoCoMo and per-space embedding load characteristics.
-
-### New MCP tools in v11.0
-
-`memory_save_fast` · `memory_search_fast` · `memory_explain_search` · `memory_warmup` · `memory_perf_report` · `memory_rebuild_fts` · `memory_rebuild_embeddings` · `memory_eval_locomo` · `memory_eval_recall` · `memory_eval_temporal` · `memory_eval_entity_consistency` · `memory_eval_contradictions` · `memory_eval_long_context`
-
-All previous tool names (`memory_save`, `memory_recall`, ...) continue to work unchanged.
-
-### Multi-embedding-space contract
-
-Every vector row now records `embedding_provider / embedding_model / embedding_dimension / embedding_space / content_type / language`. Spaces: `text` / `code` / `log` / `config`. Single Chroma backend; per-space model swap is one env flip:
-
-```bash
-MEMORY_TEXT_EMBED_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
-MEMORY_CODE_EMBED_MODEL=jinaai/jina-embeddings-v2-base-code   # optional
-MEMORY_LOG_EMBED_MODEL=                                       # falls back to TEXT
-MEMORY_CONFIG_EMBED_MODEL=                                    # falls back to TEXT
-```
-
-Old chunks stay searchable in their space; new chunks pick up the swapped model. Backfill one space at a time via `memory_rebuild_embeddings`.
-
-> v10.x sections below are preserved as **legacy v10.5 behaviour** — still available via `MEMORY_MODE=deep`. The numbers, screenshots, and benchmark blocks dated 2026-04-19 / 2026-04-25 / 2026-04-27 (v10) describe the deep-mode pipeline. v11 replaces *defaults*, not capabilities.
+Full notes in [`CHANGELOG.md`](CHANGELOG.md#1300--2026-08-27--mcp-2026-07-28-and-honest-benchmarks).
+Earlier releases: [v12.4.0](CHANGELOG.md#1240--2026-05-26--100-functional-through-every-install-path) ·
+[v12.0.0](CHANGELOG.md#1200--2026-05-16) ·
+[v11.0](CHANGELOG.md#1100).
 
 ---
 
 ## Table of contents
 
-- [v11.1 — graph dedup + proactive save nudges](#v111--graph-dedup--proactive-save-nudges)
-- [v11.0 — production memory engine](#v110--production-memory-engine)
+- [v13.0.0 — what changed](#v1300--mcp-2026-07-28-and-honest-benchmarks-2026-08-27)
 - [The problem it solves](#the-problem-it-solves)
 - [60-second demo](#60-second-demo)
 - [Benchmarks — how it compares](#benchmarks--how-it-compares)
+  - [LoCoMo](#locomo--snap-researchlocomo) · [BEAM](#beam--beyond-a-million-tokens-iclr-2026) · [LongMemEval](#longmemeval--xiaowu0162longmemeval-cleaned)
 - [Competitor comparison](#competitor-comparison)
 - [What you get](#what-you-get)
 - [Architecture](#architecture)
 - [Install](#install)
 - [Quick start](#quick-start)
 - [CLI: `lookup-memory` for sub-agents](#cli-lookup-memory-for-sub-agents)
-- [MCP tools reference](#mcp-tools-reference-60-tools)
+- [MCP tools reference](#mcp-tools-reference-74-tools)
 - [TypeScript SDK](#typescript-sdk)
 - [Dashboard](#dashboard-localhost37737)
 - [Update](#update)
@@ -274,7 +129,7 @@ Every decision, solution, error, fact, file change, and session summary is:
 
 - **Captured** — explicitly via `memory_save` or implicitly via hooks on file edits / bash errors / session end
 - **Linked** — automatically extracted into a knowledge graph (entities, relations, temporal facts)
-- **Searchable** — 6-stage hybrid retrieval (BM25 + dense + graph + CrossEncoder + MMR + RRF fusion), **96.2% R@5 on public LongMemEval**
+- **Searchable** — 6-stage hybrid retrieval (BM25 + dense + graph + CrossEncoder + MMR + RRF fusion), **95.1% R@5 on public LongMemEval**
 - **Private** — 100% local. SQLite + FastEmbed + optional Ollama. No data leaves your machine.
 
 ---
@@ -311,95 +166,166 @@ Claude:  ✓ workflow_predict(task_description="migrate auth middleware...")
 
 ## Benchmarks — how it compares
 
-**Public LongMemEval benchmark** ([xiaowu0162/longmemeval-cleaned](https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned), 470 questions, the dataset everyone publishes against):
+Everything below is **retrieval**: does the memory surface the passage that
+contains the answer, in the top-K? That is the part this project owns —
+answer quality is bounded above by it, and it can be graded with no LLM in
+the loop, which makes the numbers deterministic, free, and reproducible on
+your machine.
 
-```
-                   R@5 (recall_any) on public LongMemEval
-                   ─────────────────────────────────────────
-  100% ─┤
-        │
-  96.2% ┤  ████  ← total-agent-memory v7.0  (LOCAL, 38.8 ms, MIT)
-  95.0% ┤  ████  ← Mastra "Observational"    (cloud)
-        │  ████
-        │  ████
-  85.4% ┤  ████  ← Supermemory                (cloud, $0.01/1k tok)
-        │  ████
-        │  ████
-        │  ████
-   80%  ┤  ████
-        └──────────────────────────────────────────
-```
+Two things to read them honestly:
 
-Reproducible: [`evals/longmemeval-2026-04-17.json`](evals/longmemeval-2026-04-17.json) · Runner: [`benchmarks/longmemeval_bench.py`](benchmarks/longmemeval_bench.py)
+- These are the **default `fast` profile** — FastEmbed, no reranker, no LLM
+  anywhere in the path. That is what you get after `install.sh`, not a tuned
+  configuration.
+- Every runner passes `record_usage=False`. `Recall.search` normally bumps
+  `recall_count`, and the scorer adds `recall_boost = min(0.3, recall_count ×
+  0.05)` — so before v13, each re-run against the same database scored higher
+  than the last, partly measuring its own history. A clean run and a re-run
+  are now byte-identical.
 
-### Per-question-type breakdown (R@5 recall_any)
+### LoCoMo — [snap-research/locomo](https://github.com/snap-research/locomo)
 
-| Question type | Count | Our R@5 |
+1,536 gradable questions across 10 long-running conversations (5,882 turns
+ingested), plus 446 adversarial questions scored separately.
+
+| Category | N | R@1 | R@5 | R@10 | MRR |
+|---|---:|---:|---:|---:|---:|
+| single-hop | 282 | 0.202 | 0.500 | 0.638 | 0.332 |
+| temporal | 321 | 0.411 | **0.689** | 0.735 | 0.524 |
+| multi-hop | 92 | 0.163 | 0.413 | 0.435 | 0.256 |
+| open-domain | 841 | 0.363 | 0.633 | 0.712 | 0.479 |
+| **overall** | **1,536** | **0.331** | **0.607** | **0.687** | **0.448** |
+
+Latency p50 **18.2 ms**, p95 55.4 ms. Temporal is the strongest category —
+the bi-temporal knowledge graph earns its keep. Multi-hop is the weakest and
+is the v13.1 target.
+
+Reproduce: `python benchmarks/locomo_bench.py --wipe` →
+[`benchmarks/results/v13-locomo-retrieval.json`](benchmarks/results/v13-locomo-retrieval.json)
+
+### BEAM — [Beyond a Million Tokens](https://github.com/mohammadtavakoli78/BEAM), ICLR 2026
+
+BEAM is the benchmark that starts where context windows stop: conversations of
+100K / 500K / 1M tokens (a separate 10M set goes further), probed across ten
+distinct memory abilities. Scored here against each probe's `source_chat_ids`.
+
+**Scale 100K** — 20 conversations, 5,732 messages, 355 gradable probes:
+
+| Ability | N | R@1 | R@5 | R@10 | MRR |
+|---|---:|---:|---:|---:|---:|
+| contradiction_resolution | 40 | 0.700 | **1.000** | 1.000 | 0.824 |
+| temporal_reasoning | 40 | 0.475 | **0.975** | 1.000 | 0.689 |
+| knowledge_update | 40 | 0.550 | **0.925** | 0.950 | 0.719 |
+| multi_session_reasoning | 40 | 0.375 | 0.675 | 0.850 | 0.486 |
+| information_extraction | 40 | 0.400 | 0.625 | 0.725 | 0.503 |
+| summarization | 36 | 0.167 | 0.444 | 0.556 | 0.267 |
+| preference_following | 39 | 0.077 | 0.282 | 0.410 | 0.169 |
+| event_ordering | 40 | 0.025 | 0.150 | 0.200 | 0.074 |
+| instruction_following | 40 | 0.025 | 0.075 | 0.150 | 0.054 |
+| **overall** | **355** | **0.313** | **0.575** | **0.651** | **0.423** |
+
+Latency p50 **17.7 ms**. The shape is the useful part: contradiction
+resolution, temporal reasoning and knowledge update are effectively solved,
+while `instruction_following` and `event_ordering` are near-zero — those probes
+ask *whether a stated instruction was followed* or *in what order things
+happened*, and semantic similarity to the question does not find the message
+where the instruction was given. Retrieval is the wrong primitive there, and
+that is the roadmap item.
+
+**Scale 500K** — 35 conversations, 38,058 messages, 629 gradable probes:
+
+| Ability | N | R@1 | R@5 | R@10 | MRR |
+|---|---:|---:|---:|---:|---:|
+| contradiction_resolution | 70 | 0.714 | **0.943** | 0.971 | 0.828 |
+| knowledge_update | 69 | 0.464 | **0.855** | 0.899 | 0.617 |
+| temporal_reasoning | 70 | 0.500 | **0.786** | 0.871 | 0.625 |
+| multi_session_reasoning | 70 | 0.357 | 0.614 | 0.729 | 0.470 |
+| information_extraction | 70 | 0.271 | 0.443 | 0.571 | 0.354 |
+| preference_following | 70 | 0.071 | 0.300 | 0.471 | 0.168 |
+| summarization | 70 | 0.100 | 0.286 | 0.414 | 0.174 |
+| instruction_following | 70 | 0.029 | 0.157 | 0.257 | 0.086 |
+| event_ordering | 70 | 0.014 | 0.029 | 0.186 | 0.042 |
+| **overall** | **629** | **0.280** | **0.490** | **0.596** | **0.373** |
+
+Latency p50 **58.5 ms**, p95 152.6 ms.
+
+**How it scales.** 6.6× more haystack costs 8.5 points of R@5 and 3.3× the
+query latency:
+
+| Scale | Messages | R@5 | p50 | Ingest |
+|---|---:|---:|---:|---:|
+| 100K | 5,732 | 0.575 | 17.7 ms | 25.6 msg/s |
+| 500K | 38,058 | 0.490 | 58.5 ms | 10.8 msg/s |
+
+The ingest number is the one to watch: **save throughput halves** between the
+two, so something in the write path scales with store size. The obvious
+suspect — the graph node-name cache being dropped on every write, forcing a
+full table re-read per created node — was found and fixed in v13, but a clean
+A/B over 4,000 saves put it at 103.0 vs 99.9 saves/s: real, and nowhere near
+the dominant cost. Both arms degrade on the same curve. The scaling question
+is open and on the roadmap rather than explained away.
+
+Reproduce: `python benchmarks/beam_bench.py --scale 100K --wipe` →
+[`benchmarks/results/v13-beam-100K.json`](benchmarks/results/v13-beam-100K.json) ·
+[`v13-beam-500K.json`](benchmarks/results/v13-beam-500K.json)
+
+### LongMemEval — [xiaowu0162/longmemeval-cleaned](https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned)
+
+470 questions across six question types, re-measured for v13 **through the
+product**: each question's haystack is ingested into a real `Store` and queried
+with `Recall.search`, the same path an agent takes.
+
+| Question type | Count | R@5 (recall_any) |
 |---|---:|---:|
 | knowledge-update | 72 | **100.0%** |
-| single-session-user | 64 | **100.0%** |
-| multi-session | 121 | 96.7% |
-| single-session-assistant | 56 | 96.4% |
-| temporal-reasoning | 127 | 95.3% ← bi-temporal KG pays off |
-| single-session-preference | 30 | 80.0% ← weakest spot |
-| **TOTAL** | **470** | **96.2%** |
+| multi-session | 121 | **98.3%** |
+| single-session-user | 64 | 95.3% |
+| single-session-assistant | 56 | 94.6% |
+| temporal-reasoning | 127 | 92.9% |
+| single-session-preference | 30 | 80.0% |
+| **total** | **470** | **95.1%** |
 
-### LoCoMo benchmark (new in v9)
+Also `recall_all@5` 85.7% (every required fragment, not just one), NDCG@5
+88.9%, **27.6 ms** per query.
 
-**Public LoCoMo benchmark** ([snap-research/locomo](https://github.com/snap-research/locomo), 1986 QA across 10 long-running conversations, the dataset Mem0 / Memobase / Zep / MemMachine publish against):
+> **This replaces the 96.2% we published before**, and the difference matters
+> more than the 1.1 points. Until v13 this runner used its own self-contained
+> BM25 / RRF / MMR / CrossEncoder stack, so the number described *an
+> algorithm*, not this software. `--modes store` drives the shipping path and
+> is now the default. The old modes remain for ablations.
+>
+> For reference on the same set, Mastra "Observational" reports 95.0% and
+> Supermemory 85.4% — both cloud services.
 
-```
-              LoCoMo Acc (overall, no adversarial)
-              ─────────────────────────────────────
-  85% ─┤  ████  ← MemMachine        (commercial)
-       │  ████
-  80%  ┤  ████
-       │  ████
-  75%  ┤  ████  ← Memobase
-       │  ████  ← Zep / Graphiti
-       │  ████
-  70%  ┤  ████
-       │  ████
-  67%  ┤  ████  ← Mem0
-       │  ████
-       │  ████  ← total-agent-memory v9.0  (LOCAL, MIT, gpt-4o-mini)
-  60%  ┤  ████
-  59%  ┤  ████  ← total-agent-memory (0.596)
-       │  ████  ← LangMem (0.581)
-  55%  ┤  ████
-       └──────────────────────────────────────────
-```
+Reproduce: `python benchmarks/longmemeval_bench.py --modes store` →
+[`evals/longmemeval-2026-08-27-v13-store.json`](evals/longmemeval-2026-08-27-v13-store.json)
 
-| Rank | System | Overall (no adv) | License |
-|---:|---|---:|---|
-| 1 | MemMachine | 0.849 | Commercial |
-| 2 | Memobase | 0.758 | Apache-2.0 |
-| 3 | Zep / Graphiti | 0.751 | Apache-2.0 |
-| 4 | Mem0 | 0.669 | Apache-2.0 |
-| **5** | **total-agent-memory v9.0** | **0.596** | **MIT** |
-| 6 | LangMem | 0.581 | MIT |
+### On end-to-end accuracy numbers
 
-**Per-category breakdown (v9.0, gpt-4o-mini gen + judge):**
+Systems in this space usually publish LoCoMo **accuracy** — a generator answers
+from the retrieved context and an LLM judges it. Our last full run of that kind
+(gpt-4o generator, gpt-4o-mini judge, 2026-06-28, tuned profile) scored **0.676
+over all 1,986 questions** and **0.582 over the 1,540 non-adversarial ones**,
+with 0.993 on adversarial — where abstaining is correct and where this project
+leads.
 
-| Category | N | Acc | R@5 |
-|---|---:|---:|---:|
-| 1 — single-hop | 282 | 0.443 | 0.514 |
-| 2 — temporal | 321 | 0.564 | 0.717 |
-| 3 — multi-hop | 96 | 0.490 | 0.385 |
-| 4 — open-domain | 841 | 0.661 | 0.601 |
-| 5 — adversarial | 446 | **0.998** ← we lead | 0.421 |
-| **Overall (no adv)** | 1540 | **0.596** | 0.622 |
+Those numbers are not directly comparable to the 90%+ figures competitors
+publish: different generators, different judges, different prompts, different
+question subsets. We report the retrieval numbers as the primary metric
+precisely because they are checkable — the runner, the corpus and the gold
+labels are all public, and you can re-run them without an API key.
 
-**We lead on adversarial (0.998 vs Memobase 0.90)** thanks to judge-weighted ensemble + abstain logic. Top-3 leaders win on cat 1/2 via subject-aware profile retrieval — that's our v10 target.
-
-Reproducible: [`benchmarks/results/v9_diag_v1_*.json`](benchmarks/results/) · Runner: [`benchmarks/locomo_bench_llm.py`](benchmarks/locomo_bench_llm.py) (15 ablation flags). Cost on gpt-4o-mini: ~$5 for full 1986 QA run with ensemble=3.
+[`benchmarks/results/v9_full_gpt4o_20260628-194133.json`](benchmarks/results/) ·
+Runner: [`benchmarks/locomo_bench_llm.py`](benchmarks/locomo_bench_llm.py)
 
 ### Latency profile
 
 ```
   p50 (warm)   ▌ 0.065 ms
   p95 (warm)   ▌▌ 2.97 ms
-  LongMemEval  ▌▌▌▌▌ 38.8 ms/query   ← includes embedding + CrossEncoder rerank
+  LoCoMo       ▌▌▌ 18.2 ms/query    ← full hybrid retrieval over 5,882 records
+  BEAM 100K    ▌▌▌ 17.7 ms/query    ← over 5,732 messages
+  LongMemEval  ▌▌▌▌▌ 38.8 ms/query  ← includes embedding + CrossEncoder rerank
   p50 (cold)   ▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌ 1333 ms  ← first query after process start
 ```
 
@@ -415,7 +341,7 @@ We're not replacing chatbot memory — we're occupying the **coding-agent + MCP 
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | Funding / status | $24M YC | $10M seed | $12M seed | $2.6M seed | $7.5M seed | in LangChain | self-funded OSS |
 | Runs 100% local | 🟡 | ✅ | 🟡 | ❌ | 🟡 | 🟡 | **✅** |
-| MCP-native | via SDK | ❌ | 🟡 Graphiti | 🟡 | ❌ | ❌ | **✅ 60+ tools** |
+| MCP-native | via SDK | ❌ | 🟡 Graphiti | 🟡 | ❌ | ❌ | **✅ 74 tools, MCP 2026-07-28** |
 | Knowledge graph | 🔒 $249/mo | ❌ | ✅ | ✅ | ✅ | ❌ | **✅** |
 | **Temporal facts** (`kg_at`) | ❌ | ❌ | ✅ | ❌ | 🟡 | ❌ | **✅** |
 | **Procedural memory** | ❌ | ❌ | ❌ | ❌ | ❌ | 🟡 | **✅ `workflow_predict`** |
@@ -425,6 +351,14 @@ We're not replacing chatbot memory — we're occupying the **coding-agent + MCP 
 | **Pre-edit risk warnings** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **✅ `file_context`** |
 | 3D WebGL graph viewer | ❌ | ❌ | 🟡 | ✅ | ❌ | ❌ | **✅** |
 | Price for graph features | $249/mo | free | cloud | usage | free | free | **free** |
+
+**On competitors' benchmark numbers.** mem0 now publishes 92.5 on LoCoMo and
+94.4 on LongMemEval. Those are end-to-end accuracy with their own generator,
+judge and prompts — not comparable to the retrieval numbers above, and not
+independently reproducible without their stack. We publish retrieval because
+the runner, the corpus and the gold labels are all public and you can re-run
+them on your laptop without an API key. Where a project has not published on a
+benchmark, we write "—" rather than inventing a number.
 
 Full side-by-side with pricing, latency, accuracy, "when to pick each" → [docs/vs-competitors.md](docs/vs-competitors.md).
 
@@ -447,7 +381,7 @@ Full side-by-side with pricing, latency, accuracy, "when to pick each" → [docs
 
 ### Plus the basics done well
 
-- **6-stage hybrid retrieval** (BM25 + dense + fuzzy + graph + CrossEncoder + MMR, RRF fusion) — 96.2% R@5 public
+- **6-stage hybrid retrieval** (BM25 + dense + fuzzy + graph + CrossEncoder + MMR, RRF fusion) — 95.1% R@5 public
 - **Multi-representation embeddings** — each record embedded as raw + summary + keywords + questions + compressed
 - **AST codebase ingest** — tree-sitter across 9 languages (Python, TS/JS, Go, Rust, Java, C/C++, Ruby, C#)
 - **Auto-reflection pipeline** — `memory_save` → LaunchAgent file-watch → graph edges appear ~30 s later
@@ -471,7 +405,7 @@ Full side-by-side with pricing, latency, accuracy, "when to pick each" → [docs
                   │   (Claude Code · Codex CLI · Cursor · any MCP)  │
                   └──────────────────────┬──────────────────────────┘
                                          │ MCP (stdio or HTTP)
-                                         │ 60+ tools
+                                         │ 74 tools
                   ┌──────────────────────▼──────────────────────────┐
                   │            total-agent-memory server             │
                   │    ┌──────────────┐  ┌────────────────────┐     │
@@ -518,7 +452,7 @@ Full side-by-side with pricing, latency, accuracy, "when to pick each" → [docs
 
 ## Install
 
-### Quickstart — pick one (v12.2.0)
+### Quickstart — pick one
 
 | Channel | Command | What it does |
 |---|---|---|
@@ -526,10 +460,11 @@ Full side-by-side with pricing, latency, accuracy, "when to pick each" → [docs
 | **uvx** (Python via uv) | `uvx total-agent-memory` | One-off run with no install. Best for trying without commitment. |
 | **pipx** (Python isolated) | `pipx install total-agent-memory` | Installs the `total-agent-memory`, `tam`, `tam-lookup`, `lookup-memory` binaries on PATH in an isolated venv. |
 | **brew** (macOS / Linuxbrew) | `brew install vbcherepanov/tap/total-memory` | Bottle-style install with `tam` and legacy `claude-total-memory` symlinks. |
-| **Docker** (multi-arch) | `docker run -p 37737:37737 -v ~/.tam:/data ghcr.io/vbcherepanov/total-agent-memory:12.2.0` | Containerized (linux/amd64 + linux/arm64). Dashboard on `:37737`. |
+| **Docker** (multi-arch) | `docker run -p 37737:37737 -v ~/.tam:/data ghcr.io/vbcherepanov/total-agent-memory:13.0.0` | Containerized (linux/amd64 + linux/arm64). Dashboard on `:37737`. |
+| **Claude Code plugin** | `/plugin marketplace add vbcherepanov/total-agent-memory`<br>`/plugin install total-agent-memory@vbcherepanov` | Installs the MCP server, the `memory-protocol` skill and all seven capture hooks in one step, from inside Claude Code. The bootstrap reuses an existing install if it finds one, so nothing is downloaded twice. |
 | **Manual clone** | `git clone https://github.com/vbcherepanov/total-agent-memory ~/total-agent-memory && cd ~/total-agent-memory && ./install.sh --ide claude-code` | Full control. Lets you hack on the server, run benchmarks, and pick which background services to enable. Detailed walkthrough below. |
 
-All six channels land at the same MCP server. The `npx` and `./install.sh` paths
+All seven channels land at the same MCP server. The `npx` and `./install.sh` paths
 additionally configure IDE-specific MCP entries and hooks. Other channels start
 the server bare — you wire the IDE afterwards (see [`docs/installation.md`](docs/installation.md)).
 
@@ -541,7 +476,7 @@ compat. No manual data move required.
 
 ### Detailed paths (manual / Docker / per-IDE)
 
-Two manual paths. Same 60+ tools, same dashboard, different deployment shapes.
+Two manual paths. Same 74 tools, same dashboard, different deployment shapes.
 
 ### IDE matrix (v10.5)
 
@@ -602,7 +537,7 @@ The installer:
 8. Applies all migrations to a fresh `memory.db`
 9. Starts the dashboard at `http://127.0.0.1:37737`
 
-Restart Claude Code → `/mcp` → `memory` should show **Connected** with 60+ tools.
+Restart Claude Code → `/mcp` → `memory` should show **Connected** with 74 tools.
 
 ### Path A — native (Windows 10/11)
 
@@ -762,7 +697,7 @@ $ lookup-memory --project locomo_0 --limit 2 "adoption"
 
 ---
 
-## MCP tools reference (60+ tools)
+## MCP tools reference (74 tools)
 
 ### Tool categories
 
@@ -792,7 +727,13 @@ $ lookup-memory --project locomo_0 --limit 2 "adoption"
 
 **Skills (3):** `memory_skill_get`, `memory_skill_update`, `file_context`
 
-Total: **60+ tools.** Each is documented below with input schema and example.
+Total: **74 tools.** Each is documented below with input schema and example.
+
+Every tool carries MCP behaviour annotations — 38 are marked `readOnlyHint`,
+and `memory_delete` / `memory_forget` / `memory_update` / `kg_invalidate_fact`
+plus the two rebuild tools are marked `destructiveHint`. Clients use these to
+decide what may run without a confirmation prompt. Tools that answer in JSON
+also return it as `structuredContent`, so you do not have to parse the text.
 
 ### Token-efficient 3-layer workflow
 
@@ -901,7 +842,7 @@ Package repo: [github.com/vbcherepanov/total-agent-memory-client](https://github
 - **`/rules`** — active behavioral rules + fire counts
 - **SSE-pill in header** — live reconnect indicator
 
-Screenshots → [docs/screenshots/](docs/screenshots/) (coming)
+Screenshots → the dashboard is at `http://localhost:37737` once installed.
 
 ---
 
@@ -1033,7 +974,7 @@ Either:
 
 ### New MCP tools in v8.0
 
-Quick reference — see full docs in [MCP tools reference](#mcp-tools-reference-60-tools):
+Quick reference — see full docs in [MCP tools reference](#mcp-tools-reference-74-tools):
 
 | Tool | Purpose |
 |---|---|
@@ -1145,7 +1086,7 @@ Environment variables (all optional):
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `MEMORY_MODE` | `fast` | `ultrafast\|fast\|balanced\|deep`. Selects hot-path profile. See [Modes](#modes). |
+| `MEMORY_MODE` | `fast` | `ultrafast\|fast\|balanced\|deep`. Selects hot-path profile. See [Performance tuning](#performance-tuning). |
 | `MEMORY_USE_LLM_IN_HOT_PATH` | `false` | Master switch for sync LLM stages in `save_knowledge` / `Recall.search`. `MEMORY_MODE=deep` flips this to `true`. |
 | `MEMORY_ALLOW_OLLAMA_IN_HOT_PATH` | `false` | Re-enables the silent FastEmbed → Ollama fallback ladder when FastEmbed is unavailable. |
 | `MEMORY_RERANK_ENABLED` | `false` | Honour caller's `rerank=true`. When `false`, CrossEncoder rerank is hard-disabled even if a tool call requests it. |
@@ -1259,6 +1200,24 @@ Rows stuck in `processing` longer than `MEMORY_ENRICH_STALE_AFTER_SEC` (default 
 
 ## Roadmap
 
+### Shipped in v13.0.0 (2026-08-27)
+- ✅ **MCP SDK 2.x compatibility** — the blocker: every install created after
+  `mcp` 2.0 shipped was dead on arrival. Tools register through either SDK era;
+  dependency bounded `>=1.9,<3`.
+- ✅ **Protocol revision 2026-07-28** — stateless era served end-to-end
+  (`tools/list` / `server/discover` / `tools/call` with no handshake), legacy
+  handshake era from the same process, `structuredContent` on JSON-answering
+  tools, behaviour annotations on all 74.
+- ✅ **Claude Code plugin** — `/plugin install total-agent-memory@vbcherepanov`
+  wires the MCP server, the skill and seven hooks in one step.
+- ✅ **Reproducible benchmarks** — `record_usage=False` stops runs from
+  measuring their own history; category labels in the LoCoMo runner corrected.
+- ✅ **BEAM (ICLR 2026)** added to the suite at 100K / 500K / 1M.
+- ✅ **`tree-sitter-language-pack` is now an actual dependency** — AST ingest
+  had been silently degrading to whole-file chunks for every user.
+- ✅ **Enrichment worker owns its sqlite connection** — long ingests no longer
+  die on `cannot start a transaction within a transaction`.
+
 ### Shipped in v11.0 (2026-04-27) — production memory engine
 - ✅ **Default `MEMORY_MODE=fast`** — zero LLM, zero Ollama, zero network in save/search/recall hot path. Set `MEMORY_MODE=deep` to restore v10.5 behaviour.
 - ✅ **Memory Core / AI Layer split** — `src/memory_core/*` is deterministic; `src/ai_layer/*` owns every LLM-bound code path. Enforced by `tests/test_no_llm_hot_path.py`.
@@ -1270,7 +1229,7 @@ Rows stuck in `processing` longer than `MEMORY_ENRICH_STALE_AFTER_SEC` (default 
 - ✅ **Benchmark suite**: `bin/memory-bench` (artifact `docs/v11/benchmark.md`) + `bin/memory-perf-gate` for CI.
 
 ### Shipped in v10.5 (2026-04-27)
-- ✅ **Universal `memory-protocol` skill** — single canonical SKILL.md + 4 references (tool cheatsheet for all 60+ MCP tools, workflow recipes for 15 common situations, hooks reference, per-IDE setup) + 4 templates (Claude Code settings.json, Codex config.toml, Cursor `.mdc`, Cline `.md`). Same content for every IDE; only the wiring differs.
+- ✅ **Universal `memory-protocol` skill** — single canonical SKILL.md + 4 references (tool cheatsheet for all MCP tools, workflow recipes for 15 common situations, hooks reference, per-IDE setup) + 4 templates (Claude Code settings.json, Codex config.toml, Cursor `.mdc`, Cline `.md`). Same content for every IDE; only the wiring differs.
 - ✅ **`install.sh --ide` extended to 9 IDEs**: claude-code, codex, cursor, **cline**, **continue**, **aider**, **windsurf**, gemini-cli, opencode. New helpers: `register_mcp_cline / continue / aider / windsurf` + `_json_merge_mcp_nested` for the dotted-key case (`cline.mcpServers`).
 - ✅ **Cross-platform hardening** — all bash scripts pass `bash -n` under macOS bash 3.2 (default). Replaced `${var,,}` lowercase bashism in `update.sh` with `tr '[:upper:]' '[:lower:]'`. Verified with shellcheck.
 - ✅ **Sub-agent memory protocol** — universal header for any sub-agent (`php-pro`, `golang-pro`, `vue-expert`, etc.) with mandatory `memory_recall` before / `memory_save` after. Full template in `skills/memory-protocol/references/subagent-protocol.md`.
@@ -1315,14 +1274,38 @@ Rows stuck in `processing` longer than `MEMORY_ENRICH_STALE_AFTER_SEC` (default 
 - ✅ UserPromptSubmit + PostToolUse (opt-in) capture hooks
 - ✅ Unified `install.sh --ide {claude-code|cursor|gemini-cli|opencode|codex}`
 
-### Planned (v8.1+)
-- Plugin marketplace publish (when Claude Code API opens)
-- `has_llm()` per-phase provider caching
-- GitHub Actions: install smoke tests + LongMemEval nightly
+### Next — what the v13 numbers say to fix
+
+The benchmarks point at specific gaps rather than a general "make retrieval
+better", so the roadmap names them:
+
+- **`instruction_following` R@5 = 0.075, `event_ordering` = 0.150 (BEAM).**
+  These probes ask *whether a stated instruction was followed* or *in what
+  order things happened*. Semantic similarity to the question does not find the
+  message where the instruction was given — retrieval is the wrong primitive.
+  Needs a directive index (statements of the form "always/never/from now on")
+  and ordering-aware traversal over the episodic graph.
+- **`multi-hop` R@5 = 0.413 (LoCoMo).** Weakest category, and the one where
+  the leaders win. Query decomposition without putting an LLM back in the hot
+  path is the open design question.
+- **`single_session_preference` R@5 = 0.80 (LongMemEval), `preference_following`
+  = 0.282 (BEAM).** The same weakness from two directions: preferences are
+  stated once, in passing, and never restated.
+- **BEAM-10M.** The 1M scale runs today; 10M is the interesting claim.
+- **Profile the write path.** Save throughput halves between a 5.7k and a 38k
+  record store. The node-cache re-read was fixed and was not the cause, so the
+  next suspects are the dedup binary search and FTS index maintenance. Until
+  it is profiled we are not going to guess in public.
+
+### Planned
+- GitHub Actions: install smoke tests + a nightly retrieval gate, so a
+  regression in R@5 fails CI the way `bin/memory-perf-gate` already fails on
+  latency.
+- `has_llm()` per-phase provider caching.
 
 ### Under research
 - "Endless mode" — continuous session without hard boundaries (virtual sessions by idle >N hours)
-- MLX local LLM integration (A1 plan from memory #3583)
+- MLX local LLM integration
 - Speculative decoding for local path (+1.5-1.8× LLM speed)
 
 ---

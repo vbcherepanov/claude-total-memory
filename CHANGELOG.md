@@ -4,6 +4,168 @@ All notable changes to total-agent-memory are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and versions use [Semantic Versioning](https://semver.org/).
 
+## [13.0.0] — 2026-08-27 — MCP 2026-07-28, and honest benchmarks
+
+**Every install created since the MCP Python SDK went 2.0 was broken.** The
+2.x line dropped the `@Server.list_tools()` / `@Server.call_tool()` decorators
+this server was built on, and the dependency was floored at `mcp[cli]>=1.0.0`,
+so a fresh `pip` / `uvx` / `npx` / `brew` / `docker` install resolved 2.x and
+died at import with `AttributeError: 'Server' object has no attribute
+'list_tools'`. Existing installs kept working only because their pinned 1.x
+never moved. **If you installed after mcp 2.0 shipped, upgrade.**
+
+Fixing it turned out to be the whole story: once tools registered again, the
+server was already speaking the stateless 2026-07-28 protocol, because the SDK
+serves both eras from one process. This release makes that explicit, adds the
+2026 result shapes, and then goes back over the benchmark numbers — where a
+feedback loop had been quietly inflating them.
+
+### Fixed — MCP SDK 2.x (breaking for anyone on a fresh install)
+- `src/server.py` registers `tools/list` and `tools/call` through whichever
+  API the installed SDK exposes: the 1.x decorators, or 2.x's
+  `add_request_handler(method, params_model, handler)`. `MCP_SDK_ERA` reports
+  which path is live.
+- `mcp[cli]>=1.9,<3` in both `requirements.txt` and `pyproject.toml`. The
+  upper bound is the actual lesson: an unbounded floor is how 2.0 reached
+  users unannounced.
+- A tool call arriving before `_bootstrap_session()` crashed the transport —
+  `store.raw_append` sat outside the `try`. Now guarded.
+- An unknown tool name returned `{"error": "Unknown tool"}` with
+  `isError: false`. It now raises, so clients see a real error result.
+
+### Added — protocol revision 2026-07-28
+- **Stateless era served end-to-end.** `tools/list`, `server/discover` and
+  `tools/call` all answer without an `initialize` handshake, with protocol
+  metadata carried per-request in `params._meta`. The legacy handshake era
+  keeps working from the same process, so clients on older SDKs are
+  unaffected. `tests/test_mcp_protocol_e2e.py` drives both eras against a
+  real subprocess.
+- **`structuredContent` on every JSON-answering tool.** 2026-07-28 lets
+  structured content be any JSON value, so clients receive the parsed object
+  instead of re-parsing a string. Error results carry text only. No
+  `outputSchema` is declared, so this is purely additive.
+- **Behaviour annotations on all 74 tools** — `readOnlyHint`,
+  `destructiveHint`, `idempotentHint`, `openWorldHint`. Clients use these to
+  decide what runs without a confirmation prompt. 38 tools are read-only;
+  `memory_delete`, `memory_forget`, `memory_update`, `kg_invalidate_fact` and
+  the two rebuild tools are marked destructive. A test fails if a new tool
+  ships unclassified.
+
+### Added — Claude Code plugin
+- `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.mcp.json`
+  and `hooks/hooks.json`: the MCP server, the `memory-protocol` skill and the
+  seven capture hooks install in one step.
+
+      /plugin marketplace add vbcherepanov/total-agent-memory
+      /plugin install total-agent-memory@vbcherepanov
+
+- `bin/tam_plugin_bootstrap.py` resolves a runnable server in order —
+  an existing `.venv`, `PATH`, the plugin's own checkout, `uvx`/`npx`, and
+  finally a venv it creates — then `exec`s it, so the client always sees one
+  process. The first branch touches no network.
+- `hooks/pre-edit.sh` and `hooks/on-bash-error.sh` moved from
+  `examples/hooks/` into `hooks/` so the plugin references one directory.
+  `install.sh` copies the whole directory as before.
+
+### Fixed — benchmarks measured their own history
+`Recall.search` bumps `recall_count` on every row it returns, and the scorer
+adds `recall_boost = min(0.3, recall_count * 0.05)`. Spaced repetition is
+wanted in normal use and fatal for measurement: successive runs against one
+database scored 0.547 → 0.565 → 0.588 → 0.607 R@5 without a line of retrieval
+code changing.
+
+- `Recall.search(..., record_usage=False)` opts out. Both benchmark runners
+  and `memory_explain_search` now pass it — a diagnostic must not change what
+  it diagnoses. A clean run and a re-run are now byte-identical.
+- `benchmarks/locomo_bench.py` had categories 2 and 3 **swapped** (it printed
+  "multi-hop" over the temporal numbers and vice versa), and never computed
+  overall MRR. Verified against `locomo10.json` and corrected.
+
+### Added — BEAM (ICLR 2026)
+- `benchmarks/beam_bench.py` scores retrieval on
+  [BEAM](https://github.com/mohammadtavakoli78/BEAM) at the 100K / 500K / 1M
+  scales across its ten memory abilities, using each probe's `source_chat_ids`
+  as gold evidence. No LLM in the loop, so it is deterministic and free.
+- Measured: **R@5 0.575** at 100K (5,732 messages, p50 17.7 ms) and **0.490**
+  at 500K (38,058 messages, p50 58.5 ms). Contradiction resolution, knowledge
+  update and temporal reasoning hold above 0.78 at both scales;
+  `instruction_following` and `event_ordering` are near-zero at both, which is
+  a statement about the primitive rather than the tuning.
+- Ingest throughput halved between the two scales (25.6 → 10.8 msg/s), so the
+  write path scales with store size. Not yet profiled; recorded rather than
+  explained away.
+
+### Added — LongMemEval measures the product now
+- The runner reimplemented its own BM25 / RRF / MMR / CrossEncoder stack, so
+  the published 96.2% described *an algorithm*, not this software. A new
+  `--modes store` ingests each question's haystack into a real `Store` and
+  queries `Recall.search` — the exact path an agent takes — and is now the
+  default mode. The reference implementations stay available for ablations,
+  with the docstring saying plainly that `full` and `store` are not the same
+  claim.
+
+### Fixed — other
+- **`tree-sitter-language-pack` was in no requirements file.** The README sold
+  "AST codebase ingest, 9 languages" as a differentiator while every user's
+  `ingest_codebase` silently degraded to whole-file chunks. Now a dependency
+  (2 MB wheel).
+- **The enrichment worker shared the Store's sqlite connection.**
+  `check_same_thread=False` permits cross-thread *reads*; it does not make
+  writes safe, because sqlite3's implicit transaction lives on the Connection.
+  Concurrent writes interleaved into `cannot start a transaction within a
+  transaction`, which is what made long ingests die. The worker now opens its
+  own connection — which is what WAL mode is for.
+- **Migration 028 failed on every fresh database**, not just some. Root cause
+  reported by [@juicetin](https://github.com/juicetin) in the "separate
+  migration observation" section of #12: `Store._migrate()` added the
+  subagent-lineage columns *before* `_apply_sql_migrations()` ran
+  `028_agent_lineage.sql`, so 028 always hit `duplicate column name: agent_id`.
+  Because SQLite has no `ADD COLUMN IF NOT EXISTS` and `executescript` is
+  all-or-nothing, it aborted before its `CREATE INDEX` statements and was never
+  recorded as applied — so it retried on every startup, forever.
+  - The schema change now has exactly one owner: the SQL migration.
+    `_migrate()` no longer duplicates it, and a test fails if any column is
+    ever added by both `Store._migrate()` and a SQL migration again.
+  - The runner additionally replays a duplicate-column script statement by
+    statement, so databases already wedged by the old behaviour recover
+    instead of needing the operator to notice.
+- **`ai_layer/verifier.py` hardcoded `~/.claude-memory/nli_calibration.json`**
+  and stopped finding calibrations after the `~/.tam` migration. It now
+  follows the resolved memory dir, with the legacy path as a fallback.
+- **The graph node cache was invalidated on every write.** `_ensure_node`
+  dropped the whole `graph_nodes` name cache each time it created a node, and
+  `extract_and_link` dropped it again at the end — so the 60s TTL never
+  applied and the next save re-read the table. Created nodes are now inserted
+  into the cache incrementally; the TTL still picks up writes from other
+  processes. A clean A/B over 4,000 saves measured **103.0 vs 99.9 saves/s** —
+  about 3%, within noise at that size, since the re-read cost grows with the
+  node table. It is reported as measured rather than as the fix for the ingest
+  slowdown it was chasing: **that slowdown (25.6 → 10.8 msg/s between a 5.7k
+  and a 38k record store) is not explained by this and remains open.** Both
+  arms of the A/B degrade on the same curve.
+- **`vocabularies/` and `filters/` were missing from the wheel and the Docker
+  image.** Same shape as the migrations bug PR #12 fixed, and just as quiet:
+  `src/` resolves them as `parent.parent / <dir>`, so in a git checkout
+  everything worked, while every `pip` / `uvx` / `npx` / `docker` install fell
+  back to an empty tag vocabulary and turned every `memory_save(filter=…)`
+  into a no-op. An installed wheel now loads all 54 canonical topics and 11
+  filter configs. `tests/test_wheel_contents.py` builds the wheel, checks each
+  asset directory, and greps `src/` so a *new* sibling directory cannot go
+  missing the same way.
+
+### Fixed — test suite
+The suite was red on a clean checkout: 21 failed, 9 errors.
+- Eight modules stub the LLM seam but still had to pass `config.has_llm()`,
+  which probes for a live Ollama in `auto` mode — so they failed on any
+  machine without one. New `llm_enabled` fixture; the stub is what those tests
+  measure, so no network call should ever be attempted.
+- `benchmarks/data/` is gitignored, so the LoCoMo few-shot and NLI calibration
+  tests failed instead of skipping on a fresh clone.
+- Embedding tests asserted raw vectors; the production OpenAI path
+  L2-normalises so cosine equals dot product.
+
+**1870 passing, 0 failing.**
+
 ## [12.4.0] — 2026-05-26 — 100% functional through every install path
 
 `npx connect`, `bash install.sh`, `docker run`, `docker compose up` — same

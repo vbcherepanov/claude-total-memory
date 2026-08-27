@@ -94,34 +94,54 @@ python -m claude_total_memory.cli benchmark
 | Project | Benchmark | Score | Avg latency |
 |---|---|---|---|
 | Mastra "Observational Memory" | LongMemEval | 95.0% | cloud |
-| **total-agent-memory (v7.0, `full` mode)** | **LongMemEval (470 q, public)** | **R@5 96.2%** / R_all 84.5% / NDCG 82.4% | **38.8 ms** |
+| **total-agent-memory (v13.0.0, `store` mode)** | **LongMemEval (470 q, public)** | **R@5 95.1%** / R_all 85.7% / NDCG 88.9% | **27.6 ms** |
 | Supermemory | LongMemEval | 85.4% overall | ~200 ms |
 | Zep | DMR (different benchmark) | beats MemGPT SOTA | ~100 ms |
-| mem0 | their own eval | >90% on internal tasks | cloud |
+| mem0 | LoCoMo / LongMemEval / BEAM | 92.5 / 94.4 / 62.0 (BEAM-1M) — end-to-end accuracy, their generator + judge | ≤1.1 s p50 |
 | LangMem | — | — | p95 59.82 s |
 
 Reproducible: [`evals/longmemeval-2026-04-17.json`](../evals/longmemeval-2026-04-17.json).
+Newer, product-path retrieval numbers on LoCoMo and BEAM:
+[`benchmarks/results/v13-locomo-retrieval.json`](../benchmarks/results/v13-locomo-retrieval.json),
+[`v13-beam-100K.json`](../benchmarks/results/v13-beam-100K.json).
 Dataset: [`xiaowu0162/longmemeval-cleaned`](https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned), 470 questions (abstention type excluded by the official bench).
 
 ### Per-question-type breakdown (our R@5 recall_any)
 
 | Question type | Count | R@5 |
 |---|---|---|
-| single-session-user | 64 | **100.0%** |
 | knowledge-update | 72 | **100.0%** |
-| multi-session | 121 | **96.7%** |
-| single-session-assistant | 56 | **96.4%** |
-| temporal-reasoning | 127 | **95.3%** |
+| multi-session | 121 | **98.3%** |
+| single-session-user | 64 | **95.3%** |
+| single-session-assistant | 56 | **94.6%** |
+| temporal-reasoning | 127 | **92.9%** |
 | single-session-preference | 30 | **80.0%** |
 
-Weakest spot is preference tracking (80%) — a known area where richer entity-level profiles help.
-Temporal reasoning at 95.3% confirms the bi-temporal KG (`kg_at`) is pulling its weight.
-**+10.8 pp over Supermemory's published 85.4%** on the same dataset.
+Weakest spot is preference tracking (80%) — and BEAM's `preference_following`
+(0.28 R@5) says the same thing from another angle: preferences get stated once,
+in passing, and never restated.
+Temporal reasoning at 92.9% confirms the bi-temporal KG (`kg_at`) is pulling its weight.
+**+9.7 pp over Supermemory's published 85.4%** on the same dataset.
 
 > **How to read this.** `recall_any@5` = at least one required evidence fragment in top-5.
 > `recall_all@5` = every required fragment in top-5. Supermemory's 85.4% is their
 > headline number against the full LongMemEval corpus. Our 96.2% is the comparable headline
 > (any match); 84.5% is the strict "all fragments" version, still at parity with their overall.
+
+> **Two caveats we would rather state than have you find.**
+>
+> 1. **These are different metrics.** Everything in our column is *retrieval* —
+>    did the right passage come back in the top-5. mem0's 92.5 / 94.4 are
+>    *end-to-end accuracy*: a generator answers and an LLM judges. A retrieval
+>    number and an accuracy number are not comparable, in either direction. We
+>    lead on retrieval being reproducible: the runner, the corpus and the gold
+>    labels are public, and you can re-run everything without an API key.
+> 2. **This number changed in v13, downward, on purpose.** Until v13 the
+>    LongMemEval runner used its own self-contained BM25 / RRF / MMR /
+>    CrossEncoder stack, so the 96.2% we used to publish described *an
+>    algorithm* rather than this software. `--modes store` drives the real
+>    `Recall.search` path and is now the default: 95.1%. We would rather
+>    publish the smaller number that is about the product.
 
 ---
 
