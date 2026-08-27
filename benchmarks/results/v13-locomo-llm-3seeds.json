@@ -67,15 +67,15 @@
     "adversarial": {
       "n": 446,
       "per_seed": {
-        "1": 0.9596,
-        "2": 0.9709,
-        "3": 0.9686
+        "1": 0.8991,
+        "2": 0.9036,
+        "3": 0.9081
       },
-      "mean": 0.9664,
-      "min": 0.9596,
-      "max": 0.9709,
-      "range": 0.0113,
-      "stdev": 0.006
+      "mean": 0.9036,
+      "min": 0.8991,
+      "max": 0.9081,
+      "range": 0.009,
+      "stdev": 0.0045
     }
   },
   "overall_no_adversarial": {
@@ -94,15 +94,15 @@
   "overall_all": {
     "n": 1986,
     "per_seed": {
-      "1": 0.5911,
-      "2": 0.5967,
-      "3": 0.5926
+      "1": 0.5775,
+      "2": 0.5816,
+      "3": 0.5791
     },
-    "mean": 0.5935,
-    "min": 0.5911,
-    "max": 0.5967,
-    "range": 0.0056,
-    "stdev": 0.0029
+    "mean": 0.5794,
+    "min": 0.5775,
+    "max": 0.5816,
+    "range": 0.0041,
+    "stdev": 0.0021
   },
   "retrieval_is_deterministic": {
     "note": "Retrieval does not vary across seeds \u2014 only generation and judging do.",
@@ -117,14 +117,24 @@
   },
   "supersedes": "benchmarks/results/v9_full_gpt4o_20260628-194133.json (0.582 no-adv). That run predates the record_usage=False fix, so it was partly measuring its own earlier queries and was inflated. The drop to 0.551 is the correction, not a regression.",
   "judge_guard": {
-    "rule": "On categories 1-4 the gold is a concrete fact, so a refusal ('Not mentioned in the conversation.') cannot be a correct answer. Enforced deterministically, not by the model.",
-    "why": "The LLM judge answered YES to ~100 refusals per run \u2014 'Not mentioned' scored correct against golds like 'Sweden', 'June 2023', 'Single', with F1 exactly 0.00. Almost certainly the adversarial rule bleeding across: the judge is told to accept a refusal when the gold also indicates no information.",
-    "overruled_per_seed": {
-      "1": 103,
-      "2": 104,
-      "3": 97
+    "rules": [
+      "categories 1-4: a refusal cannot be correct when the gold is a concrete fact",
+      "category 5 with an empty gold: only a refusal can be correct"
+    ],
+    "why": "Two mirror-image defects in the same LLM judge. (a) On factual categories it answered YES to 'Not mentioned in the conversation.' against golds like 'Sweden' or 'June 2023', F1 exactly 0.00 \u2014 the adversarial rule bleeding across. (b) On adversarial, 99.6% of LoCoMo golds are the empty string, and the judge accepts almost any fluent answer against an empty reference, so hallucinations scored correct.",
+    "effect": {
+      "no_adversarial": "0.551 -> 0.486 (-6.6pp)",
+      "adversarial": "0.966 -> 0.904 (-6.2pp)",
+      "all": "0.645 -> 0.579 (-6.6pp)"
     },
-    "effect": "no-adv accuracy 0.551 -> 0.486 (-6.6pp). The guard now runs at judging time."
+    "per_category_bias_pp": {
+      "temporal": 14.33,
+      "multi-hop": 10.76,
+      "single-hop": 6.5,
+      "open-domain": 3.17,
+      "adversarial": 6.05
+    },
+    "not_proportional_to_refusal_rate": "Tested: correlation between per-category bias and per-category refusal rate is r = -0.466 over 5 categories \u2014 negative, and meaningless at that n. The driver is the share of refusals the judge ACCEPTS, which ranges 15%-43% by category, not how often the system refuses."
   },
   "judge_noise": {
     "generator_answer_varied_across_seeds": "12.5%",

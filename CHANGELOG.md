@@ -104,7 +104,13 @@ code changing.
   1,540 non-adversarial questions, **0.594 ± 0.003** over all 1,986, adversarial
   **0.966**. Retrieval was byte-identical across all three seeds — only
   generation and judging vary.
-- **The judge needed a deterministic guard.** On ~100 of the 1,540
+- **The judge needed two deterministic guards, pointing opposite ways.** The
+  second: **99.6% of LoCoMo's adversarial golds are the empty string**, and the
+  judge accepts almost any fluent answer against an empty reference — 27-30
+  invented answers per run scored correct, inflating the one category we used to
+  lead on. With an empty gold only a refusal can be right. Effect: adversarial
+  **0.966 → 0.904**, all **0.645 → 0.579**.
+- **The first guard.** On ~100 of the 1,540
   non-adversarial questions per run it answered YES to a refusal: "Not mentioned
   in the conversation." scored correct against golds like `Sweden`, `June 2023`,
   `Single`, with F1 exactly 0.00. Almost certainly the adversarial rule bleeding

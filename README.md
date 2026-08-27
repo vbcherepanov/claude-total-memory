@@ -325,22 +325,31 @@ runner takes `--seed` and we report three runs:
 | temporal | 321 | 0.426 | 0.424 | 0.427 | 0.003 |
 | multi-hop | 96 | 0.292 | 0.281 | 0.302 | **0.021** |
 | open-domain | 841 | 0.570 | 0.567 | 0.573 | 0.006 |
-| adversarial | 446 | **0.966** | 0.960 | 0.971 | 0.011 |
+| adversarial | 446 | **0.904** | 0.899 | 0.908 | 0.009 |
 | **overall (no adversarial)** | 1,540 | **0.486 ± 0.002** | 0.484 | 0.488 | 0.005 |
-| **overall (all)** | 1,986 | **0.594 ± 0.003** | 0.591 | 0.597 | 0.006 |
+| **overall (all)** | 1,986 | **0.579 ± 0.002** | 0.578 | 0.582 | 0.004 |
 
 gpt-4o generator, gpt-4o-mini judge, seeds 1/2/3. Retrieval was **byte-identical
 across all three** — only generation and judging vary.
 
-**The judge needed a guard.** On roughly 100 of the 1,540 non-adversarial
-questions per run, the judge answered YES to a refusal: *"Not mentioned in the
-conversation."* scored correct against golds like `Sweden`, `June 2023`,
-`Single` — with F1 exactly 0.00. Almost certainly the adversarial rule bleeding
-across, since the judge is told to accept a refusal when the gold also
-indicates no information. On categories 1–4 the gold *is* a fact, so a refusal
-cannot be correct; that is a rule, not a judgement, and it is now enforced
-deterministically at judging time. **Removing those verdicts moves no-adv
-accuracy from 0.551 to 0.486 — the numbers above are the corrected ones.**
+**The judge needed two guards, and they point opposite ways.**
+
+*Refusals scored as correct answers.* On ~100 of the 1,540 non-adversarial
+questions per run, the judge answered YES to *"Not mentioned in the
+conversation."* against golds like `Sweden`, `June 2023`, `Single` — F1 exactly
+0.00. Almost certainly the adversarial rule bleeding across, since the judge is
+told to accept a refusal when the gold also indicates no information. Per
+category the inflation runs **3.2 pp (open-domain) to 14.3 pp (temporal)**.
+
+*Hallucinations scored as correct abstentions.* **99.6% of LoCoMo's adversarial
+golds are the empty string.** The judge accepts almost any fluent answer against
+an empty reference, so 27–30 invented answers per run scored correct —
+inflating the one category we used to lead on.
+
+Both are rules rather than judgements — on categories 1–4 the gold *is* a fact,
+so a refusal cannot be right; with an empty gold, only a refusal can be — so
+both now run deterministically at judging time. **Effect: no-adv 0.551 → 0.486,
+adversarial 0.966 → 0.904, all 0.645 → 0.579. The table above is corrected.**
 
 How noisy is the rest? Aligning all 1,986 questions across the three seeds:
 

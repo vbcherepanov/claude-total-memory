@@ -53,7 +53,7 @@
     "category_5": {
       "label": "adversarial",
       "n": 446,
-      "accuracy": 0.9596,
+      "accuracy": 0.8991,
       "f1": 0.0005,
       "bleu1": 0.0003,
       "rouge_l": 0.0005,
@@ -63,7 +63,7 @@
     },
     "overall_all": {
       "n": 1986,
-      "accuracy": 0.5911,
+      "accuracy": 0.5775,
       "f1": 0.293,
       "bleu1": 0.2987,
       "rouge_l": 0.2844
@@ -179,7 +179,7 @@
       "retrieval_ms": 267.8818702697754,
       "tokens_in": 1072,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did Melanie run a charity race?",
@@ -242,7 +242,7 @@
       "retrieval_ms": 302.8857707977295,
       "tokens_in": 943,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What fields would Caroline be likely to pursue in her educaton?",
@@ -434,7 +434,7 @@
       "retrieval_ms": 15.959978103637695,
       "tokens_in": 973,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What did Caroline research?",
@@ -942,7 +942,7 @@
       "retrieval_ms": 12.833118438720703,
       "tokens_in": 1065,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "Would Caroline pursue writing as a career option?",
@@ -1708,7 +1708,7 @@
       "retrieval_ms": 32.19795227050781,
       "tokens_in": 1079,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What are Melanie's pets' names?",
@@ -2375,7 +2375,7 @@
       "retrieval_ms": 24.944305419921875,
       "tokens_in": 1038,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did Melanie's family go on a roadtrip?",
@@ -2439,7 +2439,7 @@
       "retrieval_ms": 12.639999389648438,
       "tokens_in": 1053,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "How many children does Melanie have?",
@@ -2500,7 +2500,7 @@
       "retrieval_ms": 25.310039520263672,
       "tokens_in": 975,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What symbols are important to Caroline?",
@@ -3269,7 +3269,7 @@
       "retrieval_ms": 10.403871536254883,
       "tokens_in": 1212,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What was discussed in the LGBTQ+ counseling workshop?",
@@ -4478,7 +4478,7 @@
       "retrieval_ms": 11.918067932128906,
       "tokens_in": 1331,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "Who is Melanie a fan of in terms of modern music?",
@@ -5822,14 +5822,14 @@
       "r@1": 0,
       "r@5": 1,
       "r@10": 1,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 11.68203353881836,
       "tokens_in": 875,
       "tokens_out": 11,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "What inspired Melanie's painting for the art show?",
@@ -5962,14 +5962,14 @@
       "r@1": 0,
       "r@5": 0,
       "r@10": 0,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 18.613100051879883,
       "tokens_in": 913,
       "tokens_out": 5,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "What did Caroline and her family see during their camping trip last year?",
@@ -6809,7 +6809,7 @@
       "retrieval_ms": 10.329723358154297,
       "tokens_in": 1075,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What happened to Caroline's son on their road trip?",
@@ -6973,7 +6973,7 @@
       "retrieval_ms": 28.053760528564453,
       "tokens_in": 990,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did Gina team up with a local artist for some cool designs?",
@@ -7196,7 +7196,7 @@
       "retrieval_ms": 24.17278289794922,
       "tokens_in": 1027,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did Jon go to a fair to get more exposure for his dance studio?",
@@ -7579,7 +7579,7 @@
       "retrieval_ms": 11.706829071044922,
       "tokens_in": 867,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When was Jon in Rome?",
@@ -8044,7 +8044,7 @@
       "retrieval_ms": 11.338949203491211,
       "tokens_in": 1298,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What does Gina say about the dancers in the photo?",
@@ -8844,7 +8844,7 @@
       "retrieval_ms": 12.421131134033203,
       "tokens_in": 1343,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What does Jon's dance make him?",
@@ -8996,7 +8996,7 @@
       "retrieval_ms": 10.879039764404297,
       "tokens_in": 1143,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What does Jon tell Gina he won't do?",
@@ -9624,14 +9624,14 @@
       "r@1": 0,
       "r@5": 0,
       "r@10": 0,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 22.26400375366211,
       "tokens_in": 897,
       "tokens_out": 14,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "What did Jon find for his clothing store on 1 February, 2023?",
@@ -9737,14 +9737,14 @@
       "r@1": 0,
       "r@5": 0,
       "r@10": 1,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 11.399030685424805,
       "tokens_in": 892,
       "tokens_out": 5,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "What does Gina say to Jon about the grand opening?",
@@ -10743,7 +10743,7 @@
       "retrieval_ms": 19.472837448120117,
       "tokens_in": 1029,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What damages have happened to John's car?",
@@ -11186,7 +11186,7 @@
       "retrieval_ms": 50.698041915893555,
       "tokens_in": 1047,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What types of yoga has Maria practiced?",
@@ -11536,7 +11536,7 @@
       "retrieval_ms": 13.776063919067383,
       "tokens_in": 979,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When was John's old area hit with a flood?",
@@ -11951,7 +11951,7 @@
       "retrieval_ms": 12.024879455566406,
       "tokens_in": 1090,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "Would John be open to moving to another country?",
@@ -12115,7 +12115,7 @@
       "retrieval_ms": 11.491060256958008,
       "tokens_in": 956,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did Maria adopt Shadow?",
@@ -12178,7 +12178,7 @@
       "retrieval_ms": 17.63296127319336,
       "tokens_in": 997,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did John go on a camping trip with Max?",
@@ -14894,7 +14894,7 @@
       "retrieval_ms": 28.846025466918945,
       "tokens_in": 1295,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "How did John describe his kids' reaction at the military memorial?",
@@ -16131,14 +16131,14 @@
       "r@1": 1,
       "r@5": 1,
       "r@10": 1,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 18.30291748046875,
       "tokens_in": 919,
       "tokens_out": 6,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "What did Maria say it was like being at the desert in Oregon?",
@@ -16635,14 +16635,14 @@
       "r@1": 0,
       "r@5": 1,
       "r@10": 1,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 12.314081192016602,
       "tokens_in": 893,
       "tokens_out": 6,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "Who did John work with to raise awareness and funds for animal welfare?",
@@ -16925,7 +16925,7 @@
       "retrieval_ms": 12.18104362487793,
       "tokens_in": 1071,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What emotions is Joanna feeling about  the screenplay she submitted?",
@@ -17020,7 +17020,7 @@
       "retrieval_ms": 19.618988037109375,
       "tokens_in": 1066,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What underlying condition might Joanna have based on her allergies?",
@@ -17273,7 +17273,7 @@
       "retrieval_ms": 23.085832595825195,
       "tokens_in": 1066,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What physical transformation did Nate undergo in April 2022?",
@@ -17980,7 +17980,7 @@
       "retrieval_ms": 14.481306076049805,
       "tokens_in": 1054,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did Joanna make a chocolate tart with raspberries?",
@@ -18204,7 +18204,7 @@
       "retrieval_ms": 25.140047073364258,
       "tokens_in": 958,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did Nate attend a cooking show?",
@@ -19009,7 +19009,7 @@
       "retrieval_ms": 15.084981918334961,
       "tokens_in": 1040,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What activities does Nate do with his turtles?",
@@ -19211,7 +19211,7 @@
       "retrieval_ms": 27.1608829498291,
       "tokens_in": 967,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "How has Nate tried to disburse his vegan ice-cream recipes?",
@@ -19276,7 +19276,7 @@
       "retrieval_ms": 11.014938354492188,
       "tokens_in": 992,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "How many tournaments has Nate won?",
@@ -19542,7 +19542,7 @@
       "retrieval_ms": 11.04593276977539,
       "tokens_in": 1012,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What is one of Joanna's favorite movies?",
@@ -19614,7 +19614,7 @@
       "retrieval_ms": 23.494958877563477,
       "tokens_in": 1066,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What is Nate's favorite movie trilogy?",
@@ -22126,7 +22126,7 @@
       "retrieval_ms": 15.116214752197266,
       "tokens_in": 1297,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What is one of Nate's favorite dairy-free treats besides coconut milk ice cream?",
@@ -23342,7 +23342,7 @@
       "retrieval_ms": 14.431238174438477,
       "tokens_in": 1282,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What project is Joanna working on in her notebook on November 9, 2022?",
@@ -24214,14 +24214,14 @@
       "r@1": 0,
       "r@5": 1,
       "r@10": 1,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 19.720077514648438,
       "tokens_in": 917,
       "tokens_out": 5,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "What is Nate's project called in the writers group?",
@@ -24802,14 +24802,14 @@
       "r@1": 1,
       "r@5": 1,
       "r@10": 1,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 18.700838088989258,
       "tokens_in": 919,
       "tokens_out": 7,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "What dessert did Nate share a photo of that has an almond flour crust, chocolate ganache, and fresh raspberries?",
@@ -24830,14 +24830,14 @@
       "r@1": 1,
       "r@5": 1,
       "r@10": 1,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 17.686128616333008,
       "tokens_in": 933,
       "tokens_out": 5,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "What game has Joanna been playing nonstop with a futuristic setting and gameplay on October 9, 2022?",
@@ -26236,7 +26236,7 @@
       "retrieval_ms": 32.70697593688965,
       "tokens_in": 1078,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did John meet with his teammates after returning from Chicago?",
@@ -26430,7 +26430,7 @@
       "retrieval_ms": 38.54060173034668,
       "tokens_in": 1070,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What month did Tim plan on going to Universal Studios?",
@@ -26686,7 +26686,7 @@
       "retrieval_ms": 75.6688117980957,
       "tokens_in": 966,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "Which week did Tim visit the UK for the Harry Potter Conference?",
@@ -26814,7 +26814,7 @@
       "retrieval_ms": 80.21402359008789,
       "tokens_in": 951,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What kind of fiction stories does Tim write?",
@@ -26910,7 +26910,7 @@
       "retrieval_ms": 55.117130279541016,
       "tokens_in": 1026,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did John and his wife go on a European vacation?",
@@ -27420,7 +27420,7 @@
       "retrieval_ms": 76.62105560302734,
       "tokens_in": 1083,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did John achieve a career-high assist performance?",
@@ -27820,7 +27820,7 @@
       "retrieval_ms": 63.97676467895508,
       "tokens_in": 1078,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What is John's position on the team he signed with?",
@@ -28497,7 +28497,7 @@
       "retrieval_ms": 28.027772903442383,
       "tokens_in": 1342,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did John meet back up with his teammates after his trip in August 2023?",
@@ -29411,7 +29411,7 @@
       "retrieval_ms": 11.268854141235352,
       "tokens_in": 1295,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What advice did Tim give John about picking endorsements?",
@@ -30249,7 +30249,7 @@
       "retrieval_ms": 62.06107139587402,
       "tokens_in": 1306,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "How did John overcome his ankle injury from last season?",
@@ -31505,7 +31505,7 @@
       "retrieval_ms": 17.672061920166016,
       "tokens_in": 1325,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What is the painting of Aragorn a reminder for John to be in everything he does?",
@@ -31885,7 +31885,7 @@
       "retrieval_ms": 34.53993797302246,
       "tokens_in": 1192,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "Which team did Tim sign with on 21 May, 2023?",
@@ -32046,14 +32046,14 @@
       "r@1": 0,
       "r@5": 0,
       "r@10": 0,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 10.695219039916992,
       "tokens_in": 880,
       "tokens_out": 11,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "What is Tim's position on the team he signed with?",
@@ -32382,14 +32382,14 @@
       "r@1": 0,
       "r@5": 0,
       "r@10": 0,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 13.273000717163086,
       "tokens_in": 903,
       "tokens_out": 13,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "What tradition does Tim mention they love during Halloween?",
@@ -32466,14 +32466,14 @@
       "r@1": 1,
       "r@5": 1,
       "r@10": 1,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 14.105081558227539,
       "tokens_in": 891,
       "tokens_out": 8,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "How was Tim's experience in New York City?",
@@ -32522,14 +32522,14 @@
       "r@1": 1,
       "r@5": 1,
       "r@10": 1,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 13.622045516967773,
       "tokens_in": 923,
       "tokens_out": 4,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "Where are John and his teammates planning to avoid on a team trip?",
@@ -33251,14 +33251,14 @@
       "r@1": 1,
       "r@5": 1,
       "r@10": 1,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 18.04494857788086,
       "tokens_in": 892,
       "tokens_out": 5,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "What was Tim's way of dealing with doubts and stress when he was younger?",
@@ -33475,14 +33475,14 @@
       "r@1": 0,
       "r@5": 0,
       "r@10": 1,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 57.97696113586426,
       "tokens_in": 949,
       "tokens_out": 27,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "According to John, who is his least favorite character from Lord of the Rings?",
@@ -33941,7 +33941,7 @@
       "retrieval_ms": 38.99788856506348,
       "tokens_in": 1108,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "Did Andrew have a pet dog during March 2023?",
@@ -34325,7 +34325,7 @@
       "retrieval_ms": 35.12382507324219,
       "tokens_in": 1087,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What are the classes that Audrey took for her dogs to?",
@@ -35131,7 +35131,7 @@
       "retrieval_ms": 44.56973075866699,
       "tokens_in": 1061,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "How many pets did Andrew have, as of September 2023?",
@@ -35586,7 +35586,7 @@
       "retrieval_ms": 31.502962112426758,
       "tokens_in": 1087,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "Which specific type of bird mesmerizes Andrew?",
@@ -35694,7 +35694,7 @@
       "retrieval_ms": 23.29707145690918,
       "tokens_in": 1324,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What kind of pastries did Andrew and his girlfriend have at the cafe?",
@@ -36600,7 +36600,7 @@
       "retrieval_ms": 17.937183380126953,
       "tokens_in": 1290,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What advice did Audrey give to Andrew regarding grooming Toby?",
@@ -39146,7 +39146,7 @@
       "retrieval_ms": 14.25790786743164,
       "tokens_in": 1062,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "Does James live in Connecticut?",
@@ -39272,7 +39272,7 @@
       "retrieval_ms": 12.00413703918457,
       "tokens_in": 1009,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did James adopt Ned?",
@@ -39464,7 +39464,7 @@
       "retrieval_ms": 16.675233840942383,
       "tokens_in": 985,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What is the game with different colored cards that was John talking about with James?",
@@ -39528,7 +39528,7 @@
       "retrieval_ms": 30.63201904296875,
       "tokens_in": 1062,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What is the board game where you have to find the imposter that John mentions to James?",
@@ -39560,7 +39560,7 @@
       "retrieval_ms": 34.750938415527344,
       "tokens_in": 1082,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "Which books has John recommended to James?",
@@ -39623,7 +39623,7 @@
       "retrieval_ms": 13.581991195678711,
       "tokens_in": 1106,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "Who or which organizations have been the beneficiaries of John's charity tournaments?",
@@ -39687,7 +39687,7 @@
       "retrieval_ms": 13.367891311645508,
       "tokens_in": 1029,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What kind of games has James tried to develop?",
@@ -39911,7 +39911,7 @@
       "retrieval_ms": 11.071443557739258,
       "tokens_in": 1060,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "Which country did James book tickets for in July 2022?",
@@ -40490,7 +40490,7 @@
       "retrieval_ms": 12.562990188598633,
       "tokens_in": 1082,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did James, Samantha and John go to the baseball game together?",
@@ -40619,7 +40619,7 @@
       "retrieval_ms": 31.951189041137695,
       "tokens_in": 1068,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What kind of programming-related events has John hosted?",
@@ -42812,7 +42812,7 @@
       "retrieval_ms": 35.455942153930664,
       "tokens_in": 1330,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What aspect of \"The Witcher 3\" does John find immersive?",
@@ -43078,7 +43078,7 @@
       "retrieval_ms": 35.39705276489258,
       "tokens_in": 1219,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What were some difficulties James faced during the development of his game?",
@@ -44598,14 +44598,14 @@
       "r@1": 0,
       "r@5": 1,
       "r@10": 1,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 15.363931655883789,
       "tokens_in": 892,
       "tokens_out": 4,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "How did James relax in his free time on 9 July, 2022?",
@@ -44850,14 +44850,14 @@
       "r@1": 1,
       "r@5": 1,
       "r@10": 1,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 12.161970138549805,
       "tokens_in": 875,
       "tokens_out": 6,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "What has James been teaching his siblings?",
@@ -45329,14 +45329,14 @@
       "r@1": 0,
       "r@5": 1,
       "r@10": 1,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 34.687042236328125,
       "tokens_in": 899,
       "tokens_out": 11,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "What game is James hooked on playing on 5 November, 2022?",
@@ -45357,14 +45357,14 @@
       "r@1": 0,
       "r@5": 1,
       "r@10": 1,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 43.350934982299805,
       "tokens_in": 901,
       "tokens_out": 6,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "What kind of project was Jolene working on in the beginning of January 2023?",
@@ -45675,7 +45675,7 @@
       "retrieval_ms": 14.384984970092773,
       "tokens_in": 1051,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did Deborah's father pass away?",
@@ -45772,7 +45772,7 @@
       "retrieval_ms": 12.878179550170898,
       "tokens_in": 1067,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "Is Deborah married?",
@@ -46047,7 +46047,7 @@
       "retrieval_ms": 30.948162078857422,
       "tokens_in": 964,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "Which games have Jolene and her partner played together?",
@@ -46113,7 +46113,7 @@
       "retrieval_ms": 33.71000289916992,
       "tokens_in": 1102,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When do Jolene and her partner plan to complete the game \"Walking Dead\"?",
@@ -46249,7 +46249,7 @@
       "retrieval_ms": 11.552095413208008,
       "tokens_in": 1292,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "Which book did Jolene read in January 2023?",
@@ -46543,7 +46543,7 @@
       "retrieval_ms": 37.63389587402344,
       "tokens_in": 1031,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did Deborah go for her first morning jog in a nearby park?",
@@ -46616,7 +46616,7 @@
       "retrieval_ms": 26.313066482543945,
       "tokens_in": 1045,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did Deborah start the yoga class in the neighborhood?",
@@ -46850,7 +46850,7 @@
       "retrieval_ms": 13.270139694213867,
       "tokens_in": 1039,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did Deborah go for a bicycle ride with Anna?",
@@ -46882,7 +46882,7 @@
       "retrieval_ms": 40.03286361694336,
       "tokens_in": 1031,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did Deborah go to an art show with Anna?",
@@ -47044,7 +47044,7 @@
       "retrieval_ms": 13.118982315063477,
       "tokens_in": 1028,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "How long has Jolene been doing yoga and meditation?",
@@ -47180,7 +47180,7 @@
       "retrieval_ms": 11.077165603637695,
       "tokens_in": 1049,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did Jolene lose a lot of progress in her work?",
@@ -47311,7 +47311,7 @@
       "retrieval_ms": 17.02594757080078,
       "tokens_in": 1050,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did Jolene gift her partner a new console?",
@@ -47641,7 +47641,7 @@
       "retrieval_ms": 36.073923110961914,
       "tokens_in": 1061,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What was Jolene doing with her partner in Rio de Janeiro?",
@@ -47754,7 +47754,7 @@
       "retrieval_ms": 64.35298919677734,
       "tokens_in": 983,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did Jolene and her partner return home from Rio de Janeiro?",
@@ -48148,7 +48148,7 @@
       "retrieval_ms": 15.220880508422852,
       "tokens_in": 991,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did the Deboran and Jolene agree to go surfing?",
@@ -48180,7 +48180,7 @@
       "retrieval_ms": 46.80991172790527,
       "tokens_in": 1051,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What kind of engineering projects has Jolene worked on?",
@@ -48345,7 +48345,7 @@
       "retrieval_ms": 12.262344360351562,
       "tokens_in": 904,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What are the names of Jolene's snakes?",
@@ -48457,7 +48457,7 @@
       "retrieval_ms": 0.030994415283203125,
       "tokens_in": 1292,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What music pieces does Deborah listen to during her yoga practice?",
@@ -53528,14 +53528,14 @@
       "r@1": 1,
       "r@5": 1,
       "r@10": 1,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 17.422199249267578,
       "tokens_in": 902,
       "tokens_out": 6,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "What activity did Jolene enjoy at the music festival with their pals on September 20, 2023?",
@@ -53782,7 +53782,7 @@
       "retrieval_ms": 33.1120491027832,
       "tokens_in": 1037,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "How many roadtrips did Evan take in May 2023?",
@@ -54125,7 +54125,7 @@
       "retrieval_ms": 28.218984603881836,
       "tokens_in": 1003,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What kind of unhealthy snacks does Sam enjoy eating?",
@@ -54693,7 +54693,7 @@
       "retrieval_ms": 20.718097686767578,
       "tokens_in": 1083,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What recurring frustration does Evan experience?",
@@ -55182,7 +55182,7 @@
       "retrieval_ms": 29.02507781982422,
       "tokens_in": 1047,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What new diet and lifestyle change did Sam adopt over time?",
@@ -55550,7 +55550,7 @@
       "retrieval_ms": 33.10585021972656,
       "tokens_in": 1037,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What personal health incidents does Evan face in 2023?",
@@ -55808,7 +55808,7 @@
       "retrieval_ms": 32.86004066467285,
       "tokens_in": 1102,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "Does Evan live close to a beach or mountains?",
@@ -56034,7 +56034,7 @@
       "retrieval_ms": 16.597986221313477,
       "tokens_in": 1089,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When is Evan planning a big family reunion?",
@@ -59224,14 +59224,14 @@
       "r@1": 0,
       "r@5": 0,
       "r@10": 0,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 13.090133666992188,
       "tokens_in": 898,
       "tokens_out": 4,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "How did Sam get into watercolor painting?",
@@ -59308,14 +59308,14 @@
       "r@1": 0,
       "r@5": 0,
       "r@10": 0,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 14.287948608398438,
       "tokens_in": 925,
       "tokens_out": 13,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "What did Sam find relaxing about his road trip to Jasper?",
@@ -60260,14 +60260,14 @@
       "r@1": 0,
       "r@5": 1,
       "r@10": 1,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 14.448881149291992,
       "tokens_in": 913,
       "tokens_out": 3,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "What did Sam share a photo of that was taken on a camping trip?",
@@ -60422,7 +60422,7 @@
       "retrieval_ms": 31.53371810913086,
       "tokens_in": 1052,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "Which types of cars does Dave like the most?",
@@ -61445,7 +61445,7 @@
       "retrieval_ms": 42.997121810913086,
       "tokens_in": 1045,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When was Calvin's album released?",
@@ -61697,7 +61697,7 @@
       "retrieval_ms": 50.60410499572754,
       "tokens_in": 1061,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did Calvin met with local artists in Boston?",
@@ -61887,7 +61887,7 @@
       "retrieval_ms": 49.76916313171387,
       "tokens_in": 1068,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What was Dave doing in the first weekend of October 2023?",
@@ -62077,7 +62077,7 @@
       "retrieval_ms": 19.46115493774414,
       "tokens_in": 961,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "When did Calvin plan on travelling to Tokyo the second time?",
@@ -62239,7 +62239,7 @@
       "retrieval_ms": 30.220985412597656,
       "tokens_in": 1102,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "How many Ferraris does Calvin own?",
@@ -62270,7 +62270,7 @@
       "retrieval_ms": 46.82111740112305,
       "tokens_in": 983,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What style of guitars does Calvin own?",
@@ -62402,7 +62402,7 @@
       "retrieval_ms": 83.9850902557373,
       "tokens_in": 1101,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "Where was Calvin located in the last week of October 2023?",
@@ -63138,7 +63138,7 @@
       "retrieval_ms": 46.18716239929199,
       "tokens_in": 1350,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What did Calvin and his friends arrange for in the park?",
@@ -63589,7 +63589,7 @@
       "retrieval_ms": 35.180091857910156,
       "tokens_in": 1373,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "How did the audience in Tokyo react when Calvin sang one of his songs?",
@@ -65110,7 +65110,7 @@
       "retrieval_ms": 43.966054916381836,
       "tokens_in": 1310,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What realization did the nightclub experience bring to Calvin?",
@@ -65642,7 +65642,7 @@
       "retrieval_ms": 19.672155380249023,
       "tokens_in": 1312,
       "tokens_out": 7,
-      "judge_overruled": true
+      "judge_overruled": false
     },
     {
       "question": "What type of photos does Dave like to capture with his new camera?",
@@ -66087,14 +66087,14 @@
       "r@1": 0,
       "r@5": 0,
       "r@10": 0,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 35.284996032714844,
       "tokens_in": 919,
       "tokens_out": 15,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "What sports activity is Dave planning to try after the tour with Frank Ocean?",
@@ -66367,14 +66367,14 @@
       "r@1": 0,
       "r@5": 0,
       "r@10": 0,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 12.067079544067383,
       "tokens_in": 893,
       "tokens_out": 2,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "Why did Dave get his guitar customized with a shiny finish?",
@@ -67012,14 +67012,14 @@
       "r@1": 0,
       "r@5": 0,
       "r@10": 0,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 16.559123992919922,
       "tokens_in": 891,
       "tokens_out": 5,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "Who did Dave invite to see him perform in Boston on 13 November, 2023?",
@@ -67096,14 +67096,14 @@
       "r@1": 0,
       "r@5": 0,
       "r@10": 0,
-      "correct": true,
+      "correct": false,
       "f1": 0.0,
       "bleu1": 0.0,
       "rouge_l": 0.0,
       "retrieval_ms": 45.652151107788086,
       "tokens_in": 897,
       "tokens_out": 3,
-      "judge_overruled": false
+      "judge_overruled": "hallucination_on_adversarial"
     },
     {
       "question": "What type of photos does Calvin like to capture with his new camera?",
@@ -67176,8 +67176,13 @@
     "llm_extraction_enabled": false
   },
   "judge_guard": {
-    "rule": "a refusal cannot be correct when the gold is a concrete fact (categories 1-4)",
-    "overruled_verdicts": 103,
-    "applied": "post-hoc to this artifact; the runner now applies it at judging time"
+    "overruled": {
+      "refusal_on_factual": 0,
+      "hallucination_on_adversarial": 27
+    },
+    "rules": [
+      "categories 1-4: a refusal cannot be correct when the gold is a concrete fact",
+      "category 5 with an empty gold: only a refusal can be correct"
+    ]
   }
 }

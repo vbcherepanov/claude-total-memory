@@ -888,11 +888,19 @@ def process_qa(client, server_mod, store, recall, qa: dict, project: str,
     # told to accept a refusal when the gold also indicates no information.
     # For categories 1-4 the gold IS a fact, so a refusal cannot be correct —
     # that is a rule, not a judgement call, so it does not need a model.
+    judge_overruled = False
     if correct and cat != 5 and _is_refusal(pred) and not _is_refusal(str(gold)):
         correct = False
-        judge_overruled = True
-    else:
-        judge_overruled = False
+        judge_overruled = "refusal_on_factual"
+    elif correct and cat == 5 and not str(gold).strip() and not _is_refusal(pred):
+        # The mirror-image defect. 99.6% of LoCoMo adversarial golds are the
+        # empty string — the question is unanswerable and abstaining is the
+        # only right move. The judge accepts almost any fluent answer against
+        # an empty reference, so a hallucination scores correct: measured
+        # 27-30 per run, inflating adversarial accuracy by ~6 points. With an
+        # empty gold, only a refusal can be right.
+        correct = False
+        judge_overruled = "hallucination_on_adversarial"
 
     rec = {
         "question": question,
