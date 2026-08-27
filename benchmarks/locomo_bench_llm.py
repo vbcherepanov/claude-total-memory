@@ -26,6 +26,7 @@ import argparse
 import json
 import os
 import re
+import re as _re
 import shutil
 import statistics
 import sys
@@ -363,6 +364,19 @@ Rules:
     "Would Mel buy a theme park ticket?" -> "Mel's preferences about theme parks"
 - Output ONE line. No prose, no quotes.
 """
+
+_REFUSAL_RE = _re.compile(
+    r"^\s*(not mentioned|not in the (conversation|excerpts)|no information|"
+    r"not specified|not stated|unknown|i don'?t know|i do not know|no mention|"
+    r"cannot be determined|can'?t be determined|there is no)\b",
+    _re.IGNORECASE,
+)
+
+
+def _is_refusal(text: str) -> bool:
+    """Does this answer decline to answer rather than answer?"""
+    return bool(_REFUSAL_RE.match(text or ""))
+
 
 JUDGE_SYSTEM = """You are an impartial evaluator checking whether a predicted answer is semantically correct given a gold (reference) answer.
 
@@ -863,6 +877,23 @@ def process_qa(client, server_mod, store, recall, qa: dict, project: str,
                                       max_tokens=4, model=judge_model)
     correct = judge_out.upper().startswith("YES")
 
+    # Deterministic guard on the judge.
+    #
+    # Measured on the v13 three-seed run: on ~100 of the 1540 non-adversarial
+    # questions the judge answered YES to a refusal — "Not mentioned in the
+    # conversation." scored correct against golds like "Sweden", "June 2023",
+    # "Single", with F1 exactly 0.00. That inflated accuracy by ~6.6 points.
+    #
+    # It is almost certainly the adversarial rule bleeding across: the judge is
+    # told to accept a refusal when the gold also indicates no information.
+    # For categories 1-4 the gold IS a fact, so a refusal cannot be correct —
+    # that is a rule, not a judgement call, so it does not need a model.
+    if correct and cat != 5 and _is_refusal(pred) and not _is_refusal(str(gold)):
+        correct = False
+        judge_overruled = True
+    else:
+        judge_overruled = False
+
     rec = {
         "question": question,
         "gold": gold,
@@ -872,6 +903,7 @@ def process_qa(client, server_mod, store, recall, qa: dict, project: str,
         "retrieved_dia_ids": ranked_dia_ids,
         "r@1": r_at_1, "r@5": r_at_5, "r@10": r_at_10,
         "correct": correct,
+        "judge_overruled": judge_overruled,
         "f1": f1_score(pred, gold),
         "bleu1": bleu1(pred, gold),
         "rouge_l": rouge_l(pred, gold),

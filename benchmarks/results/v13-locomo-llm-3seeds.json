@@ -15,54 +15,54 @@
     "single-hop": {
       "n": 282,
       "per_seed": {
-        "1": 0.4255,
-        "2": 0.4397,
-        "3": 0.4291
+        "1": 0.3582,
+        "2": 0.3723,
+        "3": 0.3688
       },
-      "mean": 0.4314,
-      "min": 0.4255,
-      "max": 0.4397,
-      "range": 0.0142,
-      "stdev": 0.0074
+      "mean": 0.3664,
+      "min": 0.3582,
+      "max": 0.3723,
+      "range": 0.0141,
+      "stdev": 0.0073
     },
     "temporal": {
       "n": 321,
       "per_seed": {
-        "1": 0.5794,
-        "2": 0.567,
-        "3": 0.5607
+        "1": 0.4237,
+        "2": 0.4268,
+        "3": 0.4268
       },
-      "mean": 0.569,
-      "min": 0.5607,
-      "max": 0.5794,
-      "range": 0.0187,
-      "stdev": 0.0095
+      "mean": 0.4258,
+      "min": 0.4237,
+      "max": 0.4268,
+      "range": 0.0031,
+      "stdev": 0.0018
     },
     "multi-hop": {
       "n": 96,
       "per_seed": {
-        "1": 0.4167,
-        "2": 0.3854,
-        "3": 0.3958
+        "1": 0.3021,
+        "2": 0.2917,
+        "3": 0.2812
       },
-      "mean": 0.3993,
-      "min": 0.3854,
-      "max": 0.4167,
-      "range": 0.0313,
-      "stdev": 0.0159
+      "mean": 0.2917,
+      "min": 0.2812,
+      "max": 0.3021,
+      "range": 0.0209,
+      "stdev": 0.0105
     },
     "open-domain": {
       "n": 841,
       "per_seed": {
-        "1": 0.5981,
-        "2": 0.61,
-        "3": 0.5981
+        "1": 0.5707,
+        "2": 0.5731,
+        "3": 0.5672
       },
-      "mean": 0.6021,
-      "min": 0.5981,
-      "max": 0.61,
-      "range": 0.0119,
-      "stdev": 0.0069
+      "mean": 0.5703,
+      "min": 0.5672,
+      "max": 0.5731,
+      "range": 0.0059,
+      "stdev": 0.003
     },
     "adversarial": {
       "n": 446,
@@ -81,28 +81,28 @@
   "overall_no_adversarial": {
     "n": 1540,
     "per_seed": {
-      "1": 0.5513,
-      "2": 0.5558,
-      "3": 0.5468
+      "1": 0.4844,
+      "2": 0.4883,
+      "3": 0.4838
     },
-    "mean": 0.5513,
-    "min": 0.5468,
-    "max": 0.5558,
-    "range": 0.009,
-    "stdev": 0.0045
+    "mean": 0.4855,
+    "min": 0.4838,
+    "max": 0.4883,
+    "range": 0.0045,
+    "stdev": 0.0024
   },
   "overall_all": {
     "n": 1986,
     "per_seed": {
-      "1": 0.643,
-      "2": 0.649,
-      "3": 0.6415
+      "1": 0.5911,
+      "2": 0.5967,
+      "3": 0.5926
     },
-    "mean": 0.6445,
-    "min": 0.6415,
-    "max": 0.649,
-    "range": 0.0075,
-    "stdev": 0.004
+    "mean": 0.5935,
+    "min": 0.5911,
+    "max": 0.5967,
+    "range": 0.0056,
+    "stdev": 0.0029
   },
   "retrieval_is_deterministic": {
     "note": "Retrieval does not vary across seeds \u2014 only generation and judging do.",
@@ -115,5 +115,21 @@
     "input": 6689184,
     "output": 53872
   },
-  "supersedes": "benchmarks/results/v9_full_gpt4o_20260628-194133.json (0.582 no-adv). That run predates the record_usage=False fix, so it was partly measuring its own earlier queries and was inflated. The drop to 0.551 is the correction, not a regression."
+  "supersedes": "benchmarks/results/v9_full_gpt4o_20260628-194133.json (0.582 no-adv). That run predates the record_usage=False fix, so it was partly measuring its own earlier queries and was inflated. The drop to 0.551 is the correction, not a regression.",
+  "judge_guard": {
+    "rule": "On categories 1-4 the gold is a concrete fact, so a refusal ('Not mentioned in the conversation.') cannot be a correct answer. Enforced deterministically, not by the model.",
+    "why": "The LLM judge answered YES to ~100 refusals per run \u2014 'Not mentioned' scored correct against golds like 'Sweden', 'June 2023', 'Single', with F1 exactly 0.00. Almost certainly the adversarial rule bleeding across: the judge is told to accept a refusal when the gold also indicates no information.",
+    "overruled_per_seed": {
+      "1": 103,
+      "2": 104,
+      "3": 97
+    },
+    "effect": "no-adv accuracy 0.551 -> 0.486 (-6.6pp). The guard now runs at judging time."
+  },
+  "judge_noise": {
+    "generator_answer_varied_across_seeds": "12.5%",
+    "judge_verdict_varied_across_seeds": "5.1%",
+    "judge_flipped_on_an_identical_answer": "2.7%",
+    "note": "The aggregate holds within +/-0.005 because flips roughly cancel, not because the instrument is precise. Quoting a single run to three decimals is unwarranted."
+  }
 }

@@ -100,13 +100,23 @@ code changing.
   generator and the judge. A single LLM-judged run is a *sample*: temperature 0
   does not make the API deterministic and `seed` is documented as best-effort,
   so one number cannot answer "does it reproduce".
-- Published as three seeded runs with the spread: **0.551 ± 0.005** over the
-  1,540 non-adversarial questions, **0.645 ± 0.004** over all 1,986, adversarial
+- Published as three seeded runs with the spread: **0.486 ± 0.002** over the
+  1,540 non-adversarial questions, **0.594 ± 0.003** over all 1,986, adversarial
   **0.966**. Retrieval was byte-identical across all three seeds — only
   generation and judging vary.
-- `multi-hop` spreads 3.1 points on N=96, which is the point: at that sample
-  size a single run says almost nothing, and our own earlier single-number claim
-  for that category was over-claiming.
+- **The judge needed a deterministic guard.** On ~100 of the 1,540
+  non-adversarial questions per run it answered YES to a refusal: "Not mentioned
+  in the conversation." scored correct against golds like `Sweden`, `June 2023`,
+  `Single`, with F1 exactly 0.00. Almost certainly the adversarial rule bleeding
+  across — the judge is told to accept a refusal when the gold also indicates no
+  information. On categories 1-4 the gold *is* a fact, so a refusal cannot be
+  correct; that is a rule, not a judgement, and it now runs at judging time
+  (`judge_overruled` is recorded per record). **Effect: 0.551 → 0.486, -6.6pp.**
+  Found by reading the judge's verdicts rather than its aggregate.
+- Judge noise, measured by aligning all 1,986 questions across seeds: the
+  generator's answer differed on 12.5%, the verdict on 5.1%, and on **2.7%** the
+  judge flipped on a byte-identical answer. The aggregate holds within ±0.005
+  because those flips roughly cancel, not because the instrument is precise.
 - **Supersedes the previously published 0.582.** That run predates
   `record_usage=False` in this runner — it too was measuring its own earlier
   queries. The drop is the correction, not a regression.

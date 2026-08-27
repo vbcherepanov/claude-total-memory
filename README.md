@@ -312,39 +312,52 @@ Reproduce: `python benchmarks/longmemeval_bench.py --modes store` →
 ### On end-to-end accuracy numbers
 
 Systems in this space usually publish LoCoMo **accuracy** — a generator answers
-from the retrieved context and an LLM judges it. We now publish it too, with
-the caveat that makes it meaningful.
+from the retrieved context and an LLM judges it. We publish it too, with the
+two caveats that make it meaningful.
 
-**A single LLM-judged run is a sample, not a measurement.** Temperature 0 does
-not make the API deterministic, and OpenAI documents `seed` as best-effort
-only. So the runner takes `--seed` and we report three runs, not one:
+**One LLM-judged run is a sample, not a measurement.** Temperature 0 does not
+make the API deterministic and OpenAI documents `seed` as best-effort, so the
+runner takes `--seed` and we report three runs:
 
 | Category | N | mean | min | max | spread |
 |---|---:|---:|---:|---:|---:|
-| single-hop | 282 | 0.431 | 0.426 | 0.440 | 0.014 |
-| temporal | 321 | 0.569 | 0.561 | 0.579 | 0.019 |
-| multi-hop | 96 | 0.399 | 0.385 | 0.417 | **0.031** |
-| open-domain | 841 | 0.602 | 0.598 | 0.610 | 0.012 |
+| single-hop | 282 | 0.366 | 0.358 | 0.372 | 0.014 |
+| temporal | 321 | 0.426 | 0.424 | 0.427 | 0.003 |
+| multi-hop | 96 | 0.292 | 0.281 | 0.302 | **0.021** |
+| open-domain | 841 | 0.570 | 0.567 | 0.573 | 0.006 |
 | adversarial | 446 | **0.966** | 0.960 | 0.971 | 0.011 |
-| **overall (no adversarial)** | 1,540 | **0.551 ± 0.005** | 0.547 | 0.556 | 0.009 |
-| **overall (all)** | 1,986 | **0.645 ± 0.004** | 0.642 | 0.649 | 0.008 |
+| **overall (no adversarial)** | 1,540 | **0.486 ± 0.002** | 0.484 | 0.488 | 0.005 |
+| **overall (all)** | 1,986 | **0.594 ± 0.003** | 0.591 | 0.597 | 0.006 |
 
 gpt-4o generator, gpt-4o-mini judge, seeds 1/2/3. Retrieval was **byte-identical
-across all three** — only generation and judging vary, which is the expected
-shape and a check that the seeding is doing what it claims.
+across all three** — only generation and judging vary.
 
-Note `multi-hop`: 3.1 points of spread on N=96. At that sample size a single
-run says almost nothing, and anyone quoting one number for that category —
-including us, previously — is over-claiming.
+**The judge needed a guard.** On roughly 100 of the 1,540 non-adversarial
+questions per run, the judge answered YES to a refusal: *"Not mentioned in the
+conversation."* scored correct against golds like `Sweden`, `June 2023`,
+`Single` — with F1 exactly 0.00. Almost certainly the adversarial rule bleeding
+across, since the judge is told to accept a refusal when the gold also
+indicates no information. On categories 1–4 the gold *is* a fact, so a refusal
+cannot be correct; that is a rule, not a judgement, and it is now enforced
+deterministically at judging time. **Removing those verdicts moves no-adv
+accuracy from 0.551 to 0.486 — the numbers above are the corrected ones.**
 
-> **This replaces our previous 0.582**, and the drop is a correction rather
-> than a regression. That figure came from a run predating the
-> `record_usage=False` fix, so it was partly measuring its own earlier queries.
-> We would rather publish the lower number that is true.
+How noisy is the rest? Aligning all 1,986 questions across the three seeds:
+
+| | share |
+|---|---:|
+| generator's answer differed between seeds | 12.5% |
+| judge's verdict differed | 5.1% |
+| **judge flipped on an identical answer** | **2.7%** |
+
+The aggregate holds within ±0.005 because those flips roughly cancel, not
+because the instrument is precise. Quoting one run to three decimals — as we
+did before — is not supported by the data.
 
 Not comparable to the 90%+ figures some competitors publish: different
-generators, judges, prompts and question subsets. The retrieval numbers above
-remain our primary metric because they are checkable without an API key.
+generators, judges, prompts and question subsets. And on this evidence, an
+unguarded LLM judge can be worth six points on its own. The retrieval numbers
+above remain our primary metric because they are checkable without an API key.
 
 [`benchmarks/results/v13-locomo-llm-3seeds.json`](benchmarks/results/v13-locomo-llm-3seeds.json) ·
 Runner: [`benchmarks/locomo_bench_llm.py`](benchmarks/locomo_bench_llm.py)
