@@ -4,6 +4,74 @@ All notable changes to total-agent-memory are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and versions use [Semantic Versioning](https://semver.org/).
 
+## [13.0.1] — 2026-08-27 — the write path was quadratic
+
+### Fixed — saves got slower as the store grew, and it was our own doing
+`graph/auto_link.py` runs on every save and constructed its own
+`ConceptExtractor` each time. The node-name cache lives on the instance, so it
+was discarded immediately and `_get_node_names` re-read the entire
+`graph_nodes` table per write — O(N) per save, O(N²) over an ingest.
+
+Measured, and deliberately by counting reads rather than timing, so the number
+does not depend on machine load:
+
+| | full reads of `graph_nodes` per 1,000 saves | rows read |
+|---|---:|---:|
+| before | **1,000** | 500,499 (at ~5k nodes) |
+| after | **1** | — |
+
+At the 139k nodes a BEAM-1M ingest reaches, those same 1,000 saves would have
+read roughly **139 million rows**. That is the throughput curve we published in
+v13.0.0 as an open question: **25.6 → 10.8 → 6.3 messages/second** across the
+100K / 500K / 1M scales, on identical code. It was not the storage engine and
+not the embedding model — it was a constructor in the wrong place.
+
+`shared_extractor(db)` returns one instance per connection. Three regression
+tests: a read counter over 40 saves, instance identity per connection, and a
+source guard against reintroducing the constructor call.
+
+> v13.0.0 also shipped an incremental `_cache_put` for this cache. That change
+> was correct and nearly useless on its own — the instance holding the cache
+> did not survive a single save, which is why its A/B measured 3%. Fixing the
+> cache without checking who owns it was the wrong order.
+
+### Fixed — dependencies declared in only one of two places
+- `fastembed`, `starlette`, `uvicorn`, `httpx` and `numpy` were in
+  `requirements.txt` but not in `pyproject` dependencies, so `install.sh` and
+  Docker users got them and every `pip` / `uvx` / `npx` / `brew` user did not.
+  The last four arrived transitively; `fastembed` did not arrive at all, and
+  without it the server falls back to sentence-transformers with a different,
+  English-only model — the two install paths retrieved differently.
+- Measured on one machine the fallback is in fact *lighter* (565 MB against
+  921 MB) because the models differ in size, so this is a consistency fix and
+  not a memory one. The ~1.5 GB users reported was eager torch, fixed in
+  v13.0.0.
+- `tests/test_dependency_declaration.py` compares the two lists and checks that
+  anything on the optional allow-list really is imported defensively.
+
+### Added — BEAM at the 1M scale
+- 74,630 messages, 625 gradable probes: **R@5 0.448**, R@1 0.227, MRR 0.327.
+  Recall decays gracefully — 13x the haystack from 100K costs 12.7 points — and
+  the abilities that hold up hold up at every scale (knowledge update 0.886,
+  contradiction resolution 0.871).
+- The run exposed a **second**, unrelated scaling problem: search p50 grew from
+  58 ms at 500K to **411 ms** at 1M for twice the data. `Store._binary_search`
+  loads every active record's binary vector into numpy per query, so search is
+  linear in store size. Not fixed here; recorded as the largest open
+  performance item rather than left for a user to discover.
+
+### Changed — benchmark methodology (no runtime effect)
+- The LoCoMo LLM judge scored refusals as correct answers on factual
+  categories, and hallucinations as correct abstentions on adversarial, where
+  99.6% of golds are the empty string. Both now overruled deterministically.
+  Published accuracy moved 0.551 → 0.486 (no-adv) and 0.966 → 0.904
+  (adversarial).
+- LLM-judged accuracy is published as a spread over three seeds rather than a
+  single run, with the judge's own noise measured: the verdict flips on 2.7% of
+  byte-identical answers.
+- Every LoCoMo run now scores three degenerate baselines alongside the metric,
+  so the floor ships with the number. The pipeline is 27× the best of them.
+
 ## [13.0.0] — 2026-08-27 — MCP 2026-07-28, and honest benchmarks
 
 **Every install created since the MCP Python SDK went 2.0 was broken.** The

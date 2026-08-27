@@ -9,7 +9,7 @@
 [![IDEs](https://img.shields.io/badge/IDEs-9%20supported-4a9.svg)]()
 [![LongMemEval R@5](https://img.shields.io/badge/LongMemEval%20R@5-95.1%25-4a9.svg)](evals/longmemeval-2026-08-27-v13-store.json)
 [![LoCoMo R@5](https://img.shields.io/badge/LoCoMo%20R@5-0.607-4a9.svg)](benchmarks/results/v13-locomo-retrieval.json)
-[![BEAM R@5](https://img.shields.io/badge/BEAM%20100K%20R@5-0.575-4a9.svg)](benchmarks/results/v13-beam-100K.json)
+[![BEAM R@5](https://img.shields.io/badge/BEAM%201M%20R@5-0.448-4a9.svg)](benchmarks/results/v13-beam-1M.json)
 [![vs Supermemory](https://img.shields.io/badge/vs%20Supermemory-%2B9.7pp-4a9.svg)](docs/vs-competitors.md)
 [![p50 latency](https://img.shields.io/badge/p50%20warm-0.065ms-4a9.svg)](evals/results-2026-04-17.json)
 [![Local-First](https://img.shields.io/badge/100%25-local-4a9.svg)]()
@@ -256,27 +256,55 @@ that is the roadmap item.
 | event_ordering | 70 | 0.014 | 0.029 | 0.186 | 0.042 |
 | **overall** | **629** | **0.280** | **0.490** | **0.596** | **0.373** |
 
-Latency p50 **58.5 ms**, p95 152.6 ms.
+**Scale 1M** — 35 conversations, 74,630 messages, 625 gradable probes:
 
-**How it scales.** 6.6× more haystack costs 8.5 points of R@5 and 3.3× the
-query latency:
+| Ability | N | R@1 | R@5 | R@10 | MRR |
+|---|---:|---:|---:|---:|---:|
+| knowledge_update | 70 | 0.529 | **0.886** | 0.929 | 0.677 |
+| contradiction_resolution | 70 | 0.686 | **0.871** | 0.914 | 0.772 |
+| temporal_reasoning | 70 | 0.371 | 0.686 | 0.800 | 0.508 |
+| multi_session_reasoning | 70 | 0.214 | 0.429 | 0.600 | 0.315 |
+| information_extraction | 70 | 0.157 | 0.371 | 0.500 | 0.250 |
+| summarization | 66 | 0.015 | 0.288 | 0.515 | 0.147 |
+| preference_following | 69 | 0.029 | 0.246 | 0.406 | 0.134 |
+| event_ordering | 70 | 0.000 | 0.157 | 0.329 | 0.069 |
+| instruction_following | 70 | 0.029 | 0.086 | 0.200 | 0.061 |
+| **overall** | **625** | **0.227** | **0.448** | **0.578** | **0.327** |
 
-| Scale | Messages | R@5 | p50 | Ingest |
+### How it scales, and what that exposed
+
+| Scale | Messages | R@5 | search p50 | ingest |
 |---|---:|---:|---:|---:|
 | 100K | 5,732 | 0.575 | 17.7 ms | 25.6 msg/s |
 | 500K | 38,058 | 0.490 | 58.5 ms | 10.8 msg/s |
+| 1M | 74,630 | **0.448** | **411.5 ms** | **5.0 msg/s** |
 
-The ingest number is the one to watch: **save throughput halves** between the
-two, so something in the write path scales with store size. The obvious
-suspect — the graph node-name cache being dropped on every write, forcing a
-full table re-read per created node — was found and fixed in v13, but a clean
-A/B over 4,000 saves put it at 103.0 vs 99.9 saves/s: real, and nowhere near
-the dominant cost. Both arms degrade on the same curve. The scaling question
-is open and on the roadmap rather than explained away.
+Recall decays gracefully — 13× the haystack costs 12.7 points of R@5, and the
+abilities that hold up (knowledge update, contradiction resolution) hold up at
+every scale. The two curves that do *not* decay gracefully are the interesting
+part, and they have separate causes.
+
+**Ingest — found and fixed.** Throughput fell 5× across the three scales on
+identical code. The cause was ours: `graph/auto_link.py` runs on every save and
+constructed a fresh `ConceptExtractor` each time. The node-name cache lives on
+the instance, so it was thrown away immediately and the whole `graph_nodes`
+table was re-read per write — 1,000 saves triggered 1,000 full table reads
+(~139 million rows at the 139k nodes this ingest reaches). Fixed in v13.0.1;
+counting reads rather than timing makes the check load-independent, and it is
+now **1** read per 1,000 saves. **The ingest column above was measured before
+that fix** and is kept as the record of the problem.
+
+**Search — open.** p50 grew 7× between 500K and 1M for 2× the data.
+`Store._binary_search` loads the binary vectors of every active record into
+numpy on each query, so search is linear in store size. That is a different
+problem from the ingest one and is not fixed; an ANN index over the binary
+vectors is the obvious answer and has not been built yet. Stated rather than
+buried, because 411 ms is a real number a user would feel.
 
 Reproduce: `python benchmarks/beam_bench.py --scale 100K --wipe` →
-[`benchmarks/results/v13-beam-100K.json`](benchmarks/results/v13-beam-100K.json) ·
-[`v13-beam-500K.json`](benchmarks/results/v13-beam-500K.json)
+[`v13-beam-100K.json`](benchmarks/results/v13-beam-100K.json) ·
+[`v13-beam-500K.json`](benchmarks/results/v13-beam-500K.json) ·
+[`v13-beam-1M.json`](benchmarks/results/v13-beam-1M.json)
 
 ### LongMemEval — [xiaowu0162/longmemeval-cleaned](https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned)
 
@@ -1361,10 +1389,13 @@ better", so the roadmap names them:
   = 0.282 (BEAM).** The same weakness from two directions: preferences are
   stated once, in passing, and never restated.
 - **BEAM-10M.** The 1M scale runs today; 10M is the interesting claim.
-- **Profile the write path.** Save throughput halves between a 5.7k and a 38k
-  record store. The node-cache re-read was fixed and was not the cause, so the
-  next suspects are the dedup binary search and FTS index maintenance. Until
-  it is profiled we are not going to guess in public.
+- **Search is linear in store size.** BEAM 1M measured p50 411 ms against 58 ms
+  at 500K — `Store._binary_search` loads every active record's binary vector
+  into numpy per query. An ANN index over those vectors is the obvious answer.
+  This is the largest open performance item.
+- ~~Profile the write path~~ — done in v13.0.1: `auto_link` constructed a
+  `ConceptExtractor` per save and threw away its node cache, re-reading the
+  whole `graph_nodes` table on every write.
 
 ### Planned
 - GitHub Actions: install smoke tests + a nightly retrieval gate, so a

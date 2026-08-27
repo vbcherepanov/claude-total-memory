@@ -1,0 +1,103 @@
+{
+  "benchmark": "BEAM (retrieval)",
+  "scale": "1M",
+  "dataset": "Mohammadta/BEAM \u00b7 1M-00000-of-00001.parquet",
+  "ingest": {
+    "chats": 35,
+    "saved": 74630,
+    "skipped": 0,
+    "elapsed_sec": 14985.38,
+    "rate_msg_per_sec": 4.98
+  },
+  "eval": {
+    "per_ability": {
+      "contradiction_resolution": {
+        "n": 70,
+        "R@1": 0.6857,
+        "R@5": 0.8714,
+        "R@10": 0.9143,
+        "MRR": 0.7719
+      },
+      "event_ordering": {
+        "n": 70,
+        "R@1": 0.0,
+        "R@5": 0.1571,
+        "R@10": 0.3286,
+        "MRR": 0.0692
+      },
+      "information_extraction": {
+        "n": 70,
+        "R@1": 0.1571,
+        "R@5": 0.3714,
+        "R@10": 0.5,
+        "MRR": 0.2504
+      },
+      "instruction_following": {
+        "n": 70,
+        "R@1": 0.0286,
+        "R@5": 0.0857,
+        "R@10": 0.2,
+        "MRR": 0.0609
+      },
+      "knowledge_update": {
+        "n": 70,
+        "R@1": 0.5286,
+        "R@5": 0.8857,
+        "R@10": 0.9286,
+        "MRR": 0.6767
+      },
+      "multi_session_reasoning": {
+        "n": 70,
+        "R@1": 0.2143,
+        "R@5": 0.4286,
+        "R@10": 0.6,
+        "MRR": 0.3145
+      },
+      "preference_following": {
+        "n": 69,
+        "R@1": 0.029,
+        "R@5": 0.2464,
+        "R@10": 0.4058,
+        "MRR": 0.1336
+      },
+      "summarization": {
+        "n": 66,
+        "R@1": 0.0152,
+        "R@5": 0.2879,
+        "R@10": 0.5152,
+        "MRR": 0.1472
+      },
+      "temporal_reasoning": {
+        "n": 70,
+        "R@1": 0.3714,
+        "R@5": 0.6857,
+        "R@10": 0.8,
+        "MRR": 0.508
+      }
+    },
+    "overall": {
+      "n": 625,
+      "R@1": 0.2272,
+      "R@5": 0.448,
+      "R@10": 0.5776,
+      "MRR": 0.3273
+    },
+    "latency": {
+      "p50_ms": 411.54,
+      "p95_ms": 1441.28,
+      "mean_ms": 514.2,
+      "queries": 700
+    },
+    "abstention": {
+      "n": 70,
+      "mean_top_score": 2.3764,
+      "note": "no gold evidence by design \u2014 lower is better"
+    }
+  },
+  "config": {
+    "db_path": "/tmp/beam_bench_db_1M",
+    "top_k": 10,
+    "limit_chats": null,
+    "llm_enabled": false
+  }
+}
