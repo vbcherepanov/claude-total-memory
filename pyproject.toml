@@ -63,6 +63,7 @@ include = [
     "total_agent_memory*",
     "claude_total_memory*",
     "src*",
+    "migrations*",
 ]
 exclude = [
     "tests*",
@@ -75,6 +76,7 @@ exclude = [
 # alongside the modules. Without this they vanish in the wheel and the
 # server crashes on first migration.
 [tool.setuptools.package-data]
+migrations = ["*.sql"]
 src = [
     "**/*.sql",
     "**/*.json",

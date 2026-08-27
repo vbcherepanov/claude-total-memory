@@ -1142,7 +1142,11 @@ class Store:
 
         migrations_dir = _Path(__file__).resolve().parent.parent / "migrations"
         if not migrations_dir.is_dir():
-            return
+            raise RuntimeError(
+                f"Bundled SQL migrations are missing: {migrations_dir}. "
+                "The installation artifact is incomplete; reinstall "
+                "total-agent-memory from a distribution that includes migrations/*.sql."
+            )
 
         # Ensure tracker table
         self.db.executescript(
