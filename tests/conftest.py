@@ -20,6 +20,40 @@ if "TAM_MEMORY_DIR" not in os.environ and "CLAUDE_MEMORY_DIR" not in os.environ:
 # Ensure src/ is importable
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+# macOS ships a 256-descriptor soft limit in interactive shells. This suite
+# opens a lot of sqlite connections, subprocess pipes and tokenizer handles,
+# and blows past it — the symptom is a wall of
+# ``OSError: [Errno 24] Too many open files`` and a rust panic from the
+# tokenizers bindings, which looks like a code failure and is not one.
+# Raising the *soft* limit toward the hard limit needs no privileges, so do it
+# rather than making every contributor discover `ulimit -n` for themselves.
+def _raise_descriptor_limit(target: int = 8192) -> None:
+    try:
+        import resource
+    except ImportError:  # pragma: no cover — Windows
+        return
+    try:
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    except (ValueError, OSError):  # pragma: no cover
+        return
+    if soft >= target:
+        return
+    ceiling = target if hard == resource.RLIM_INFINITY else min(target, hard)
+    if ceiling <= soft:
+        return
+    try:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (ceiling, hard))
+    except (ValueError, OSError):  # pragma: no cover — hardened sandboxes
+        sys.stderr.write(
+            f"[conftest] could not raise the open-file limit from {soft}; "
+            f"run `ulimit -n {target}` if tests fail with Errno 24\n"
+        )
+
+
+_raise_descriptor_limit()
+
+
+
 
 @pytest.fixture(autouse=True)
 def _isolate_active_context_vault(tmp_path_factory, monkeypatch):
