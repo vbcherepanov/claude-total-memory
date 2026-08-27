@@ -315,13 +315,35 @@ Content:
         except sqlite3.Error as exc:
             LOG(f"Commit failed after extract_and_link: {exc}")
 
-        # Invalidate node cache since we may have created new nodes
-        self._node_names_cache = None
+        # No blanket invalidation: every node created above was written into
+        # the cache by `_ensure_node`, and the 60s TTL still picks up nodes
+        # created by other writers.
 
         return result
 
+    def _cache_put(self, name_lower: str, node_id: str, type: str) -> None:
+        """Add a freshly created node to the warm cache.
+
+        The alternative — dropping the whole cache — turns the next save into a
+        full re-read of `graph_nodes`. Because almost every save creates at
+        least one node, that made the cache never survive a single save and
+        the write path O(N) per save, O(N²) overall: measured ingest fell from
+        25.6 to 10.8 messages/second between a 5.7k and a 38k record store.
+        """
+        if self._node_names_cache is not None and name_lower:
+            self._node_names_cache[name_lower] = {
+                "id": node_id,
+                "name": name_lower,
+                "type": type,
+            }
+
     def _get_node_names(self) -> dict[str, dict]:
-        """Cache of all graph node names for fast matching. Refreshes every 60s."""
+        """Cache of all graph node names for fast matching.
+
+        Refreshed at most every 60s, and kept up to date in between by
+        `_cache_put`, so a node this process creates is visible immediately
+        while nodes written by another process arrive within the TTL.
+        """
         now = time.monotonic()
         if self._node_names_cache is not None and (now - self._cache_timestamp) < 60:
             return self._node_names_cache
@@ -522,8 +544,7 @@ Content:
                    VALUES (?, ?, ?, 'auto', ?, ?)""",
                 (node_id, type, name_clean, now, now),
             )
-            # Invalidate cache
-            self._node_names_cache = None
+            self._cache_put(name_clean, node_id, type)
             LOG(f"Created node: '{name_clean}' ({type}) -> {node_id}")
         except sqlite3.IntegrityError:
             # Race condition: node was created between check and insert

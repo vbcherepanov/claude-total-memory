@@ -152,8 +152,31 @@ class _CalibrationConfig:
 
 
 def _calibration_path() -> Path:
-    raw = os.environ.get("MEMORY_NLI_CALIBRATION_PATH", _CALIBRATION_PATH_DEFAULT)
-    return Path(os.path.expanduser(os.path.expandvars(raw)))
+    """Where the tuned NLI thresholds live.
+
+    Follows the resolved memory dir (``$TAM_MEMORY_DIR`` → ``~/.tam`` →
+    legacy ``~/.claude-memory``) so a calibration written next to the
+    database is still found after the .tam migration. The hardcoded legacy
+    path is kept as a last-resort fallback for installs that migrated the
+    database but left the calibration behind.
+    """
+    raw = os.environ.get("MEMORY_NLI_CALIBRATION_PATH")
+    if raw:
+        return Path(os.path.expanduser(os.path.expandvars(raw)))
+
+    try:
+        from paths import memory_dir  # noqa: PLC0415 — optional at import time
+
+        resolved = memory_dir() / "nli_calibration.json"
+        if resolved.exists():
+            return resolved
+    except Exception:
+        resolved = None
+
+    legacy = Path(os.path.expanduser(_CALIBRATION_PATH_DEFAULT))
+    if legacy.exists():
+        return legacy
+    return resolved if resolved is not None else legacy
 
 
 def _load_calibration() -> _CalibrationConfig:

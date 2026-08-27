@@ -1,4 +1,8 @@
-mcp[cli]>=1.0.0
+# MCP SDK. 2.x speaks protocol revision 2026-07-28 (stateless core) and still
+# serves every earlier revision; src/server.py registers tools for both SDK
+# eras. Capped below 3 so the next breaking rework cannot silently land on
+# users the way 2.0 did.
+mcp[cli]>=1.9,<3
 chromadb>=0.4.0
 sentence-transformers>=2.2.0
 httpx>=0.25.0
@@ -7,6 +11,10 @@ numpy>=1.24.0
 # HTTP transport (used by Docker / remote deployments; optional for native stdio install)
 starlette>=0.37
 uvicorn>=0.30
+
+# AST codebase ingest (ingest_codebase / memory_graph_index). Degrades to
+# whole-file chunks when absent.
+tree-sitter-language-pack>=1.13
 
 # Optional (auto-skipped if unavailable)
 fastembed

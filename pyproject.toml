@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "total-agent-memory"
-version = "12.4.0"
+version = "13.0.0"
 description = "Persistent memory MCP server for Claude Code, Codex CLI, Cursor and any MCP client: 46 tools — knowledge graph, temporal facts, procedural memory, episodic memory, AST ingest, pre-edit guard, auto-consolidating error capture"
 readme = "README.md"
 license = "MIT"
@@ -25,7 +25,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "mcp[cli]>=1.0.0",
+    "mcp[cli]>=1.9,<3",
     "chromadb>=0.4.0",
     "sentence-transformers>=2.2.0",
     "transformers>=4.40",
@@ -34,6 +34,10 @@ dependencies = [
     # loader) but required for the FlagReranker fallback path.
     "FlagEmbedding>=1.2.10",
     "peft>=0.7.0",
+    # ingest_codebase() parses source with tree-sitter. Without this the
+    # ingester silently degrades to whole-file chunks, which is not what the
+    # README advertises — so it is a hard dependency, not an extra (2 MB wheel).
+    "tree-sitter-language-pack>=1.13",
 ]
 
 [project.urls]
@@ -63,6 +67,13 @@ include = [
     "total_agent_memory*",
     "claude_total_memory*",
     "src*",
+    "migrations*",
+    # Runtime data resolved as ``Path(__file__).parent.parent / <dir>``. Left
+    # out of the wheel until v13, so canonical tag normalisation and every
+    # `memory_save(filter=...)` silently no-op'd on pip / uvx / docker
+    # installs — the same class of bug as the missing migrations.
+    "vocabularies*",
+    "filters*",
 ]
 exclude = [
     "tests*",
@@ -75,6 +86,9 @@ exclude = [
 # alongside the modules. Without this they vanish in the wheel and the
 # server crashes on first migration.
 [tool.setuptools.package-data]
+migrations = ["*.sql"]
+vocabularies = ["*.txt"]
+filters = ["*.toml"]
 src = [
     "**/*.sql",
     "**/*.json",

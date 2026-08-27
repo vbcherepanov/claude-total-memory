@@ -61,6 +61,10 @@ COPY --from=builder /install /usr/local
 COPY --chown=memory:memory src/ ./src/
 COPY --chown=memory:memory migrations/ ./migrations/
 COPY --chown=memory:memory docker/ ./docker/
+# Runtime data the server resolves relative to the repo root. Missing here
+# meant canonical tag normalisation and save-filters were dead in the image.
+COPY --chown=memory:memory vocabularies/ ./vocabularies/
+COPY --chown=memory:memory filters/ ./filters/
 
 # Convenience entrypoint shim — `docker run … mcp|dashboard|reflection|all`
 # routes through the supervisor (which respects TAM_SUPERVISOR_SERVICES).

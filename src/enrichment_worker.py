@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 import sys
 import threading
 import time
@@ -463,15 +464,50 @@ class _WorkerThread(threading.Thread):
     def stop(self) -> None:
         self._stop.set()
 
+    def _open_db(self):
+        """Private connection to the same database file.
+
+        Sharing the Store's Connection across threads corrupts sqlite3's
+        implicit transaction state — the worker's writes and the main thread's
+        writes interleave into "cannot start a transaction within a
+        transaction". WAL mode is what makes two connections to one file the
+        right answer here.
+
+        Falls back to the shared connection when the Store predates `db_path`
+        (or is a test double), preserving previous behaviour rather than
+        refusing to start.
+        """
+        db_path = getattr(self._store, "db_path", None)
+        if db_path is None:
+            return self._store.db, False
+        conn = sqlite3.connect(str(db_path), check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        conn.execute("PRAGMA busy_timeout=5000")
+        return conn, True
+
     def run(self) -> None:
         tick = _tick_interval()
+        try:
+            db, owned = self._open_db()
+        except Exception as e:
+            LOG(f"could not open worker connection: {e}")
+            return
         LOG(f"started (tick={tick}s, batch={_batch_size()})")
-        while not self._stop.is_set():
-            try:
-                run_pending(self._store.db, store=self._store)
-            except Exception as e:
-                LOG(f"tick error: {e}")
-            self._stop.wait(tick)
+        try:
+            while not self._stop.is_set():
+                try:
+                    run_pending(db, store=self._store)
+                except Exception as e:
+                    LOG(f"tick error: {e}")
+                self._stop.wait(tick)
+        finally:
+            if owned:
+                try:
+                    db.close()
+                except Exception:
+                    pass
 
 
 def start_worker(store) -> _WorkerThread | None:
