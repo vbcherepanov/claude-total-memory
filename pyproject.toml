@@ -38,6 +38,26 @@ dependencies = [
     # ingester silently degrades to whole-file chunks, which is not what the
     # README advertises — so it is a hard dependency, not an extra (2 MB wheel).
     "tree-sitter-language-pack>=1.13",
+    # The default embedding backend. It was declared only in requirements.txt,
+    # so install.sh and Docker users got it while every pip / uvx / npx / brew
+    # user silently fell back to sentence-transformers with a different,
+    # English-only model — so the two install paths did not retrieve alike.
+    #
+    # Note this is a *consistency* fix, not a memory one: measured on one
+    # machine the fastembed path costs MORE resident memory (921 MB) than the
+    # sentence-transformers fallback (565 MB), because the fastembed default is
+    # the multilingual MiniLM-L12 and the fallback is the small English
+    # MiniLM-L6. The ~1.5 GB users reported came from torch being imported
+    # eagerly on top of the fastembed model, which is fixed separately.
+    "fastembed",
+    # HTTP transport (MCP_TRANSPORT=http) — a documented feature, so a declared
+    # dependency rather than something inherited from mcp[cli] by luck.
+    "starlette>=0.37",
+    "uvicorn>=0.30",
+    # Imported directly by src/ (binary search, provider HTTP calls). They
+    # arrive transitively today; an upstream drop would break us silently.
+    "httpx>=0.25.0",
+    "numpy>=1.24.0",
 ]
 
 [project.urls]
