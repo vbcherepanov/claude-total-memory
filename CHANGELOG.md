@@ -4,6 +4,31 @@ All notable changes to total-agent-memory are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and versions use [Semantic Versioning](https://semver.org/).
 
+## [13.0.3] — 2026-09-07 — discoverability: MCP Registry, security policy, honest metadata
+
+Nothing in the runtime changed. This release exists so the package carries
+the metadata the wider ecosystem reads.
+
+### Added
+- `server.json` and an `mcp-name` marker in the README, so the package can be
+  published to the official [MCP Registry](https://registry.modelcontextprotocol.io).
+  The registry verifies PyPI ownership by matching that marker against the
+  package description, which is why it needs a release rather than a commit.
+- `SECURITY.md` — supported versions, private reporting through GitHub
+  Security Advisories, and a threat model that says plainly what is in scope
+  for a local-first server and what is not.
+- `CONTRIBUTING.md` — development setup, the `memory_core` / `ai_layer` import
+  rule that `tests/test_v11_layer_separation.py` enforces, and the two rules
+  learned the hard way: tests must skip on absent gitignored corpora, and
+  benchmark runners must pass `record_usage=False`.
+
+### Fixed
+- The PyPI description advertised **46 tools**; the server exposes **74**. The
+  repository description on GitHub still quoted **LongMemEval R@5 97.45%**,
+  a number 13.0.0 retired when the runner stopped measuring its own
+  self-contained retrieval stack. Both now match the README: 74 tools,
+  95.1% R@5.
+
 ## [13.0.2] — 2026-09-07 — the install carried 3 GB of CUDA it cannot reach
 
 ### Fixed — the torch stack moved to a `rerank` extra

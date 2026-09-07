@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.vbcherepanov/total-agent-memory",
+  "title": "Total Agent Memory",
+  "description": "Persistent local memory for coding agents: temporal knowledge graph, procedural and episodic recall",
+  "version": "13.0.3",
+  "websiteUrl": "https://totalmemory.dev",
+  "repository": {
+    "url": "https://github.com/vbcherepanov/total-agent-memory",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "total-agent-memory",
+      "version": "13.0.3",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
