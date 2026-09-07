@@ -98,6 +98,17 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      # A separate job means a separate runner, so the login in `build` is not
+      # in scope here. Pulling worked only while the ghcr package was public;
+      # once it was not, this job failed with a bare `unauthorized` that reads
+      # like a build problem rather than a visibility one.
+      - name: Login to ghcr
+        uses: docker/login-action@v3.4.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Pull just-pushed image (amd64)
         run: |
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.version }}
