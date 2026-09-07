@@ -68,6 +68,22 @@ _NO_CALIBRATION = (
 _PRODUCTION_MODEL = "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7"
 
 
+# Rebuilding the fixture reads the LoCoMo corpus, and `benchmarks/data/` is
+# gitignored — so a clean checkout has no source to rebuild from. Without this
+# guard the determinism test fails rather than skips, which aborts `update.sh`
+# (it runs the whole suite and stops on red) for every user who has not
+# downloaded the benchmark data. Same class as the few-shot bundle tests fixed
+# in 13.0.0.
+_NO_LOCOMO = (
+    f"LoCoMo corpus absent at {calibrate_nli._LOCOMO_PATH} — place "
+    "locomo10.json from github.com/snap-research/locomo there to exercise "
+    "fixture determinism"
+)
+_skip_without_locomo = pytest.mark.skipif(
+    not calibrate_nli._LOCOMO_PATH.exists(),
+    reason=_NO_LOCOMO,
+)
+
 SKIP_REASON = "NLI model load disabled (set SKIP_NLI=0 to enable)"
 _skip_if_disabled = pytest.mark.skipif(
     os.environ.get("SKIP_NLI") == "1",
@@ -94,6 +110,7 @@ def test_fixture_exists_and_is_well_formed() -> None:
     assert labels == {"entail", "neutral", "contradict"}
 
 
+@_skip_without_locomo
 def test_fixture_is_deterministic() -> None:
     """Re-building with the same seed must produce an identical md5."""
     triples_a, stats_a = calibrate_nli.build_fixture(
