@@ -68,7 +68,11 @@ COPY --chown=memory:memory filters/ ./filters/
 
 # Convenience entrypoint shim — `docker run … mcp|dashboard|reflection|all`
 # routes through the supervisor (which respects TAM_SUPERVISOR_SERVICES).
-RUN printf '#!/bin/sh\nset -e\ncase "$1" in\n  mcp|dashboard|reflection|scheduler)\n    TAM_SUPERVISOR_SERVICES="$1" exec python /app/docker/tam_supervisor.py\n    ;;\n  all|"")\n    exec python /app/docker/tam_supervisor.py\n    ;;\n  *)\n    exec "$@"\n    ;;\nesac\n' > /usr/local/bin/tam-entrypoint \
+# `docker run -i … stdio` bypasses the supervisor and speaks MCP over
+# stdin/stdout, which is how Docker MCP Toolkit and any `docker run -i`
+# client expect a local server to behave. Logs go to stderr, so they cannot
+# corrupt the JSON-RPC stream on stdout.
+RUN printf '#!/bin/sh\nset -e\ncase "$1" in\n  stdio)\n    MCP_TRANSPORT=stdio exec python -m src.server\n    ;;\n  mcp|dashboard|reflection|scheduler)\n    TAM_SUPERVISOR_SERVICES="$1" exec python /app/docker/tam_supervisor.py\n    ;;\n  all|"")\n    exec python /app/docker/tam_supervisor.py\n    ;;\n  *)\n    exec "$@"\n    ;;\nesac\n' > /usr/local/bin/tam-entrypoint \
     && chmod +x /usr/local/bin/tam-entrypoint
 
 USER memory

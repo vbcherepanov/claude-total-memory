@@ -4,6 +4,25 @@ All notable changes to total-agent-memory are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and versions use [Semantic Versioning](https://semver.org/).
 
+## [13.0.4] — 2026-09-07 — the Docker image can finally speak stdio
+
+### Added
+- **`docker run -i … stdio`.** The image only ever started the supervisor,
+  which serves MCP over Streamable HTTP on `:3737` and the dashboard on
+  `:37737`. Every client that runs a local server the ordinary way — piping
+  JSON-RPC over stdin/stdout, which is what Docker MCP Toolkit does — got a
+  container that never answered. The engine always supported stdio
+  (`MCP_TRANSPORT` defaults to it); nothing in the image reached that path.
+  The entrypoint now has a `stdio` case that execs the server directly.
+  Logs already went to stderr, so stdout carries JSON-RPC and nothing else —
+  verified frame by frame.
+
+### Fixed
+- **`serverInfo` was wrong in both fields.** The name was still
+  `claude-total-memory`, the package name retired in v7, and no version was
+  ever passed to `Server(...)`, so clients rendered `version: ""`. It now
+  reports `total-agent-memory` and the real version.
+
 ## [13.0.3] — 2026-09-07 — discoverability: MCP Registry, security policy, honest metadata
 
 Nothing in the runtime changed. This release exists so the package carries

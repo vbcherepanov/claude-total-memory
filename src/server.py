@@ -3831,7 +3831,15 @@ class Recall:
 # MCP Server
 # ═══════════════════════════════════════════════════════════
 
-app = Server("claude-total-memory")
+try:
+    from version import VERSION as _SERVER_VERSION
+except Exception:
+    _SERVER_VERSION = ""
+
+# serverInfo the client displays. The name tracked the pre-v7 package name
+# until 13.0.4, and the version was never passed at all, so every client
+# rendered an empty string.
+app = Server("total-agent-memory", version=_SERVER_VERSION)
 store: Store = None
 recall: Recall = None
 SID: str = None
