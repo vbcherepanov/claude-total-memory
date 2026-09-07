@@ -34,8 +34,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     # Pin the model cache to the data volume — /tmp is often a tmpfs (~64MB)
     # in container runtimes, and a purged fastembed cache is the usual reason
     # a memory server suddenly re-downloads its model on every start.
+    # fastembed reads neither HF_HOME nor XDG_CACHE_HOME: its cache is
+    # FASTEMBED_CACHE_PATH, which paths.pin_model_cache() derives from
+    # TAM_MODEL_CACHE. Without this the ONNX model lands in the container's
+    # temp dir and is re-fetched on every `docker run` — the whole point of
+    # the volume. HF_HOME/XDG_CACHE_HOME still steer the hub's own scratch
+    # files (xet chunks, onnxruntime), so they stay.
     # The torch-specific caches went with the torch stack: the image installs
     # requirements.txt, which no longer resolves torch (see the [rerank] extra).
+    TAM_MODEL_CACHE=/data/models \
     HF_HOME=/data/.cache/huggingface \
     XDG_CACHE_HOME=/data/.cache \
     # Try host Ollama first (works on Docker Desktop / Windows / WSL2).
