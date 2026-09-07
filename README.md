@@ -4,7 +4,7 @@
 > Persistent, local memory for AI coding agents: Claude Code, Codex CLI, Cursor, any MCP client.
 > Temporal knowledge graph · procedural memory · AST codebase ingest · cross-project analogy · 3D WebGL visualization.
 
-[![Version](https://img.shields.io/badge/version-13.0.0-8ad.svg)](https://pypi.org/project/total-agent-memory/)
+[![Version](https://img.shields.io/badge/version-13.0.2-8ad.svg)](https://pypi.org/project/total-agent-memory/)
 [![Tests](https://img.shields.io/badge/tests-1881%20passing-4a9.svg)]()
 [![IDEs](https://img.shields.io/badge/IDEs-9%20supported-4a9.svg)]()
 [![LongMemEval R@5](https://img.shields.io/badge/LongMemEval%20R@5-95.1%25-4a9.svg)](evals/longmemeval-2026-08-27-v13-store.json)
@@ -71,6 +71,19 @@ labels.
 of the suite — retrieval across its ten memory abilities at the 100K / 500K /
 1M scales, graded against each probe's `source_chat_ids` with no LLM in the
 loop.
+
+**And ~3 GB it could not reach (13.0.2).** The base install resolved
+`sentence-transformers`, `transformers`, `FlagEmbedding` and `peft`, each of
+which resolves torch, which on Linux resolves the entire `nvidia-cu*` set: 147
+packages and ~3,108 MB of wheels against 97 and ~113 MB without them. The
+[Glama](https://glama.ai) build sandbox simply ran out of disk unpacking
+`nvidia-cudnn-cu13`. Yet the default configuration cannot touch any of it —
+`MEMORY_MODE=fast` disables the reranker, and the same mode's
+`MEMORY_ALLOW_OLLAMA_IN_HOT_PATH=false` is the flag that gates the
+`SentenceTransformer` fall-through in `Recall._compute`. The stack now lives in
+a `rerank` extra, and the mirror of the dependency-drift test keeps it there.
+Every installer was also warming `all-MiniLM-L6-v2` — the fallback model, not
+the one the server embeds with — into a cache nothing reads.
 
 **The server was carrying ~450 MB it never used.** `chromadb` and
 `sentence_transformers` were imported at module scope, both are fallback paths,
@@ -557,13 +570,25 @@ Full side-by-side with pricing, latency, accuracy, "when to pick each" → [docs
 | **uvx** (Python via uv) | `uvx total-agent-memory` | One-off run with no install. Best for trying without commitment. |
 | **pipx** (Python isolated) | `pipx install total-agent-memory` | Installs the `total-agent-memory`, `tam`, `tam-lookup`, `lookup-memory` binaries on PATH in an isolated venv. |
 | **brew** (macOS / Linuxbrew) | `brew install vbcherepanov/tap/total-memory` | Bottle-style install with `tam` and legacy `claude-total-memory` symlinks. |
-| **Docker** (multi-arch) | `docker run -p 37737:37737 -v ~/.tam:/data ghcr.io/vbcherepanov/total-agent-memory:13.0.0` | Containerized (linux/amd64 + linux/arm64). Dashboard on `:37737`. |
+| **Docker** (multi-arch) | `docker run -p 37737:37737 -v ~/.tam:/data ghcr.io/vbcherepanov/total-agent-memory:13.0.2` | Containerized (linux/amd64 + linux/arm64). Dashboard on `:37737`. |
 | **Claude Code plugin** | `/plugin marketplace add vbcherepanov/total-agent-memory`<br>`/plugin install total-agent-memory@vbcherepanov` | Installs the MCP server, the `memory-protocol` skill and all seven capture hooks in one step, from inside Claude Code. The bootstrap reuses an existing install if it finds one, so nothing is downloaded twice. |
 | **Manual clone** | `git clone https://github.com/vbcherepanov/total-agent-memory ~/total-agent-memory && cd ~/total-agent-memory && ./install.sh --ide claude-code` | Full control. Lets you hack on the server, run benchmarks, and pick which background services to enable. Detailed walkthrough below. |
 
 All seven channels land at the same MCP server. The `npx` and `./install.sh` paths
 additionally configure IDE-specific MCP entries and hooks. Other channels start
 the server bare — you wire the IDE afterwards (see [`docs/installation.md`](docs/installation.md)).
+
+**The reranker is an extra, not a dependency.** A base install is 97 packages
+and ~113 MB of wheels: fastembed runs the embeddings through ONNX and no torch
+is resolved anywhere. The CrossEncoder / BGE reranker needs the torch stack,
+which on Linux drags in the whole `nvidia-cu*` set — 147 packages and ~3.1 GB —
+so it ships separately, and the default `MEMORY_MODE=fast` does not use it. Turn
+it on with `MEMORY_MODE=deep` (or `MEMORY_RERANK_ENABLED=true`) and install it:
+
+```bash
+pip install "total-agent-memory[rerank]"      # pip / uvx / pipx
+pip install -r requirements-rerank.txt        # clone / Docker
+```
 
 **Upgrade from v11.x?** Whatever channel you pick will auto-migrate
 `~/.claude-memory/` → `~/.tam/` on first run and keep a symlink for backward

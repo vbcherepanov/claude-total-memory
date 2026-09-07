@@ -25,18 +25,18 @@ FROM python:3.12-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     TAM_MEMORY_DIR=/data \
-    EMBEDDING_MODEL=all-MiniLM-L6-v2 \
     DASHBOARD_PORT=37737 \
     DASHBOARD_BIND=0.0.0.0 \
     TAM_SUPERVISOR_SERVICES=mcp,dashboard,reflection,scheduler \
     MCP_TRANSPORT=http \
     MCP_HTTP_HOST=0.0.0.0 \
     MCP_HTTP_PORT=3737 \
-    # Pin ML caches to the data volume — /tmp is often a tmpfs (~64MB)
-    # in container runtimes and torch._dynamo crashes on import otherwise.
+    # Pin the model cache to the data volume — /tmp is often a tmpfs (~64MB)
+    # in container runtimes, and a purged fastembed cache is the usual reason
+    # a memory server suddenly re-downloads its model on every start.
+    # The torch-specific caches went with the torch stack: the image installs
+    # requirements.txt, which no longer resolves torch (see the [rerank] extra).
     HF_HOME=/data/.cache/huggingface \
-    TRANSFORMERS_CACHE=/data/.cache/huggingface \
-    TORCHINDUCTOR_CACHE_DIR=/data/.cache/torchinductor \
     XDG_CACHE_HOME=/data/.cache \
     # Try host Ollama first (works on Docker Desktop / Windows / WSL2).
     # Server falls back to FTS+embeddings if Ollama unreachable —

@@ -37,14 +37,20 @@ source "$DIR/.venv/bin/activate"
 
 echo "→ Installing dependencies..."
 pip install -q --upgrade pip
-pip install -q "mcp[cli]>=1.0.0" chromadb sentence-transformers
+# Install from requirements.txt, not a hand-written list. The list here had
+# drifted: it floored mcp at >=1.0.0 (which resolves the 2.x SDK that broke
+# every install before 13.0.0) and named sentence-transformers rather than
+# the fastembed backend the server actually uses.
+pip install -q -r "$DIR/requirements.txt"
 
 # 3. Pre-download model
 echo "→ Loading embedding model..."
 python3 -c "
-from sentence_transformers import SentenceTransformer
-m = SentenceTransformer('all-MiniLM-L6-v2')
-print(f'  Model ready: {m.get_sentence_embedding_dimension()}d embeddings')
+import os
+from fastembed import TextEmbedding
+name = os.environ.get('FASTEMBED_MODEL', 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
+TextEmbedding(name)
+print(f'  OK: Model ready ({name})')
 " 2>/dev/null || echo "  (will load on first use)"
 
 # 4. MCP config
@@ -64,8 +70,7 @@ echo '    "memory": {'
 echo "      \"command\": \"$PY\","
 echo "      \"args\": [\"$SRV\"],"
 echo '      "env": {'
-echo "        \"TAM_MEMORY_DIR\": \"$MEM\","
-echo '        "EMBEDDING_MODEL": "all-MiniLM-L6-v2"'
+echo "        \"TAM_MEMORY_DIR\": \"$MEM\""
 echo '      }'
 echo '    }'
 echo '  }'

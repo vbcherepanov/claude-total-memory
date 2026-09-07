@@ -335,10 +335,16 @@ echo "-> Step 3: Loading embedding model (first time only)..."
 if [ "$TEST_MODE" = "1" ]; then
     echo "  SKIP (test mode): embedding model pre-download"
 else
-    python3 -c "
-from sentence_transformers import SentenceTransformer
-m = SentenceTransformer('all-MiniLM-L6-v2')
-print(f'  OK: Model ready ({m.get_sentence_embedding_dimension()}d embeddings)')
+    # Warm the model the server actually uses. This warmed the
+    # sentence-transformers fallback (all-MiniLM-L6-v2, English) through the
+    # *system* python3 — the wrong model, in the wrong interpreter, and since
+    # 13.0.2 sentence-transformers is not in the base install at all.
+    "$PY_PATH" -c "
+import os
+from fastembed import TextEmbedding
+name = os.environ.get('FASTEMBED_MODEL', 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
+TextEmbedding(name)
+print(f'  OK: Model ready ({name})')
 " 2>/dev/null || echo "  WARNING: Will download on first use"
 fi
 
@@ -366,7 +372,6 @@ server_entry = {
     'args': [os.environ['SRV_PATH']],
     'env': {
         'TAM_MEMORY_DIR': os.environ['MEMORY_DIR'],
-        'EMBEDDING_MODEL': 'all-MiniLM-L6-v2',
     },
 }
 
@@ -465,7 +470,6 @@ print(json.dumps({
     'args': [os.environ['SRV_PATH']],
     'env': {
         'TAM_MEMORY_DIR': os.environ['MEMORY_DIR'],
-        'EMBEDDING_MODEL': 'all-MiniLM-L6-v2',
     },
 }))
 " PY_PATH="$PY_PATH" SRV_PATH="$SRV_PATH" MEMORY_DIR="$MEMORY_DIR" 2>/dev/null) || payload=""
@@ -743,7 +747,6 @@ tool_timeout_sec = 120.0
 TAM_MEMORY_DIR = "{memory_dir}"
 CLAUDE_MEMORY_DIR = "{memory_dir}"
 MEMORY_MODE = "fast"
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 MEMORY_TRIPLE_TIMEOUT_SEC = "120"
 MEMORY_ENRICH_TIMEOUT_SEC = "90"
 MEMORY_REPR_TIMEOUT_SEC = "120"

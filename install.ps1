@@ -201,9 +201,11 @@ if ($TestMode) {
 } else {
     try {
         & $VenvPython -c @"
-from sentence_transformers import SentenceTransformer
-m = SentenceTransformer('all-MiniLM-L6-v2')
-print(f'  OK: Model ready ({m.get_sentence_embedding_dimension()}d embeddings)')
+import os
+from fastembed import TextEmbedding
+name = os.environ.get('FASTEMBED_MODEL', 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
+TextEmbedding(name)
+print(f'  OK: Model ready ({name})')
 "@ 2>$null
     } catch {
         Write-Host "  WARNING: Will download on first use" -ForegroundColor DarkYellow
@@ -249,7 +251,6 @@ function Merge-JsonMcp {
         args    = @($SrvPath)
         env     = [ordered]@{
             CLAUDE_MEMORY_DIR = $MemoryDir
-            EMBEDDING_MODEL   = "all-MiniLM-L6-v2"
         }
     }
 
@@ -415,7 +416,6 @@ tool_timeout_sec = 120.0
 
 [mcp_servers.memory.env]
 CLAUDE_MEMORY_DIR = "$memEsc"
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 MEMORY_TRIPLE_TIMEOUT_SEC = "120"
 MEMORY_ENRICH_TIMEOUT_SEC = "90"
 MEMORY_REPR_TIMEOUT_SEC = "120"

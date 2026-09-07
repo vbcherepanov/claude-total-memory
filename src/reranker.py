@@ -199,6 +199,18 @@ def _reset_reranker_cache() -> None:
     _reranker_cache = {}
 
 
+# The reranker backends live in the ``rerank`` extra, not the base install:
+# they resolve torch and the nvidia-cu* stack (~3 GB of wheels) for a path the
+# default MEMORY_MODE=fast switches off. So "not installed" is the expected
+# state for most users and the message has to say what to do about it, not just
+# that an import failed.
+_RERANK_EXTRA_HINT = (
+    'reranker backend not installed — pip install "total-agent-memory[rerank]" '
+    "(or pip install -r requirements-rerank.txt). Retrieval continues without "
+    "reranking."
+)
+
+
 def _load_ce_reranker(model_name: str):
     """sentence-transformers CrossEncoder — works for ms-marco-* family."""
     try:
@@ -206,6 +218,9 @@ def _load_ce_reranker(model_name: str):
         ce = CrossEncoder(model_name)
         LOG(f"CrossEncoder loaded: {model_name}")
         return ce
+    except ImportError:
+        LOG(f"CrossEncoder unavailable ({model_name}): {_RERANK_EXTRA_HINT}")
+        return None
     except Exception as e:  # noqa: BLE001
         LOG(f"CrossEncoder load failed ({model_name}): {e}")
         return None
@@ -222,6 +237,10 @@ def _load_flag_reranker(model_name: str):
 
     Fall back to FlagReranker only if CrossEncoder cannot load the model
     (rare — usually means HF download failed).
+
+    Both loaders live in the ``rerank`` extra; without it this returns None,
+    and ``rerank_results`` drops to its documented Ollama fallback — which in
+    turn returns the RRF order untouched when Ollama is unreachable.
     """
     ce = _load_ce_reranker(model_name)
     if ce is not None:
@@ -240,6 +259,9 @@ def _load_flag_reranker(model_name: str):
         rr = FlagReranker(model_name, use_fp16=use_fp16)
         LOG(f"FlagReranker loaded: {model_name} (fp16={use_fp16})")
         return rr
+    except ImportError:
+        LOG(f"FlagReranker unavailable ({model_name}): {_RERANK_EXTRA_HINT}")
+        return None
     except Exception as e:  # noqa: BLE001
         LOG(f"FlagReranker load failed ({model_name}): {e}")
         return None

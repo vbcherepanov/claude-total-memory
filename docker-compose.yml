@@ -22,7 +22,6 @@
 
 x-memory-env: &memory-env
   TAM_MEMORY_DIR: /data
-  EMBEDDING_MODEL: all-MiniLM-L6-v2
   OLLAMA_URL: http://ollama:11434
   MEMORY_LLM_MODEL: ${MEMORY_LLM_MODEL:-qwen2.5-coder:7b}
   MEMORY_LLM_ENABLED: auto

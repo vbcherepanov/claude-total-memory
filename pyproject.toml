@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "total-agent-memory"
-version = "13.0.1"
+version = "13.0.2"
 description = "Persistent memory MCP server for Claude Code, Codex CLI, Cursor and any MCP client: 46 tools — knowledge graph, temporal facts, procedural memory, episodic memory, AST ingest, pre-edit guard, auto-consolidating error capture"
 readme = "README.md"
 license = "MIT"
@@ -27,13 +27,10 @@ classifiers = [
 dependencies = [
     "mcp[cli]>=1.9,<3",
     "chromadb>=0.4.0",
-    "sentence-transformers>=2.2.0",
-    "transformers>=4.40",
-    # v11 D4 LoCoMo — BAAI/bge-reranker-v2-m3 multilingual reranker.
-    # Optional at runtime (sentence-transformers CrossEncoder is preferred
-    # loader) but required for the FlagReranker fallback path.
-    "FlagEmbedding>=1.2.10",
-    "peft>=0.7.0",
+    # The torch stack — sentence-transformers, transformers, FlagEmbedding,
+    # peft — moved to the [rerank] extra. See the comment on that extra for
+    # the measurement; nothing in the default configuration can reach it.
+
     # ingest_codebase() parses source with tree-sitter. Without this the
     # ingester silently degrades to whole-file chunks, which is not what the
     # README advertises — so it is a hard dependency, not an extra (2 MB wheel).
@@ -59,6 +56,43 @@ dependencies = [
     "httpx>=0.25.0",
     "numpy>=1.24.0",
 ]
+
+[project.optional-dependencies]
+# The torch stack. Every import behind it is a fallback or an opt-in path:
+#
+#   sentence-transformers  the CrossEncoder reranker loader (src/reranker.py)
+#                          and the embedding fallback in src/server.py
+#   FlagEmbedding, peft    the FlagReranker path for BAAI/bge-reranker-v2-m3,
+#                          tried only when CrossEncoder cannot load the model
+#   transformers           pinned >=4.40 so the CrossEncoder loader wins over
+#                          FlagEmbedding's tokenizer wrapper; also the NLI
+#                          verifier, which only benchmarks/v11_pipeline.py calls
+#
+# It is an extra rather than a dependency because resolving it drags in torch
+# and the whole nvidia-cu* stack. Measured with `uv pip compile` for
+# x86_64-unknown-linux-gnu / py3.12, summing the wheels PyPI would serve:
+#
+#     with it     147 packages, ~3108 MB   (torch 529, cudnn 528, cublas 404,
+#                                           triton 237, nccl 206, cufft 204 …)
+#     without it   97 packages,  ~113 MB
+#
+# On a CPU host every one of those CUDA wheels is dead weight, and the Glama
+# build sandbox died outright — "No space left on device" while unpacking
+# nvidia-cudnn-cu13. Worse, the default configuration cannot reach any of it:
+# MEMORY_MODE=fast sets MEMORY_RERANK_ENABLED=false and
+# MEMORY_ALLOW_OLLAMA_IN_HOT_PATH=false, and the latter is exactly the gate
+# that lets Recall._compute fall through to SentenceTransformer. So the base
+# install shipped 3 GB for code paths its own defaults forbid.
+#
+# Turn the reranker on with MEMORY_MODE=deep (or MEMORY_RERANK_ENABLED=true)
+# and install it with:  pip install "total-agent-memory[rerank]"
+rerank = [
+    "sentence-transformers>=2.2.0",
+    "transformers>=4.40",
+    "FlagEmbedding>=1.2.10",
+    "peft>=0.7.0",
+]
+all = ["total-agent-memory[rerank]"]
 
 [project.urls]
 Homepage = "https://github.com/vbcherepanov/total-agent-memory"

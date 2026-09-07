@@ -109,7 +109,11 @@ def test_ide_cursor_writes_cursor_mcp_json(sandbox_home: Path):
     entry = data["mcpServers"]["memory"]
     assert "command" in entry
     assert entry["args"][0].endswith("server.py")
-    assert entry["env"]["EMBEDDING_MODEL"] == "all-MiniLM-L6-v2"
+    assert entry["env"]["TAM_MEMORY_DIR"]
+    # EMBEDDING_MODEL named the sentence-transformers fallback model, which the
+    # base install stopped shipping in 13.0.2. Writing it into an IDE config
+    # pins a model the server cannot load; the fastembed default applies.
+    assert "EMBEDDING_MODEL" not in entry["env"]
 
 
 def test_ide_cursor_equals_form(sandbox_home: Path):

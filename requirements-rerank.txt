@@ -1,0 +1,12 @@
+# Reranker extra — mirrors [project.optional-dependencies].rerank in
+# pyproject.toml. Needed only when the CrossEncoder / BGE reranker is switched
+# on (MEMORY_MODE=deep, or MEMORY_RERANK_ENABLED=true), and by the NLI verifier
+# that benchmarks/v11_pipeline.py uses.
+#
+# Resolving this pulls torch and the nvidia-cu* stack: 147 packages / ~3.1 GB of
+# linux x86_64 wheels, against 97 / ~113 MB for requirements.txt alone.
+-r requirements.txt
+sentence-transformers>=2.2.0
+transformers>=4.40
+FlagEmbedding>=1.2.10
+peft>=0.7.0

@@ -4,7 +4,6 @@
 # users the way 2.0 did.
 mcp[cli]>=1.9,<3
 chromadb>=0.4.0
-sentence-transformers>=2.2.0
 httpx>=0.25.0
 numpy>=1.24.0
 
@@ -16,7 +15,17 @@ uvicorn>=0.30
 # whole-file chunks when absent.
 tree-sitter-language-pack>=1.13
 
-# Optional (auto-skipped if unavailable)
+# Default embedding backend (ONNX via onnxruntime — no torch). Declared in
+# pyproject.toml too, so every install channel retrieves with the same model.
 fastembed
+
+# Optional (guarded import with a working fallback: apscheduler -> manual
+# drain, watchdog -> polling)
 apscheduler
 watchdog
+
+# The reranker and its torch stack live in requirements-rerank.txt, mirroring
+# the [rerank] extra in pyproject.toml. Installing it resolves torch plus the
+# nvidia-cu* wheels — ~3 GB against ~113 MB — for a path MEMORY_MODE=fast
+# disables. Only MEMORY_MODE=deep / MEMORY_RERANK_ENABLED=true needs it:
+#   pip install -r requirements-rerank.txt

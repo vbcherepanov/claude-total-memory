@@ -4,6 +4,72 @@ All notable changes to total-agent-memory are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and versions use [Semantic Versioning](https://semver.org/).
 
+## [13.0.2] — 2026-09-07 — the install carried 3 GB of CUDA it cannot reach
+
+### Fixed — the torch stack moved to a `rerank` extra
+A base install resolved `sentence-transformers`, `transformers`,
+`FlagEmbedding` and `peft`. Each of them resolves torch, and torch on Linux
+resolves the entire `nvidia-cu*` set. Measured with `uv pip compile` for
+`x86_64-unknown-linux-gnu` / py3.12, summing the wheels PyPI serves:
+
+| | packages | wheel bytes |
+|---|---:|---:|
+| before | 147 | **~3,108 MB** |
+| after | 97 | **~113 MB** |
+
+The largest single items were torch (529 MB), `nvidia-cudnn-cu13` (528 MB),
+`nvidia-cublas` (404 MB) and triton (237 MB) — none of which a CPU host runs.
+`FlagEmbedding` additionally dragged in `datasets`, `pyarrow` and `ir-datasets`.
+
+This was not merely wasteful. The [Glama](https://glama.ai) build sandbox ran
+out of disk unpacking `nvidia-cudnn-cu13` and the server failed to build there
+at all.
+
+And the default configuration cannot reach any of it. `MEMORY_MODE=fast` — the
+default since v11 — sets `MEMORY_RERANK_ENABLED=false`, and it also sets
+`MEMORY_ALLOW_OLLAMA_IN_HOT_PATH=false`, which is the exact flag gating the
+fall-through to `SentenceTransformer` in `Recall._compute`. So the base install
+shipped 3 GB for two code paths its own defaults forbid, and a third
+(`ai_layer/verifier.py`) that only `benchmarks/v11_pipeline.py` calls.
+
+Install it when you turn the reranker on with `MEMORY_MODE=deep` or
+`MEMORY_RERANK_ENABLED=true`:
+
+```bash
+pip install "total-agent-memory[rerank]"      # pip / uvx / pipx
+pip install -r requirements-rerank.txt        # clone / Docker
+```
+
+Both loaders in `src/reranker.py` now distinguish "not installed" from "failed
+to load" and name the extra in the log line instead of reporting a bare
+`ImportError`. Retrieval continues in RRF order without them.
+
+### Fixed — every installer warmed a model the server does not use
+`install.sh`, `install.ps1`, `install-codex.ps1` and `setup.sh` pre-downloaded
+`all-MiniLM-L6-v2` through `sentence_transformers`. That is the *fallback*
+model, not the fastembed default the server embeds with, so the warm-up
+populated a cache nothing reads and the first real save still downloaded. The
+`install.sh` copy also ran through the system `python3` rather than the venv it
+had just built. All four now warm `FASTEMBED_MODEL` through the venv.
+
+`EMBEDDING_MODEL=all-MiniLM-L6-v2` was likewise written into every IDE config,
+the Dockerfile, `docker-compose.yml` and `docker/run-mcp.sh`; it named a model
+the install can no longer load and has been dropped. `TRANSFORMERS_CACHE` and
+`TORCHINDUCTOR_CACHE_DIR` left the image with the stack that used them.
+
+`setup.sh` — unreferenced by the README since the rebrand — installed a
+hand-written dependency list that floored `mcp[cli]` at `>=1.0.0`, the exact
+floor that broke every install before 13.0.0, and never installed fastembed at
+all. It now installs `requirements.txt` like every other path.
+
+### Added
+`tests/test_dependency_declaration.py` gains the mirror of its original guard.
+It has always checked that nothing required is *missing* from the wheel
+metadata; it now also checks that the torch stack is not *present* in it, that
+the `rerank` extra carries everything `src/reranker.py` imports, that
+`requirements-rerank.txt` and the extra agree, and that no installer warms a
+model it cannot load.
+
 ## [13.0.1] — 2026-08-27 — the write path was quadratic
 
 ### Fixed — saves got slower as the store grew, and it was our own doing

@@ -27,7 +27,6 @@ exec docker run --rm -i \
     --name "claude-memory-mcp-$$" \
     -v "${VOLUME}:/data" \
     -e CLAUDE_MEMORY_DIR=/data \
-    -e EMBEDDING_MODEL="${EMBEDDING_MODEL:-all-MiniLM-L6-v2}" \
     -e OLLAMA_URL="${OLLAMA_URL:-http://host.docker.internal:11434}" \
     "$IMAGE" \
     python src/server.py

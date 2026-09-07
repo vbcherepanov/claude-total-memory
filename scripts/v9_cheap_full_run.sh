@@ -39,9 +39,11 @@ PY
 }
 
 if ! deps_ok; then
-    echo "[v9] Installing missing ML deps (one-time, ~600MB) ..."
-    python3 -m pip install --quiet \
-        'sentence-transformers>=2.7' 'FlagEmbedding>=1.2.10' torch numpy
+    # These live in the `rerank` extra, not the base install — pulling them
+    # resolves torch and, on Linux, the nvidia-cu* stack (~3 GB of wheels).
+    # Install through the extra so the versions match what the server expects.
+    echo "[v9] Installing missing ML deps (one-time, ~3GB on Linux) ..."
+    python3 -m pip install --quiet -r "$(git -C "$(dirname "$0")" rev-parse --show-toplevel)/requirements-rerank.txt"
 fi
 
 DB=/tmp/locomo_bench_db

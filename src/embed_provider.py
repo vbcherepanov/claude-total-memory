@@ -184,9 +184,10 @@ class FastEmbedProvider:
                 f"  model cache: {cache}"
             )
             LOG(
-                "  falling back to sentence-transformers (pulls torch, ~400 MB "
-                "extra RSS). If the cache was purged, set TAM_MODEL_CACHE to a "
-                "durable path and restart."
+                "  falling back to sentence-transformers, which is NOT in the "
+                'base install any more (pip install "total-agent-memory[rerank]"). '
+                "If the cache was purged, set TAM_MODEL_CACHE to a durable path "
+                "and restart — that is the fix, not installing torch."
             )
             self._model = False
             return None

@@ -50,6 +50,11 @@ import importlib.util
 # `import server` measured 548 MB RSS with all three loaded. find_spec answers
 # "is it installed" without importing; the real import happens at first use.
 # Reported by d.snezhinskiy, who saw a 1.5 GB MCP server on a client machine.
+#
+# Since 13.0.2 sentence_transformers is not even installed by default — it
+# moved to the `rerank` extra — so HAS_ST is normally False and the fallback
+# chain ends at fastembed / Ollama. That is intentional: MEMORY_MODE=fast
+# already forbade the ST branch via MEMORY_ALLOW_OLLAMA_IN_HOT_PATH=false.
 HAS_CHROMA = importlib.util.find_spec("chromadb") is not None
 HAS_ST = importlib.util.find_spec("sentence_transformers") is not None
 
